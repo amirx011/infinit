@@ -1,0 +1,80 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:ode_lab/src/native_engine.dart';
+
+void main() {
+  final engine = NativeEngine.instance;
+
+  test('native engine version is available', () {
+    expect(engine.version, isNotEmpty);
+    expect(engine.version, isNot('?'));
+  });
+
+  test('solves a first-order linear equation', () {
+    final result = engine.solveOde("y' = y");
+    expect(result.ok, isTrue);
+    expect(result.typeId, 'linear');
+    expect(result.explicitY?.pretty, contains('exp'));
+    expect(result.steps, isNotEmpty);
+    expect(result.checks.single.ok, isTrue);
+  });
+
+  test('solves a constant-coefficient second-order equation', () {
+    final result = engine.solveOde("y'' - 3y' + 2y = 0");
+    expect(result.ok, isTrue);
+    expect(result.order, 2);
+    expect(result.explicitY?.pretty, contains('C2'));
+  });
+
+  test('wronskian detects dependence', () {
+    final independent = engine.wronskian(['sin(x)', 'cos(x)']);
+    expect(independent.ok, isTrue);
+    expect(independent.wronskian?.plain, '-1');
+    expect(independent.independent, isTrue);
+
+    final dependent = engine.wronskian(['x', '2x']);
+    expect(dependent.wronskian?.plain, '0');
+    expect(dependent.independent, isFalse);
+  });
+
+  test('envelope of a line family and a family without envelope', () {
+    final line = engine.envelope('y = c*x + c^2');
+    expect(line.ok, isTrue);
+    expect(line.envelope, isNotEmpty);
+
+    final circles = engine.envelope('x^2 + y^2 = c^2');
+    expect(circles.ok, isTrue);
+    expect(circles.envelope, isEmpty);
+    expect(circles.warnings, isNotEmpty);
+  });
+
+  test('integrates by substitution and by parts automatically', () {
+    final sub = engine.integral('2*x*cos(x^2)');
+    expect(sub.ok, isTrue);
+    expect(sub.method, 'substitution');
+    expect(sub.solution?.plain, contains('sin'));
+
+    final parts = engine.integral('x*exp(x)');
+    expect(parts.ok, isTrue);
+    expect(parts.method, 'parts');
+    expect(parts.solution?.plain, contains('exp'));
+  });
+
+  test('computes first and second derivatives', () {
+    final first = engine.derivative('x^3*sin(x)', order: 1);
+    expect(first.ok, isTrue);
+    expect(first.order, 1);
+    expect(first.solution?.plain, contains('sin'));
+
+    final second = engine.derivative('x^3', order: 2);
+    expect(second.ok, isTrue);
+    expect(second.order, 2);
+    expect(second.solution?.plain, '6*x');
+  });
+
+  test('orthogonal trajectories are returned separately', () {
+    final result = engine.envelope('x^2 + y^2 = c^2', orthogonal: true);
+    expect(result.ok, isTrue);
+    expect(result.orthogonal, isNotNull);
+    expect(result.orthogonal!.pretty, contains('x'));
+  });
+}

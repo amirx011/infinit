@@ -1,0 +1,33 @@
+# Native build outputs
+core/build/
+core/build-android/
+dist/
+*.o
+*.a
+*.so
+*.so.*
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Flutter / Dart
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/android/.gradle/
+app/android/.kotlin/
+app/android/build/
+app/android/local.properties
+app/android/app/src/main/jniLibs/
+app/android/app/src/main/java/io/flutter/plugins/
+app/linux/flutter/ephemeral/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
