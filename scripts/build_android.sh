@@ -54,8 +54,19 @@ export ODELAB_NDK_VERSION="$NDK_VERSION"
 
 export PATH="$FLUTTER_BIN:$PATH"
 cd "$ROOT/app"
-flutter pub get
+if ! flutter pub get --offline; then
+  echo "Offline pub get failed; retrying online..." >&2
+  flutter pub get
+fi
+
 flutter build apk --release --target-platform android-arm64,android-x64 "$@"
 
+VERSION="$(sed -n 's/^version: \([^+]*\).*/\1/p' "$ROOT/app/pubspec.yaml")"
+APK="$ROOT/app/build/app/outputs/flutter-apk/app-release.apk"
 echo
-echo "APK: $ROOT/app/build/app/outputs/flutter-apk/app-release.apk"
+echo "APK: $APK"
+if [[ -f "$APK" ]]; then
+  mkdir -p "$ROOT/release"
+  cp "$APK" "$ROOT/release/infinit-lab-$VERSION-android.apk"
+  echo "Release APK: $ROOT/release/infinit-lab-$VERSION-android.apk"
+fi

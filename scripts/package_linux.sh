@@ -15,6 +15,11 @@ fi
 
 mkdir -p "$OUT"
 cp "$ROOT/README.md" "$ROOT/LICENSE" "$BUNDLE/"
-ARCHIVE="$OUT/ode-lab-$VERSION-linux-x64-$MODE.tar.gz"
+ARCHIVE="$OUT/infinit-lab-$VERSION-linux-x64.tar.gz"
 tar -czf "$ARCHIVE" -C "$BUNDLE" .
+
+# Keep a ready-to-publish copy in release/ (tracked by Git).
+mkdir -p "$ROOT/release"
+cp "$ARCHIVE" "$ROOT/release/"
 echo "$ARCHIVE"
+echo "$ROOT/release/$(basename "$ARCHIVE")"

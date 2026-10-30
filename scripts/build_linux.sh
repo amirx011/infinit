@@ -19,7 +19,10 @@ export PKG_CONFIG="${PKG_CONFIG:-$TOOLCHAINS/bin/pkg-config}"
 export GTK_SYSROOT="$TOOLCHAINS/gtk-sysroot"
 
 cd "$ROOT/app"
-flutter pub get
+if ! flutter pub get --offline; then
+  echo "Offline pub get failed; retrying online..." >&2
+  flutter pub get
+fi
 flutter build linux "--$MODE"
 
 BUNDLE="$ROOT/app/build/linux/x64/$MODE/bundle"

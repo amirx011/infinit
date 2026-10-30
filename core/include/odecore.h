@@ -27,7 +27,7 @@ ODE_API char* ode_solve(const char* request_json);
 /** Release a string returned by ode_solve(). */
 ODE_API void ode_free(char* text);
 
-/** Engine version, e.g. "0.1.0". */
+/** Engine version, e.g. "1.0.0". */
 ODE_API const char* ode_core_version(void);
 
 #ifdef __cplusplus

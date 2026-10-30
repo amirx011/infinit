@@ -307,7 +307,7 @@ std::string errorJson(const std::string& message) {
 
 extern "C" {
 
-ODE_API const char* ode_core_version(void) { return "0.1.0"; }
+ODE_API const char* ode_core_version(void) { return "1.0.0"; }
 
 ODE_API char* ode_solve(const char* request_json) {
     std::string out;

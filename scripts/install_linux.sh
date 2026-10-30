@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Install ODE Lab for the current user (no root required).
+# Install Infinit Lab for the current user (no root required).
 #
 #   ./scripts/install_linux.sh
-#   ./scripts/install_linux.sh dist/ode-lab-0.1.0-linux-x64-release.tar.gz
+#   ./scripts/install_linux.sh dist/infinit-lab-1.0.0-linux-x64.tar.gz
 #   ./scripts/install_linux.sh --uninstall
 #
 # Installs into ~/.local (override with PREFIX=/some/prefix).
@@ -20,7 +20,7 @@ uninstall() {
   rm -rf "$APP_DIR"
   rm -f "$LAUNCHER" "$DESKTOP_DIR/ode-lab.desktop" "$ICON_DIR/ode-lab.svg"
   command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
-  echo "ODE Lab removed from $PREFIX."
+  echo "Infinit Lab removed from $PREFIX."
 }
 
 if [[ "${1:-}" == "--uninstall" ]]; then
@@ -49,7 +49,7 @@ Build it first:
   ./scripts/build_linux.sh
 
 or pass the packaged archive:
-  ./scripts/install_linux.sh dist/ode-lab-0.1.0-linux-x64-release.tar.gz
+  ./scripts/install_linux.sh dist/infinit-lab-1.0.0-linux-x64.tar.gz
 EOF
   exit 1
 fi

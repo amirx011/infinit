@@ -162,7 +162,7 @@ cd app && flutter pub get && flutter build linux --release
 ```bash
 # Build and install into ~/.local
 ./scripts/package_linux.sh
-./scripts/install_linux.sh dist/ode-lab-0.1.0-linux-x64-release.tar.gz
+./scripts/install_linux.sh dist/infinit-lab-1.0.0-linux-x64.tar.gz
 ```
 
 After installing:
@@ -197,11 +197,13 @@ app/build/app/outputs/flutter-apk/app-release.apk
 > The default APK is signed with the **debug key** so it can be installed on any device. For store distribution, change `signingConfig` in `app/android/app/build.gradle.kts` to your release key.
 > The native library is linked with 16 KiB page alignment (required by Android 15+).
 
-If `flutter pub get` fails with an authentication/403 error, use the local pub cache:
+If you run Flutter manually and `flutter pub get` fails with an authentication/403 error, use the local pub cache:
 
 ```bash
 cd app && flutter pub get --offline
 ```
+
+The build scripts already try `--offline` first and fall back to the network.
 
 ---
 
@@ -212,11 +214,12 @@ After running the build scripts:
 | Artifact | Path |
 |---|---|
 | Linux executable | `app/build/linux/x64/release/bundle/ode_lab` |
-| Linux package | `dist/ode-lab-0.1.0-linux-x64-release.tar.gz` |
+| Linux package | `dist/infinit-lab-1.0.0-linux-x64.tar.gz` |
+| Ready-to-publish Linux package | `release/infinit-lab-1.0.0-linux-x64.tar.gz` |
 | Android APK (build output) | `app/build/app/outputs/flutter-apk/app-release.apk` |
-| Ready-to-publish Android APK | `release/ode-lab-0.1.0-android.apk` |
+| Ready-to-publish Android APK | `release/infinit-lab-1.0.0-android.apk` |
 
-> `core/build/`, `core/build-android/`, `app/build/`, `app/.dart_tool/`, and `dist/` are generated build outputs and are ignored by Git. The APK in `release/` is kept for GitHub Releases or direct distribution.
+> `core/build/`, `core/build-android/`, `app/build/`, `app/.dart_tool/`, and `dist/` are generated build outputs and are ignored by Git. The ready-to-publish artifacts in `release/` are kept for GitHub Releases or direct distribution.
 
 ---
 
