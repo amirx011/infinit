@@ -1,4 +1,4 @@
-// ODE Lab — expression constructors, canonical form, ordering, printing
+// Infinit Lab — expression constructors, canonical form, ordering, printing
 // SPDX-License-Identifier: MIT
 #include "expr.hpp"
 #include <sstream>

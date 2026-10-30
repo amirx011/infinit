@@ -12,7 +12,7 @@ abstract class SettingsPersistence {
 
 class PlatformSettingsPersistence implements SettingsPersistence {
   static const MethodChannel _channel =
-      MethodChannel('ir.odelab.ode_lab/settings');
+      MethodChannel('ir.infinit/settings');
 
   @override
   Future<Map<String, String>> load() async {
@@ -52,7 +52,7 @@ class PlatformSettingsPersistence implements SettingsPersistence {
     final base = (xdg != null && xdg.isNotEmpty)
         ? xdg
         : (home != null && home.isNotEmpty ? '$home/.config' : '.config');
-    return File('$base/ode_lab/settings.json');
+    return File('$base/infinit/settings.json');
   }
 }
 

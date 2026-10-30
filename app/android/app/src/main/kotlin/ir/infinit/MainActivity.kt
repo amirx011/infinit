@@ -1,4 +1,4 @@
-package ir.odelab.ode_lab
+package ir.infinit
 
 import android.content.Context
 import io.flutter.embedding.android.FlutterActivity
@@ -6,8 +6,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val channelName = "ir.odelab.ode_lab/settings"
-    private val prefsName = "odelab_settings"
+    private val channelName = "ir.infinit/settings"
+    private val prefsName = "infinit_settings"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

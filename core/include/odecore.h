@@ -1,7 +1,7 @@
-// ODE Lab — C ABI for the exact differential-equation engine.
+// Infinit Lab — C ABI for the exact differential-equation engine.
 // SPDX-License-Identifier: MIT
-#ifndef ODE_LAB_ODECORE_H
-#define ODE_LAB_ODECORE_H
+#ifndef INFINIT_ODECORE_H
+#define INFINIT_ODECORE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,4 +34,4 @@ ODE_API const char* ode_core_version(void);
 }
 #endif
 
-#endif // ODE_LAB_ODECORE_H
+#endif // INFINIT_ODECORE_H

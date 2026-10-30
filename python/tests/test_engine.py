@@ -1,7 +1,7 @@
 import pytest
 import sympy as sp
 
-from odelab_engine import (
+from infinit_engine import (
     envelope,
     parse_expression,
     solve_ode,

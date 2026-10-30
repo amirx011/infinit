@@ -1,4 +1,4 @@
-// ODE Lab — public solver model
+// Infinit Lab — public solver model
 // SPDX-License-Identifier: MIT
 #pragma once
 #include "expr.hpp"

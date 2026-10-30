@@ -1,4 +1,4 @@
-// ODE Lab — JSON API on top of the native solver.
+// Infinit Lab — JSON API on top of the native solver.
 // SPDX-License-Identifier: MIT
 #include "odecore.h"
 #include "solver.hpp"

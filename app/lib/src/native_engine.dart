@@ -56,7 +56,7 @@ class NativeEngine {
   static DynamicLibrary _open() {
     final candidates = <String>[];
 
-    final override = Platform.environment['ODELAB_LIB'];
+    final override = Platform.environment['INFINIT_LIB'];
     if (override != null && override.isNotEmpty) candidates.add(override);
 
     if (Platform.isLinux) {
@@ -73,7 +73,6 @@ class NativeEngine {
       'core/build/lib/libodecore.so',
       '../core/build/lib/libodecore.so',
       '../../core/build/lib/libodecore.so',
-      '/home/RooTx/ode-lab/core/build/lib/libodecore.so',
     ]);
 
     final failures = <String>[];

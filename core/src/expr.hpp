@@ -1,4 +1,4 @@
-// ODE Lab — exact symbolic expression core
+// Infinit Lab — exact symbolic expression core
 // SPDX-License-Identifier: MIT
 #pragma once
 #include <cstdint>

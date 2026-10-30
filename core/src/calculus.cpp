@@ -1,4 +1,4 @@
-// ODE Lab — differentiation and exact integration
+// Infinit Lab — differentiation and exact integration
 // SPDX-License-Identifier: MIT
 #include "expr.hpp"
 #include "poly.hpp"

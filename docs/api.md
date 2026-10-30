@@ -1,4 +1,4 @@
-# API مرجع Infinit Lab (ODE Lab)
+# API مرجع Infinit Lab
 
 نسخهٔ فعلی: **1.0.0**
 

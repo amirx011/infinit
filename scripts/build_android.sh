@@ -50,7 +50,7 @@ done
 # Flutter/Gradle occasionally insists on a specific NDK revision.  Point it at
 # the installed one so a clean machine does not try to download another copy.
 NDK_VERSION="$(basename "$NDK")"
-export ODELAB_NDK_VERSION="$NDK_VERSION"
+export INFINIT_NDK_VERSION="$NDK_VERSION"
 
 export PATH="$FLUTTER_BIN:$PATH"
 cd "$ROOT/app"
@@ -59,7 +59,7 @@ if ! flutter pub get --offline; then
   flutter pub get
 fi
 
-flutter build apk --release --target-platform android-arm64,android-x64 "$@"
+flutter build apk --release --target-platform android-arm64,android-x64 --no-pub "$@"
 
 VERSION="$(sed -n 's/^version: \([^+]*\).*/\1/p' "$ROOT/app/pubspec.yaml")"
 APK="$ROOT/app/build/app/outputs/flutter-apk/app-release.apk"

@@ -1,4 +1,4 @@
-# معماری Infinit Lab (ODE Lab)
+# معماری Infinit Lab
 
 ## ۱. هدف طراحی
 
@@ -113,7 +113,7 @@ const char* ode_core_version(void);
 
 مسیر جست‌وجوی کتابخانه در `app/lib/src/native_engine.dart`:
 
-1. `ODELAB_LIB`
+1. `INFINIT_LIB`
 2. `<exe>/lib/libodecore.so`
 3. `<exe>/libodecore.so`
 4. `libodecore.so` (برای اندروید)
@@ -133,7 +133,7 @@ const char* ode_core_version(void);
 
 ### ۲.۷. اوراکل پایتون
 
-`python/odelab_engine`:
+`python/infinit_engine`:
 
 - `solve_ode`: `classify_ode` + `dsolve` + راستی‌آزمایی جایگذاری
 - `wronskian`: دترمینان ماتریس مشتق‌ها

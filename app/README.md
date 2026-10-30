@@ -1,55 +1,35 @@
 # Infinit Lab — Flutter app
 
-Bilingual (English/Persian), RTL-aware Flutter UI for the native `libodecore` engine. This directory builds the Linux and Android versions of the app.
+Bilingual English/Persian UI for the native `libodecore` engine.
 
-## Layout
+- `lib/main.dart` — app shell, dashboard, drawer, and settings
+- `lib/src/pages/` — derivative, integral, ODE, Wronskian, and envelope pages
+- `lib/src/native_engine.dart` — FFI bridge to `ode_solve`, `ode_free`, and `ode_core_version`
+- `lib/src/settings_store.dart` — JSON settings on Linux, `SharedPreferences` on Android
+- `lib/src/theme.dart`, `widgets.dart`, `models.dart`, `l10n.dart` — shared UI, data models, and strings
 
-| Path | Responsibility |
-|---|---|
-| `lib/main.dart` | App shell, dashboard, navigation drawer, settings sheet |
-| `lib/src/pages/` | Five pages: `ode`, `wronskian`, `envelope`, `integral`, `derivative` |
-| `lib/src/native_engine.dart` | FFI bridge to `ode_solve` / `ode_free` / `ode_core_version` |
-| `lib/src/models.dart` | JSON response model (`SolveResult`) |
-| `lib/src/app_state.dart` | Theme and language state |
-| `lib/src/settings_store.dart` | Settings persistence: JSON file on Linux, `SharedPreferences` on Android |
-| `lib/src/theme.dart` | Dark/light themes |
-| `lib/src/widgets.dart` | Shared result-display widgets |
-| `lib/src/l10n.dart` | Bilingual UI strings |
+Default theme is dark and default language is English. Math is always rendered left-to-right.
 
-- Defaults: dark theme, English language
-- Preferences persist across runs
-- Math is rendered LTR independently of the UI direction
-
-## Build
+## Build and test
 
 From the repository root:
 
 ```bash
 ./scripts/build_linux.sh
 ./scripts/build_android.sh
+./scripts/run_tests.sh
 ```
 
-Or directly:
+Or inside this directory:
 
 ```bash
-flutter pub get
+flutter pub get --offline
+flutter analyze
+flutter test
 flutter build linux --release
 flutter build apk --release
 ```
 
-The native library must be present in the bundle (Linux) or in `app/android/app/src/main/jniLibs/` (Android); the scripts above handle both. You can override the native library path with `ODELAB_LIB`.
+The native library must be in the Linux bundle or in `app/android/app/src/main/jniLibs/`. Override its path with `INFINIT_LIB`.
 
-## Tests
-
-```bash
-flutter analyze
-flutter test
-```
-
-The widget tests cover theme/language/settings, module navigation, the integral and derivative pages, and a real ODE solve through FFI. To run every layer from the repository root:
-
-```bash
-./scripts/run_tests.sh
-```
-
-Full project documentation: [`../README.md`](../README.md)
+Full documentation: [`../README.md`](../README.md)

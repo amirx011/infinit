@@ -1,4 +1,4 @@
-// ODE Lab — polynomials, factoring and exact rational integration
+// Infinit Lab — polynomials, factoring and exact rational integration
 // SPDX-License-Identifier: MIT
 #include "poly.hpp"
 #include <functional>

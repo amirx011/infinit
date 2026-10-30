@@ -21,11 +21,11 @@ val installedNdks: List<String> = sdkDir
     ?.let { File(it, "ndk").listFiles()?.filter { f -> f.isDirectory }?.map { f -> f.name } }
     ?.sorted()
     ?: emptyList()
-val ndkOverride: String? = System.getenv("ODELAB_NDK_VERSION")?.takeIf { it.isNotBlank() }
+val ndkOverride: String? = System.getenv("INFINIT_NDK_VERSION")?.takeIf { it.isNotBlank() }
     ?: installedNdks.lastOrNull()
 
 android {
-    namespace = "ir.odelab.ode_lab"
+    namespace = "ir.infinit"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = ndkOverride ?: flutter.ndkVersion
 
@@ -36,7 +36,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "ir.odelab.ode_lab"
+        applicationId = "ir.infinit"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

@@ -53,7 +53,7 @@ class _OdePageState extends State<OdePage> {
   @override
   void initState() {
     super.initState();
-    if (const bool.fromEnvironment('ODELAB_DEMO')) {
+    if (const bool.fromEnvironment('INFINIT_DEMO')) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _solve());
     }
   }

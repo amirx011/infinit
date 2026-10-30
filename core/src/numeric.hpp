@@ -1,4 +1,4 @@
-// ODE Lab — numeric certificates (RPN compiled in C++, evaluated in C)
+// Infinit Lab — numeric certificates (RPN compiled in C++, evaluated in C)
 #pragma once
 #include "expr.hpp"
 #include "solver.hpp"

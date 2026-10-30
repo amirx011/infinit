@@ -1,4 +1,4 @@
-/* ODE Lab — C numeric evaluator (math.h only) */
+/* Infinit Lab — C numeric evaluator (math.h only) */
 #include "numeric_c.h"
 #include <math.h>
 

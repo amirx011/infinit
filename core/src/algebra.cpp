@@ -1,4 +1,4 @@
-// ODE Lab — algebraic normalisation, expansion, simplification, root finding
+// Infinit Lab — algebraic normalisation, expansion, simplification, root finding
 // SPDX-License-Identifier: MIT
 #include "expr.hpp"
 #include <set>

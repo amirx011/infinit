@@ -28,7 +28,7 @@ import sympy as sp
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "python"))
 
-from odelab_engine import (  # noqa: E402
+from infinit_engine import (  # noqa: E402
     envelope,
     solve_ode,
     verify_candidate,

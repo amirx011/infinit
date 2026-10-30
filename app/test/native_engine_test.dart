@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ode_lab/src/native_engine.dart';
+import 'package:infinit/src/native_engine.dart';
 
 void main() {
   final engine = NativeEngine.instance;

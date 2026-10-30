@@ -1,225 +1,63 @@
-# Infinit Lab — Exact Calculus & Differential Equations
+# Infinit Lab
 
-Exact symbolic solving of ordinary differential equations and single-variable calculus (derivatives and indefinite integrals), with step-by-step solution paths and a bilingual (English/Persian) UI for **Linux** and **Android**.
+Exact symbolic calculus and differential equations for **Linux** and **Android**, with a bilingual English/Persian UI and step-by-step solutions.
 
-> The app is branded **Infinit Lab**. The Flutter package is `ode_lab` and the native library is `libodecore`.
-
-- Default appearance: **Dark**
-- Default language: **English**
-- Theme (dark/light) and language (English/Persian) are changed from the Settings sheet and persisted automatically
-- Home dashboard for quick access to Derivative, Integral, and Differential Equations; Wronskian and Envelope live in the navigation drawer
-
-Settings are stored in `~/.config/ode_lab/settings.json` on Linux (or `$XDG_CONFIG_HOME/ode_lab/settings.json`) and in `SharedPreferences` on Android.
-
-Infinit Lab does not use numerical approximation to *produce* solutions. The computer-algebra core is written natively in C++17 and stores numbers as exact rationals (`int64` with an `__int128` overflow guard). A small C99 numeric evaluator is used only to **certify** results, never to generate them. SymPy is used as an external **reference oracle** for tests and desktop tooling only.
+- Five modules: **Derivative**, **Integral**, **Differential Equations**, **Wronskian**, and **Envelope & Orthogonal Trajectories**
+- Dark/light theme and English/Persian language, saved between runs
+- Exact rational arithmetic in a native C++17 core; no numerical approximation is used to generate answers
+- SymPy is used only as an external test oracle
 
 ---
 
-## Modules
+## What it solves
 
-| Module | What it does | Example |
-|---|---|---|
-| Derivative | First and second derivatives with exact simplification | `x^3*sin(x)` |
-| Integral | Indefinite integration with automatic method detection | `2*x*cos(x^2)` |
-| Differential equations | Exact first-order and constant-coefficient higher-order ODEs | `y' = y` |
-| Wronskian | Wronskian determinant and linear independence | `W(sin x, cos x)` |
-| Envelope & orthogonal | Family envelopes and orthogonal trajectories | `y = c*x + c^2` |
+- **ODEs:** separable, homogeneous, exact, integrating factor, first-order linear, Bernoulli, Clairaut, Lagrange, Riccati, linear substitution, constant-coefficient second/higher order, and direct integration
+- **Calculus:** first and second derivatives; indefinite integrals using standard tables, substitution, integration by parts, rational functions, and trigonometric powers
+- **Linear algebra:** Wronskian determinant and linear independence
+- **Geometry:** family envelopes and orthogonal trajectories
 
-### Differential equation support
-
-| Family | Example | Status |
-|---|---|---|
-| Separable | `y' = x/y` | ✅ exact + steps |
-| Homogeneous | `y' = (x^2+y^2)/(x*y)` | ✅ exact + implicit/explicit |
-| Exact | `(2x+y) + (x+2y)y' = 0` | ✅ + `du = M dx + N dy` certificate |
-| Integrating factor | `μ(x)`, `μ(y)`, `μ(xy)`, `μ(x+y)` | ✅ |
-| First-order linear | `y' + y/x = x^2` | ✅ + integrating factor |
-| Bernoulli | `y' = x y + y^2` | ✅ |
-| Clairaut | `y = x y' + (y')^2` | ✅ general + singular solution (envelope) |
-| Lagrange | `y = 2x y' + (y')^2` | ✅ parametric |
-| Riccati | `y' = P y^2 + Q y + R` | ✅ with a particular solution or second-order reduction |
-| Linear substitution | `y' = (x+y)^2` | ✅ |
-| Second/higher order, constant coefficients | `y'' - 3y' + 2y = 0` | ✅ real/complex/repeated roots |
-| Direct integration | `y'' = 6x` | ✅ |
-| Wronskian | `W(sin x, cos x)` | ✅ + linear independence |
-| Family envelope | `y = c x + c^2` | ✅ + "no envelope" detection |
-| Orthogonal trajectories | Family of circles | ✅ (within the implemented methods) |
-
-### Single-variable calculus support
-
-| Operation | Example | Notes |
-|---|---|---|
-| First derivative | `x^3*sin(x)` | Simplified output with plain/pretty/LaTeX views |
-| Second derivative | `x^3` → `6*x` | Separate action in the UI |
-| Standard table integral | `sin(x)` | Method: `table` |
-| Substitution | `2*x*cos(x^2)` | Method: `substitution` |
-| Integration by parts | `x*exp(x)` | Method: `parts` |
-| Rational functions | `1/(x^2-x+1)`, `x/(x^2+1)` | Method: `rational` |
-| Trigonometric powers | `sin(x)^2` | Method: `trig` |
-| Polynomials and term-by-term | `x^2 + 3*x` | Methods: `expand` / `sum` |
-
-### Scientific honesty
-
-- If an antiderivative is not elementary, the result is returned as an **exact quadrature** using an `Integral(f, x)` node and `closed_form = false`; no hidden approximation is produced.
-- Computed integrals are verified by differentiating the result (`checks`).
-- Implicit solutions are returned as `u(x,y) = C`; Lagrange parametric solutions as `x(p), y(p)`.
-- Singular solutions (envelopes) are listed separately.
-- Domain assumptions (for example `x ≠ 0` or `|x| > 0`) are reported in the validation section.
+If an antiderivative is not elementary, the result stays as an exact `Integral(f, x)` node with `closed_form = false`. Implicit, parametric, and singular solutions are reported separately.
 
 ---
 
-## Architecture
+## Quick start
 
-```
-┌──────────────────── Flutter UI (Dart, RTL/LTR, dark/light) ────────────────────┐
-│  Derivative │ Integral │ Differential equations │ Wronskian │ Envelope        │
-└───────────────────────────────────┬───────────────────────────────────────────┘
-                                    │ dart:ffi  (JSON request/response)
-┌───────────────────────────────────▼───────────────────────────────────────────┐
-│        libodecore.so  —  C ABI: ode_solve / ode_free / ode_core_version        │
-├───────────────────────────────────────────────────────────────────────────────┤
-│  C++17 exact CAS                                                              │
-│  Rational (int64 + __int128) · AST · parser · simplify · differentiate         │
-│  integrate (table/substitution/parts/rational/trig) · polynomial factorisation │
-│  partial fractions · ODE solvers · Wronskian · envelope                       │
-├───────────────────────────────────────────────────────────────────────────────┤
-│  C99 RPN numeric evaluator  →  verification certificates (not generation)     │
-└───────────────────────────────────────────────────────────────────────────────┘
-
-Python / SymPy  ──(outside the app)──►  oracle, test generation, cross-checking
-```
-
-See [`docs/architecture.md`](docs/architecture.md) for details.
-
----
-
-## Project layout
-
-```
-infinit/
-├── core/                      C++17 and C99 native core
-│   ├── include/odecore.h      C ABI
-│   ├── src/                   AST, algebra, calculus, solvers, JSON API
-│   └── test/                  Native tests (algebra / ode / regression)
-├── app/                       Flutter app (Linux + Android)
-│   ├── lib/main.dart          App shell, dashboard, drawer, settings
-│   ├── lib/src/pages/         Derivative, Integral, ODE, Wronskian, Envelope
-│   ├── lib/src/               Models, FFI, theme, widgets, state, settings store
-│   ├── linux/                 Linux desktop runner
-│   └── android/               Android runner + generated jniLibs
-├── python/                    SymPy oracle and cross-check tests
-├── testdata/corpus.json       Shared ODE/Wronskian/envelope test corpus
-├── release/                   Ready-to-publish artifacts
-├── scripts/                   Build, test, packaging, sysroot helpers
-└── docs/                      Architecture, API, expression syntax
-```
-
----
-
-## Requirements
-
-- Linux (Fedora/Ubuntu) with `clang`/`gcc`, `cmake`, `ninja`, `pkg-config`
-- Flutter **3.47.8** or newer (Dart 3.13.7+)
-- Python **3.11+** and `sympy` (tests/oracle only)
-- Android builds: Android SDK + NDK (version 29 tested)
-
-Install the Python dependencies:
+Requirements: Linux with `clang`/`gcc`, `cmake`, `ninja`, `pkg-config`; Flutter 3.47.8+ (Dart 3.13.7+); Python 3.11+ with `sympy` for tests. Android builds also need the SDK and NDK 29.
 
 ```bash
 python3 -m pip install --user sympy pytest
-```
 
----
-
-## Building and running on Linux
-
-If GTK 3 development files are not installed and you do not have root access, the following script builds a local sysroot (it downloads RPMs with `dnf download` and wraps `pkg-config`):
-
-```bash
-./scripts/setup_gtk_sysroot.sh
-```
-
-Then:
-
-```bash
+# Linux
 ./scripts/build_linux.sh
-./app/build/linux/x64/release/bundle/ode_lab
+./app/build/linux/x64/release/bundle/infinit
+
+# Android
+./scripts/build_android.sh
 ```
 
-Or build manually:
+The build scripts use the local pub cache first and fall back to the network. If GTK 3 development files are missing, run `./scripts/setup_gtk_sysroot.sh` once before building Linux.
+
+### Install (Linux, no root)
 
 ```bash
-./scripts/build_core.sh
-export PATH="$HOME/toolchains/bin:$HOME/toolchains/flutter-sdk/bin:$PATH"
-export PKG_CONFIG="$HOME/toolchains/bin/pkg-config"
-cd app && flutter pub get && flutter build linux --release
-```
-
-> You can override the native library path with the `ODELAB_LIB` environment variable.
-
-### Install for the current user (no root)
-
-```bash
-# Build and install into ~/.local
 ./scripts/package_linux.sh
 ./scripts/install_linux.sh dist/infinit-lab-1.0.0-linux-x64.tar.gz
 ```
 
-After installing:
-
-- Terminal: `~/.local/bin/ode-lab` (add `~/.local/bin` to `PATH` if needed)
-- Application menu: **Infinit Lab**
-- Uninstall: `./scripts/install_linux.sh --uninstall`
-
-The installed app needs the GTK 3 **runtime** libraries, which are normally already present on a desktop. GTK development headers are only needed at build time.
+This installs `~/.local/bin/infinit` and a menu entry named **Infinit Lab**. Uninstall with `./scripts/install_linux.sh --uninstall`.
 
 ---
 
-## Building for Android
-
-```bash
-# Once: install the NDK
-$HOME/Android/Sdk/cmdline-tools/bin/sdkmanager --sdk_root=$HOME/Android/Sdk "ndk;29.0.14206865"
-
-./scripts/build_android.sh
-```
-
-The script builds `libodecore.so` for `arm64-v8a` and `x86_64`, copies it into `app/android/app/src/main/jniLibs/`, and produces the APK at:
-
-```
-app/build/app/outputs/flutter-apk/app-release.apk
-```
-
-> Only 64-bit ABIs are supported. `armeabi-v7a` (32-bit) cannot be supported because the core uses `__int128` to guard rational overflow; modern Android devices are 64-bit.
-> To change ABIs: `ABIS="arm64-v8a" ./scripts/build_android.sh`
-> To build an App Bundle: `./scripts/build_android.sh --split-per-abi`
->
-> The default APK is signed with the **debug key** so it can be installed on any device. For store distribution, change `signingConfig` in `app/android/app/build.gradle.kts` to your release key.
-> The native library is linked with 16 KiB page alignment (required by Android 15+).
-
-If you run Flutter manually and `flutter pub get` fails with an authentication/403 error, use the local pub cache:
-
-```bash
-cd app && flutter pub get --offline
-```
-
-The build scripts already try `--offline` first and fall back to the network.
-
----
-
-## Build artifacts
-
-After running the build scripts:
+## Artifacts
 
 | Artifact | Path |
 |---|---|
-| Linux executable | `app/build/linux/x64/release/bundle/ode_lab` |
+| Linux executable | `app/build/linux/x64/release/bundle/infinit` |
 | Linux package | `dist/infinit-lab-1.0.0-linux-x64.tar.gz` |
-| Ready-to-publish Linux package | `release/infinit-lab-1.0.0-linux-x64.tar.gz` |
-| Android APK (build output) | `app/build/app/outputs/flutter-apk/app-release.apk` |
-| Ready-to-publish Android APK | `release/infinit-lab-1.0.0-android.apk` |
+| Android APK | `app/build/app/outputs/flutter-apk/app-release.apk` |
+| Ready to publish | `release/infinit-lab-1.0.0-linux-x64.tar.gz`, `release/infinit-lab-1.0.0-android.apk` |
 
-> `core/build/`, `core/build-android/`, `app/build/`, `app/.dart_tool/`, and `dist/` are generated build outputs and are ignored by Git. The ready-to-publish artifacts in `release/` are kept for GitHub Releases or direct distribution.
+`release/` is tracked for GitHub Releases or direct distribution. Build directories and `dist/` are generated and ignored by Git.
 
 ---
 
@@ -229,24 +67,7 @@ After running the build scripts:
 ./scripts/run_tests.sh
 ```
 
-The script runs four layers:
-
-1. **Native C++ tests** — algebra, calculus, ODEs, Wronskian, envelopes, C ABI (`ctest`)
-2. **SymPy oracle tests** — exact solving and verification for ODE/Wronskian/envelope cases (`pytest`)
-3. **Native ↔ SymPy cross-check** — every native answer is checked against SymPy (`python/tests/compare_cpp.py`)
-4. **Flutter checks** — `flutter analyze` and widget tests for the default theme, language switching, settings, navigation, integral/derivative modules, and a real ODE solve through FFI (`flutter test`)
-
-Sample cross-check output:
-
-```
-[ok  ] y' = y                   linear               C·exp(x)
-[ok  ] y'' + y = 0              linear_cc            C·cos(x) + C2·sin(x)
-[ok  ] W('sin(x)', 'cos(x)') native=-1 oracle=-1
-[ok  ] envelope y = c*x + c^2 native=1 oracle=1
-0 failure(s)
-```
-
-> In this version the SymPy oracle covers ODE, Wronskian, and envelope/orthogonal cases only. Derivatives and integrals are covered by the native engine and Flutter tests.
+This runs native C++ tests (`ctest`), SymPy oracle tests (`pytest`), native ↔ SymPy cross-checks, and Flutter analysis/widget tests. Flutter dependencies can be resolved offline with `cd app && flutter pub get --offline`.
 
 ---
 
@@ -258,48 +79,44 @@ void        ode_free(char* text);
 const char* ode_core_version(void);
 ```
 
-Requests (all accept an optional `"lang": "en"` or `"fa"`):
+All operations use the same JSON contract:
 
 ```json
-{"mode":"ode","input":"y' = y","x":"x","y":"y","particular":""}
-{"mode":"wronskian","functions":["sin(x)","cos(x)"],"x":"x"}
-{"mode":"envelope","input":"y = c*x + c^2","c":"c","orthogonal":false}
-{"mode":"orthogonal","input":"x^2 + y^2 = c^2","c":"c","x":"x","y":"y"}
+{"mode":"ode","input":"y' = y"}
 {"mode":"integral","input":"2*x*cos(x^2)","x":"x"}
 {"mode":"derivative","input":"x^3*sin(x)","x":"x","order":1}
+{"mode":"wronskian","functions":["sin(x)","cos(x)"]}
+{"mode":"envelope","input":"y = c*x + c^2","c":"c"}
 ```
 
-Responses include `ok`, `mode`, `type_id`, `type_fa`, `type_en`, `method`, `variable`, `order`, `solution` (plain/pretty/LaTeX views), `explicit_y`, `param_x`, `param_y`, `singular`, `wronskian`, `independent`, `envelope`, `orthogonal`, `steps`, `checks`, `warnings`, `assumptions`, `closed_form`, and `time_ms`.
-
-Full reference: [`docs/api.md`](docs/api.md)
+Use `"lang":"en"` or `"lang":"fa"` for step text. Full reference: [`docs/api.md`](docs/api.md).
 
 ---
 
-## Expression syntax
+## Project layout
 
-- Variables: `x`, `y`, `c`, and any other name
-- Derivatives: `y'`, `y''`, `y'''`, or `dy/dx`
-- Powers: `x^2`, `x**(1/2)` (`**` is also supported)
-- Implicit multiplication: `2x`, `(x+1)(x-1)`, `2sin(x)`
-- Functions: `sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `ln`, `log`, `sqrt`, `abs`
-- Absolute value: `|x|`
-- Differential form: `(x+y)dx + (x+2y)dy = 0`
-- Numbers: exact integers and decimals (`0.25` becomes the fraction `1/4`)
-- Constants: `e` and `pi`
+```
+core/      C++17 exact engine and C99 verification evaluator
+app/       Flutter UI, Linux runner, Android runner
+python/    SymPy oracle and cross-check tests
+scripts/   Build, test, package, install, and sysroot helpers
+docs/      Architecture, API, and expression syntax
+release/   Ready-to-publish artifacts
+testdata/  Shared test corpus
+```
 
-Full guide: [`docs/expressions.md`](docs/expressions.md)
+The UI links to the native library `libodecore.so` through `dart:ffi`; the Flutter package is named `infinit`.
 
 ---
 
-## Known limitations
+## Limitations
 
-- Higher-order **non-homogeneous** equations with variable coefficients are not covered in this version.
-- Power-series and Frobenius methods are not implemented.
-- Riccati equations are solved only with a found/given particular solution or a constant-coefficient second-order reduction.
-- Non-elementary integrals remain as `Integral` nodes (exact, but not closed-form).
-- Integration is limited to table, substitution, integration by parts, rational functions, and trigonometric powers; definite integrals are not exposed in the UI.
-- The UI offers first and second derivatives only (the API accepts higher `order` values).
-- Systems of equations and partial differential equations are outside the scope of this version.
+- Higher-order non-homogeneous ODEs with variable coefficients are not supported.
+- Power-series/Frobenius methods and systems/PDEs are out of scope.
+- Riccati equations need a particular solution or a constant-coefficient reduction.
+- Non-elementary integrals remain exact quadratures.
+- The UI exposes first and second derivatives; the API accepts higher `order` values.
+- Only 64-bit Android ABIs are supported.
 
 ---
 

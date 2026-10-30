@@ -23,9 +23,9 @@ if ! flutter pub get --offline; then
   echo "Offline pub get failed; retrying online..." >&2
   flutter pub get
 fi
-flutter build linux "--$MODE"
+flutter build linux "--$MODE" --no-pub
 
 BUNDLE="$ROOT/app/build/linux/x64/$MODE/bundle"
 echo
 echo "Bundle: $BUNDLE"
-echo "Run:    $BUNDLE/ode_lab"
+echo "Run:    $BUNDLE/infinit"

@@ -1,4 +1,4 @@
-// ODE Lab — univariate polynomials over Q, factoring, partial fractions
+// Infinit Lab — univariate polynomials over Q, factoring, partial fractions
 // SPDX-License-Identifier: MIT
 #pragma once
 #include "expr.hpp"

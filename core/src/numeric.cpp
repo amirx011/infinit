@@ -1,4 +1,4 @@
-// ODE Lab — numeric certificates
+// Infinit Lab — numeric certificates
 #include "numeric.hpp"
 #include "numeric_c.h"
 #include <cmath>

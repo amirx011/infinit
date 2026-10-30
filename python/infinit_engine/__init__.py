@@ -1,4 +1,4 @@
-"""ODE Lab — SymPy reference engine.
+"""Infinit Lab — SymPy reference engine.
 
 ``solve_ode`` returns an :class:`OracleResult`; ``wronskian`` and ``envelope``
 return plain dictionaries because their payloads are structured data rather

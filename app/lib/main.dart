@@ -15,11 +15,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final settings = AppSettings();
   await settings.load();
-  runApp(OdeLabApp(settings: settings));
+  runApp(InfinitApp(settings: settings));
 }
 
-class OdeLabApp extends StatelessWidget {
-  const OdeLabApp({super.key, required this.settings});
+class InfinitApp extends StatelessWidget {
+  const InfinitApp({super.key, required this.settings});
 
   final AppSettings settings;
 

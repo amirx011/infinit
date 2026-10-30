@@ -1,4 +1,4 @@
-/* ODE Lab — tiny C evaluator for numeric certificates */
+/* Infinit Lab — tiny C evaluator for numeric certificates */
 #ifndef ODE_NUMERIC_C_H
 #define ODE_NUMERIC_C_H
 

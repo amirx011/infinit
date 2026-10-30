@@ -1,4 +1,4 @@
-// ODE Lab — ODE classification and exact solvers
+// Infinit Lab — ODE classification and exact solvers
 // SPDX-License-Identifier: MIT
 #include "expr.hpp"
 #include "poly.hpp"

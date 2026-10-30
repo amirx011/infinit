@@ -1,4 +1,4 @@
-"""SymPy oracle for ODE Lab.
+"""SymPy oracle for Infinit Lab.
 
 This module is deliberately *not* used by the mobile application.  It is a
 reference/verification engine for the native C++ core: it classifies and solves

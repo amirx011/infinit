@@ -10,15 +10,15 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFIX="${PREFIX:-$HOME/.local}"
-APP_DIR="$PREFIX/share/ode-lab"
+APP_DIR="$PREFIX/share/infinit"
 BIN_DIR="$PREFIX/bin"
 DESKTOP_DIR="$PREFIX/share/applications"
 ICON_DIR="$PREFIX/share/icons/hicolor/scalable/apps"
-LAUNCHER="$BIN_DIR/ode-lab"
+LAUNCHER="$BIN_DIR/infinit"
 
 uninstall() {
   rm -rf "$APP_DIR"
-  rm -f "$LAUNCHER" "$DESKTOP_DIR/ode-lab.desktop" "$ICON_DIR/ode-lab.svg"
+  rm -f "$LAUNCHER" "$DESKTOP_DIR/infinit.desktop" "$ICON_DIR/infinit.svg"
   command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
   echo "Infinit Lab removed from $PREFIX."
 }
@@ -54,8 +54,8 @@ EOF
   exit 1
 fi
 
-if [[ ! -x "$BUNDLE/ode_lab" ]]; then
-  echo "Invalid bundle (ode_lab not found): $BUNDLE" >&2
+if [[ ! -x "$BUNDLE/infinit" ]]; then
+  echo "Invalid bundle (infinit not found): $BUNDLE" >&2
   exit 1
 fi
 
@@ -66,13 +66,13 @@ cp -a "$BUNDLE/." "$APP_DIR/"
 
 cat > "$LAUNCHER" <<EOF
 #!/usr/bin/env bash
-exec "$APP_DIR/ode_lab" "\$@"
+exec "$APP_DIR/infinit" "\$@"
 EOF
 chmod +x "$LAUNCHER"
 
-cp "$ROOT/app/assets/ode-lab.svg" "$ICON_DIR/ode-lab.svg"
+cp "$ROOT/app/assets/infinit.svg" "$ICON_DIR/infinit.svg"
 
-cat > "$DESKTOP_DIR/ode-lab.desktop" <<EOF
+cat > "$DESKTOP_DIR/infinit.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Infinit Lab
@@ -80,18 +80,18 @@ Name[fa]=Infinit Lab
 Comment=Exact symbolic calculus and differential equations
 Comment[fa]=حساب دیفرانسیل و انتگرال و معادلات دیفرانسیل دقیق
 Exec=$LAUNCHER
-Icon=ode-lab
+Icon=infinit
 Terminal=false
 Categories=Education;Math;Science;
 Keywords=ode;differential;equation;wronskian;envelope;
-StartupWMClass=ode_lab
+StartupWMClass=infinit
 EOF
 
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
 
 # Report missing runtime libraries (the GTK development headers are only
 # needed at build time; the runtime GTK libraries are normally installed).
-missing="$(ldd "$APP_DIR/ode_lab" "$APP_DIR/lib/libodecore.so" 2>/dev/null | grep 'not found' || true)"
+missing="$(ldd "$APP_DIR/infinit" "$APP_DIR/lib/libodecore.so" 2>/dev/null | grep 'not found' || true)"
 if [[ -n "$missing" ]]; then
   echo
   echo "Warning: some runtime libraries are missing:" >&2
@@ -103,11 +103,11 @@ echo
 echo "Installed:"
 echo "  app:      $APP_DIR"
 echo "  command:  $LAUNCHER"
-echo "  menu:     $DESKTOP_DIR/ode-lab.desktop"
+echo "  menu:     $DESKTOP_DIR/infinit.desktop"
 echo
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-  echo "Add $BIN_DIR to PATH to run 'ode-lab' from a terminal:"
+  echo "Add $BIN_DIR to PATH to run 'infinit' from a terminal:"
   echo "  export PATH=\"$BIN_DIR:\$PATH\""
 else
-  echo "Run it with: ode-lab"
+  echo "Run it with: infinit"
 fi

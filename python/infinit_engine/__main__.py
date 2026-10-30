@@ -1,4 +1,4 @@
-"""Command line entry point: python -m odelab_engine '<json>'."""
+"""Command line entry point: python -m infinit_engine '<json>'."""
 
 from __future__ import annotations
 

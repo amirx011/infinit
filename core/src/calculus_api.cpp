@@ -1,4 +1,4 @@
-// ODE Lab — single-variable calculus API (integrals and derivatives)
+// Infinit Lab — single-variable calculus API (integrals and derivatives)
 #include "numeric.hpp"
 // SPDX-License-Identifier: MIT
 #include "solver.hpp"

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ode_lab/main.dart';
-import 'package:ode_lab/src/app_state.dart';
-import 'package:ode_lab/src/settings_store.dart';
+import 'package:infinit/main.dart';
+import 'package:infinit/src/app_state.dart';
+import 'package:infinit/src/settings_store.dart';
 
 Future<AppSettings> _settings() async {
   final settings = AppSettings(persistence: MemorySettingsPersistence());
@@ -17,7 +17,7 @@ void main() {
     expect(settings.themeMode, ThemeMode.dark);
     expect(settings.locale.languageCode, 'en');
 
-    await tester.pumpWidget(OdeLabApp(settings: settings));
+    await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Infinit Lab'), findsOneWidget);
@@ -28,7 +28,7 @@ void main() {
 
   testWidgets('switches to Persian and back', (tester) async {
     final settings = await _settings();
-    await tester.pumpWidget(OdeLabApp(settings: settings));
+    await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
     await settings.setLocale(const Locale('fa'));
@@ -43,7 +43,7 @@ void main() {
 
   testWidgets('opens the drawer and enters the integral module', (tester) async {
     final settings = await _settings();
-    await tester.pumpWidget(OdeLabApp(settings: settings));
+    await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
@@ -60,7 +60,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1200, 1700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final settings = await _settings();
-    await tester.pumpWidget(OdeLabApp(settings: settings));
+    await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
@@ -82,7 +82,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1200, 2000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final settings = await _settings();
-    await tester.pumpWidget(OdeLabApp(settings: settings));
+    await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
@@ -103,7 +103,7 @@ void main() {
 
   testWidgets('opens settings and switches theme', (tester) async {
     final settings = await _settings();
-    await tester.pumpWidget(OdeLabApp(settings: settings));
+    await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byIcon(Icons.tune_rounded).first);
@@ -125,7 +125,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1200, 1700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final settings = await _settings();
-    await tester.pumpWidget(OdeLabApp(settings: settings));
+    await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);

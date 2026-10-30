@@ -1,4 +1,4 @@
-// ODE Lab — recursive descent parser
+// Infinit Lab — recursive descent parser
 // SPDX-License-Identifier: MIT
 #include "expr.hpp"
 #include <cctype>
