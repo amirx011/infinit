@@ -1,80 +1,80 @@
-# Infinit Lab — آزمایشگاه حساب و معادلات دیفرانسیل
+# Infinit Lab — Exact Calculus & Differential Equations
 
-حل **دقیق و نمادین** معادلات دیفرانسیل معمولی و محاسبات یک‌متغیره (مشتق و انتگرال نامعین)، با مسیر حل گام‌به‌گام و رابط **دوزبانه (انگلیسی/فارسی)** برای **لینوکس** و **اندروید**.
+Exact symbolic solving of ordinary differential equations and single-variable calculus (derivatives and indefinite integrals), with step-by-step solution paths and a bilingual (English/Persian) UI for **Linux** and **Android**.
 
-> نام نمایشی برنامه **Infinit Lab** است؛ نام پوشه، بستهٔ Flutter و کتابخانهٔ بومی همان `ode-lab` / `ode_lab` / `libodecore` است.
+> The app is branded **Infinit Lab**. The Flutter package is `ode_lab` and the native library is `libodecore`.
 
-- حالت پیش‌فرض: **تاریک (Dark)** + **انگلیسی**
-- پنج ماژول: **معادلات دیفرانسیل**، **رونسکی**، **پوش و مسیرهای متعامد**، **انتگرال**، **مشتق**
-- تغییر ظاهر (تاریک/روشن) و زبان (انگلیسی/فارسی) از دکمهٔ تنظیمات، با ذخیرهٔ خودکار انتخاب کاربر
-- داشبورد خانه برای دسترسی سریع به مشتق، انتگرال و معادلات دیفرانسیل؛ رونسکی و پوش از منوی کناری
+- Default appearance: **Dark**
+- Default language: **English**
+- Theme (dark/light) and language (English/Persian) are changed from the Settings sheet and persisted automatically
+- Home dashboard for quick access to Derivative, Integral, and Differential Equations; Wronskian and Envelope live in the navigation drawer
 
-تنظیمات در لینوکس در `~/.config/ode_lab/settings.json` (یا `$XDG_CONFIG_HOME/ode_lab/settings.json`) و در اندروید در `SharedPreferences` نگه‌داری می‌شود.
+Settings are stored in `~/.config/ode_lab/settings.json` on Linux (or `$XDG_CONFIG_HOME/ode_lab/settings.json`) and in `SharedPreferences` on Android.
 
-Infinit Lab از تقریب عددی برای «حل» استفاده نمی‌کند. هستهٔ جبر کامپیوتری به‌صورت بومی (C++17) نوشته شده و اعداد را با کسرهای گویا (`int64` + محافظ `__int128`) نگه می‌دارد. یک ارزیاب عددی C99 فقط برای **گواهی اعتبار** جواب به کار می‌رود، نه برای تولید آن. SymPy نیز به‌عنوان **اوراکل مرجع** در بیرون از برنامه (فقط در تست‌ها و ابزار دسکتاپ) استفاده می‌شود.
-
----
-
-## ماژول‌ها
-
-| ماژول | کار | نمونه |
-|---|---|---|
-| مشتق | مشتق مرتبهٔ اول و دوم با ساده‌سازی دقیق | `x^3*sin(x)` |
-| انتگرال | انتگرال نامعین با تشخیص خودکار روش | `2*x*cos(x^2)` |
-| معادلات دیفرانسیل | حل دقیق ODE مرتبهٔ اول و مرتبهٔ دوم/بالا | `y' = y` |
-| رونسکی | دترمینان رونسکی و استقلال خطی | `W(sin x, cos x)` |
-| پوش و متعامد | پوش خانوادهٔ منحنی‌ها و مسیرهای متعامد | `y = c*x + c^2` |
-
-### قابلیت‌های معادلات دیفرانسیل
-
-| خانواده | نمونه | وضعیت |
-|---|---|---|
-| جداشدنی | `y' = x/y` | ✅ دقیق + گام‌ها |
-| همگن | `y' = (x^2+y^2)/(x*y)` | ✅ دقیق + ضمنی/صریح |
-| کامل (دقیق) | `(2x+y) + (x+2y)y' = 0` | ✅ + گواهی `du = M dx + N dy` |
-| عامل انتگرال‌ساز | `μ(x)`, `μ(y)`, `μ(xy)`, `μ(x+y)` | ✅ |
-| خطی مرتبهٔ اول | `y' + y/x = x^2` | ✅ + عامل انتگرال‌ساز |
-| برنولی | `y' = x y + y^2` | ✅ |
-| کلرو | `y = x y' + (y')^2` | ✅ عمومی + جواب منفرد (پوش) |
-| لاگرانژ | `y = 2x y' + (y')^2` | ✅ پارامتری |
-| ریکاتی | `y' = P y^2 + Q y + R` | ✅ با جواب خصوصی یا تبدیل مرتبهٔ دوم |
-| جایگذاری خطی | `y' = (x+y)^2` | ✅ |
-| مرتبهٔ دوم/بالا با ضرایب ثابت | `y'' - 3y' + 2y = 0` | ✅ ریشه‌های حقیقی/مختلط/تکراری |
-| انتگرال‌گیری مستقیم | `y'' = 6x` | ✅ |
-| رونسکی | `W(sin x, cos x)` | ✅ + استقلال خطی |
-| پوش خانواده | `y = c x + c^2` | ✅ + تشخیص «بدون پوش» |
-| مسیرهای متعامد | خانوادهٔ دایره‌ها | ✅ (در حد روش‌های موجود) |
-
-### قابلیت‌های حساب یک‌متغیره
-
-| عملیات | نمونه | توضیح |
-|---|---|---|
-| مشتق اول | `x^3*sin(x)` | خروجی ساده‌شده + نمایش plain/pretty/LaTeX |
-| مشتق دوم | `x^3` → `6*x` | در رابط کاربری با یک دکمهٔ جداگانه |
-| انتگرال جدول استاندارد | `sin(x)` | روش `table` |
-| تغییر متغیر | `2*x*cos(x^2)` | روش `substitution` |
-| جزء‌به‌جزء | `x*exp(x)` | روش `parts` |
-| توابع گویا | `1/(x^2-x+1)`، `x/(x^2+1)` | روش `rational` |
-| توان‌های مثلثاتی | `sin(x)^2` | روش `trig` |
-| چندجمله‌ای و جمله‌به‌جمله | `x^2 + 3*x` | روش‌های `expand` / `sum` |
-
-### صداقت علمی
-
-- اگر انتگرال مقدماتی نباشد، جواب به‌صورت **کوادراتور دقیق** با گرهٔ `Integral(f, x)` نمایش داده می‌شود و پرچم `closed_form = false` می‌گیرد؛ هیچ تقریب مخفی‌ای ساخته نمی‌شود.
-- انتگرال‌های محاسبه‌شده با مشتق‌گیری از جواب راستی‌آزمایی می‌شوند (`checks`).
-- جواب‌های ضمنی به شکل `u(x,y) = C` و جواب‌های پارامتری لاگرانژ به شکل `x(p), y(p)` ارائه می‌شوند.
-- جواب‌های منفرد (پوش) جداگانه فهرست می‌شوند.
-- فرض‌های دامنه (مثلاً `x ≠ 0` یا `|x| > 0`) در بخش «اعتبارسنجی» ذکر می‌شوند.
+Infinit Lab does not use numerical approximation to *produce* solutions. The computer-algebra core is written natively in C++17 and stores numbers as exact rationals (`int64` with an `__int128` overflow guard). A small C99 numeric evaluator is used only to **certify** results, never to generate them. SymPy is used as an external **reference oracle** for tests and desktop tooling only.
 
 ---
 
-## معماری
+## Modules
+
+| Module | What it does | Example |
+|---|---|---|
+| Derivative | First and second derivatives with exact simplification | `x^3*sin(x)` |
+| Integral | Indefinite integration with automatic method detection | `2*x*cos(x^2)` |
+| Differential equations | Exact first-order and constant-coefficient higher-order ODEs | `y' = y` |
+| Wronskian | Wronskian determinant and linear independence | `W(sin x, cos x)` |
+| Envelope & orthogonal | Family envelopes and orthogonal trajectories | `y = c*x + c^2` |
+
+### Differential equation support
+
+| Family | Example | Status |
+|---|---|---|
+| Separable | `y' = x/y` | ✅ exact + steps |
+| Homogeneous | `y' = (x^2+y^2)/(x*y)` | ✅ exact + implicit/explicit |
+| Exact | `(2x+y) + (x+2y)y' = 0` | ✅ + `du = M dx + N dy` certificate |
+| Integrating factor | `μ(x)`, `μ(y)`, `μ(xy)`, `μ(x+y)` | ✅ |
+| First-order linear | `y' + y/x = x^2` | ✅ + integrating factor |
+| Bernoulli | `y' = x y + y^2` | ✅ |
+| Clairaut | `y = x y' + (y')^2` | ✅ general + singular solution (envelope) |
+| Lagrange | `y = 2x y' + (y')^2` | ✅ parametric |
+| Riccati | `y' = P y^2 + Q y + R` | ✅ with a particular solution or second-order reduction |
+| Linear substitution | `y' = (x+y)^2` | ✅ |
+| Second/higher order, constant coefficients | `y'' - 3y' + 2y = 0` | ✅ real/complex/repeated roots |
+| Direct integration | `y'' = 6x` | ✅ |
+| Wronskian | `W(sin x, cos x)` | ✅ + linear independence |
+| Family envelope | `y = c x + c^2` | ✅ + "no envelope" detection |
+| Orthogonal trajectories | Family of circles | ✅ (within the implemented methods) |
+
+### Single-variable calculus support
+
+| Operation | Example | Notes |
+|---|---|---|
+| First derivative | `x^3*sin(x)` | Simplified output with plain/pretty/LaTeX views |
+| Second derivative | `x^3` → `6*x` | Separate action in the UI |
+| Standard table integral | `sin(x)` | Method: `table` |
+| Substitution | `2*x*cos(x^2)` | Method: `substitution` |
+| Integration by parts | `x*exp(x)` | Method: `parts` |
+| Rational functions | `1/(x^2-x+1)`, `x/(x^2+1)` | Method: `rational` |
+| Trigonometric powers | `sin(x)^2` | Method: `trig` |
+| Polynomials and term-by-term | `x^2 + 3*x` | Methods: `expand` / `sum` |
+
+### Scientific honesty
+
+- If an antiderivative is not elementary, the result is returned as an **exact quadrature** using an `Integral(f, x)` node and `closed_form = false`; no hidden approximation is produced.
+- Computed integrals are verified by differentiating the result (`checks`).
+- Implicit solutions are returned as `u(x,y) = C`; Lagrange parametric solutions as `x(p), y(p)`.
+- Singular solutions (envelopes) are listed separately.
+- Domain assumptions (for example `x ≠ 0` or `|x| > 0`) are reported in the validation section.
+
+---
+
+## Architecture
 
 ```
 ┌──────────────────── Flutter UI (Dart, RTL/LTR, dark/light) ────────────────────┐
-│  مشتق  │  انتگرال  │  معادلات دیفرانسیل  │  رونسکی  │  پوش و مسیرهای متعامد   │
+│  Derivative │ Integral │ Differential equations │ Wronskian │ Envelope        │
 └───────────────────────────────────┬───────────────────────────────────────────┘
-                                    │ dart:ffi  (JSON درخواست/پاسخ)
+                                    │ dart:ffi  (JSON request/response)
 ┌───────────────────────────────────▼───────────────────────────────────────────┐
 │        libodecore.so  —  C ABI: ode_solve / ode_free / ode_core_version        │
 ├───────────────────────────────────────────────────────────────────────────────┤
@@ -86,43 +86,44 @@ Infinit Lab از تقریب عددی برای «حل» استفاده نمی‌�
 │  C99 RPN numeric evaluator  →  verification certificates (not generation)     │
 └───────────────────────────────────────────────────────────────────────────────┘
 
-Python / SymPy  ──(خارج از برنامه)──►  oracle، تولید آزمون، مقایسهٔ متقابل
+Python / SymPy  ──(outside the app)──►  oracle, test generation, cross-checking
 ```
 
-جزئیات بیشتر: [`docs/architecture.md`](docs/architecture.md)
+See [`docs/architecture.md`](docs/architecture.md) for details.
 
 ---
 
-## ساختار پروژه
+## Project layout
 
 ```
-ode-lab/
-├── core/                      هستهٔ C++17 و C99
+infinit/
+├── core/                      C++17 and C99 native core
 │   ├── include/odecore.h      C ABI
-│   ├── src/                   AST، جبر، انتگرال، حساب، حل‌کننده‌ها، API JSON
-│   └── test/                  آزمون‌های بومی (algebra / ode / regression)
-├── app/                       اپ Flutter (Linux + Android)
-│   ├── lib/main.dart          پوستهٔ برنامه، داشبورد، منو و تنظیمات
-│   ├── lib/src/pages/         پنج صفحهٔ مشتق، انتگرال، ODE، رونسکی، پوش
-│   ├── lib/src/               مدل‌ها، FFI، تم، ویجت‌ها، وضعیت و ذخیرهٔ تنظیمات
-│   ├── linux/                 بستهٔ دسکتاپ
-│   └── android/               بستهٔ اندروید + jniLibs (تولیدشده)
-├── python/                    اوراکل SymPy و تست‌های مقایسه
-├── testdata/corpus.json       مجموعهٔ مشترک آزمون ODE/رونسکی/پوش
-├── scripts/                   ساخت، تست، بسته‌بندی، sysroot
-└── docs/                      معماری، API، نحو عبارات
+│   ├── src/                   AST, algebra, calculus, solvers, JSON API
+│   └── test/                  Native tests (algebra / ode / regression)
+├── app/                       Flutter app (Linux + Android)
+│   ├── lib/main.dart          App shell, dashboard, drawer, settings
+│   ├── lib/src/pages/         Derivative, Integral, ODE, Wronskian, Envelope
+│   ├── lib/src/               Models, FFI, theme, widgets, state, settings store
+│   ├── linux/                 Linux desktop runner
+│   └── android/               Android runner + generated jniLibs
+├── python/                    SymPy oracle and cross-check tests
+├── testdata/corpus.json       Shared ODE/Wronskian/envelope test corpus
+├── release/                   Ready-to-publish artifacts
+├── scripts/                   Build, test, packaging, sysroot helpers
+└── docs/                      Architecture, API, expression syntax
 ```
 
 ---
 
-## پیش‌نیازها
+## Requirements
 
-- Linux (Fedora/Ubuntu) با `clang`/`gcc`، `cmake`، `ninja`، `pkg-config`
-- Flutter **3.47.8** یا جدیدتر (Dart 3.13.7+)
-- Python **3.11+** و `sympy` (فقط برای تست/اوراکل)
-- برای اندروید: Android SDK + NDK (نسخهٔ ۲۹ آزمایش شده است)
+- Linux (Fedora/Ubuntu) with `clang`/`gcc`, `cmake`, `ninja`, `pkg-config`
+- Flutter **3.47.8** or newer (Dart 3.13.7+)
+- Python **3.11+** and `sympy` (tests/oracle only)
+- Android builds: Android SDK + NDK (version 29 tested)
 
-نصب سریع وابستگی‌های پایتون:
+Install the Python dependencies:
 
 ```bash
 python3 -m pip install --user sympy pytest
@@ -130,22 +131,22 @@ python3 -m pip install --user sympy pytest
 
 ---
 
-## ساخت و اجرای نسخهٔ لینوکس
+## Building and running on Linux
 
-اگر کتابخانه‌های توسعهٔ GTK 3 روی سیستم نصب نیستند و دسترسی root ندارید، اسکریپت زیر یک sysroot محلی می‌سازد (RPMها را با `dnf download` می‌گیرد و `pkg-config` را هدایت می‌کند):
+If GTK 3 development files are not installed and you do not have root access, the following script builds a local sysroot (it downloads RPMs with `dnf download` and wraps `pkg-config`):
 
 ```bash
 ./scripts/setup_gtk_sysroot.sh
 ```
 
-سپس:
+Then:
 
 ```bash
 ./scripts/build_linux.sh
 ./app/build/linux/x64/release/bundle/ode_lab
 ```
 
-یا به‌صورت دستی:
+Or build manually:
 
 ```bash
 ./scripts/build_core.sh
@@ -154,79 +155,85 @@ export PKG_CONFIG="$HOME/toolchains/bin/pkg-config"
 cd app && flutter pub get && flutter build linux --release
 ```
 
-> مسیر کتابخانهٔ بومی را می‌توان با متغیر محیطی `ODELAB_LIB` نیز مشخص کرد.
+> You can override the native library path with the `ODELAB_LIB` environment variable.
 
-### نصب برای کاربر جاری (بدون root)
+### Install for the current user (no root)
 
 ```bash
-# ساخت بسته و نصب در ~/.local
+# Build and install into ~/.local
 ./scripts/package_linux.sh
 ./scripts/install_linux.sh dist/ode-lab-0.1.0-linux-x64-release.tar.gz
 ```
 
-پس از نصب:
+After installing:
 
-- اجرا از ترمینال: `~/.local/bin/ode-lab` (در صورت نیاز `~/.local/bin` را به `PATH` اضافه کنید)
-- یا از منوی برنامه‌ها: **Infinit Lab**
-- حذف: `./scripts/install_linux.sh --uninstall`
+- Terminal: `~/.local/bin/ode-lab` (add `~/.local/bin` to `PATH` if needed)
+- Application menu: **Infinit Lab**
+- Uninstall: `./scripts/install_linux.sh --uninstall`
 
-نصب به کتابخانه‌های **زمان اجرا**ی GTK 3 نیاز دارد (معمولاً از قبل روی میزکار نصب‌اند). هدرهای توسعهٔ GTK فقط برای ساخت لازم‌اند.
+The installed app needs the GTK 3 **runtime** libraries, which are normally already present on a desktop. GTK development headers are only needed at build time.
 
 ---
 
-## ساخت نسخهٔ اندروید
+## Building for Android
 
 ```bash
-# یک‌بار: نصب NDK
+# Once: install the NDK
 $HOME/Android/Sdk/cmdline-tools/bin/sdkmanager --sdk_root=$HOME/Android/Sdk "ndk;29.0.14206865"
 
 ./scripts/build_android.sh
 ```
 
-اسکریپت، `libodecore.so` را برای ABIهای `arm64-v8a` و `x86_64` می‌سازد، در `app/android/app/src/main/jniLibs/` می‌گذارد و APK را تولید می‌کند:
+The script builds `libodecore.so` for `arm64-v8a` and `x86_64`, copies it into `app/android/app/src/main/jniLibs/`, and produces the APK at:
 
 ```
 app/build/app/outputs/flutter-apk/app-release.apk
 ```
 
-> ABIهای ۶۴-بیتی پشتیبانی می‌شوند. `armeabi-v7a` (۳۲-بیتی) به دلیل استفادهٔ هسته از `__int128` برای محافظ سرریز کسرها پشتیبانی نمی‌شود؛ گوشی‌های امروزی اندروید ۶۴-بیتی‌اند.
-> برای تغییر ABIها: `ABIS="arm64-v8a" ./scripts/build_android.sh`
-> برای ساخت App Bundle: `./scripts/build_android.sh --split-per-abi`
+> Only 64-bit ABIs are supported. `armeabi-v7a` (32-bit) cannot be supported because the core uses `__int128` to guard rational overflow; modern Android devices are 64-bit.
+> To change ABIs: `ABIS="arm64-v8a" ./scripts/build_android.sh`
+> To build an App Bundle: `./scripts/build_android.sh --split-per-abi`
 >
-> APK پیش‌فرض با **کلید دیباگ** امضا می‌شود تا روی هر دستگاهی نصب شود. برای انتشار در فروشگاه، `signingConfig` را در `app/android/app/build.gradle.kts` به کلید انتشار خود تغییر دهید.
-> کتابخانهٔ بومی با تراز ۱۶ کیلوبایت صفحه (مورد نیاز اندروید ۱۵+) لینک می‌شود.
+> The default APK is signed with the **debug key** so it can be installed on any device. For store distribution, change `signingConfig` in `app/android/app/build.gradle.kts` to your release key.
+> The native library is linked with 16 KiB page alignment (required by Android 15+).
+
+If `flutter pub get` fails with an authentication/403 error, use the local pub cache:
+
+```bash
+cd app && flutter pub get --offline
+```
 
 ---
 
-## خروجی‌های آماده
+## Build artifacts
 
-پس از اجرای اسکریپت‌ها:
+After running the build scripts:
 
-| خروجی | مسیر |
+| Artifact | Path |
 |---|---|
-| اجرایی لینوکس | `app/build/linux/x64/release/bundle/ode_lab` |
-| بستهٔ لینوکس | `dist/ode-lab-0.1.0-linux-x64-release.tar.gz` |
-| APK اندروید | `app/build/app/outputs/flutter-apk/app-release.apk` |
-| APK آمادهٔ انتشار | `release/ode-lab-0.1.0-android.apk` |
+| Linux executable | `app/build/linux/x64/release/bundle/ode_lab` |
+| Linux package | `dist/ode-lab-0.1.0-linux-x64-release.tar.gz` |
+| Android APK (build output) | `app/build/app/outputs/flutter-apk/app-release.apk` |
+| Ready-to-publish Android APK | `release/ode-lab-0.1.0-android.apk` |
 
-> پوشه‌های `core/build/`، `core/build-android/`، `app/build/`، `app/.dart_tool/` و `dist/` خروجی ساخت‌اند و در git نادیده گرفته می‌شوند. APK موجود در `release/` برای بارگذاری در GitHub Releases یا توزیع مستقیم نگه داشته شده است.
+> `core/build/`, `core/build-android/`, `app/build/`, `app/.dart_tool/`, and `dist/` are generated build outputs and are ignored by Git. The APK in `release/` is kept for GitHub Releases or direct distribution.
 
 ---
 
-## آزمون‌ها
+## Tests
 
 ```bash
 ./scripts/run_tests.sh
 ```
 
-این اسکریپت چهار لایه را اجرا می‌کند:
+The script runs four layers:
 
-1. **آزمون‌های بومی C++** — جبر، انتگرال، ODE، رونسکی، پوش، C ABI (`ctest`)
-2. **آزمون‌های SymPy** — حل و راستی‌آزمایی دقیق ODE/رونسکی/پوش (`pytest`)
-3. **مقایسهٔ متقابل** — هر جواب بومی با SymPy بازبینی می‌شود (`python/tests/compare_cpp.py`)
-4. **آزمون‌های Flutter** — `flutter analyze` و تست‌های ویجت: تم پیش‌فرض، تغییر زبان، تنظیمات، ناوبری، انتگرال/مشتق و حل واقعی ODE از طریق FFI (`flutter test`)
+1. **Native C++ tests** — algebra, calculus, ODEs, Wronskian, envelopes, C ABI (`ctest`)
+2. **SymPy oracle tests** — exact solving and verification for ODE/Wronskian/envelope cases (`pytest`)
+3. **Native ↔ SymPy cross-check** — every native answer is checked against SymPy (`python/tests/compare_cpp.py`)
+4. **Flutter checks** — `flutter analyze` and widget tests for the default theme, language switching, settings, navigation, integral/derivative modules, and a real ODE solve through FFI (`flutter test`)
 
-نمونهٔ خروجی مقایسه:
+Sample cross-check output:
 
 ```
 [ok  ] y' = y                   linear               C·exp(x)
@@ -236,11 +243,11 @@ app/build/app/outputs/flutter-apk/app-release.apk
 0 failure(s)
 ```
 
-> اوراکل SymPy در این نسخه فقط حالت‌های ODE، رونسکی و پوش/متعامد را پوشش می‌دهد؛ مشتق و انتگرال در لایهٔ بومی و تست‌های Flutter بررسی می‌شوند.
+> In this version the SymPy oracle covers ODE, Wronskian, and envelope/orthogonal cases only. Derivatives and integrals are covered by the native engine and Flutter tests.
 
 ---
 
-## API بومی
+## Native API
 
 ```c
 char*       ode_solve(const char* request_json);
@@ -248,7 +255,7 @@ void        ode_free(char* text);
 const char* ode_core_version(void);
 ```
 
-درخواست‌ها (همه با `lang` اختیاری `"en"` یا `"fa"`):
+Requests (all accept an optional `"lang": "en"` or `"fa"`):
 
 ```json
 {"mode":"ode","input":"y' = y","x":"x","y":"y","particular":""}
@@ -259,40 +266,40 @@ const char* ode_core_version(void);
 {"mode":"derivative","input":"x^3*sin(x)","x":"x","order":1}
 ```
 
-پاسخ شامل `ok`، `mode`، `type_id`، `type_fa`، `type_en`، `method`، `variable`، `order`، `solution` (سه نمایش plain/pretty/latex)، `explicit_y`، `param_x`، `param_y`، `singular`، `wronskian`، `independent`، `envelope`، `orthogonal`، `steps`، `checks`، `warnings`، `assumptions`، `closed_form` و `time_ms` است.
+Responses include `ok`, `mode`, `type_id`, `type_fa`, `type_en`, `method`, `variable`, `order`, `solution` (plain/pretty/LaTeX views), `explicit_y`, `param_x`, `param_y`, `singular`, `wronskian`, `independent`, `envelope`, `orthogonal`, `steps`, `checks`, `warnings`, `assumptions`, `closed_form`, and `time_ms`.
 
-جزئیات کامل: [`docs/api.md`](docs/api.md)
-
----
-
-## نحو عبارات
-
-- متغیرها: `x`، `y`، `c` و نام‌های دلخواه
-- مشتق: `y'`, `y''`, `y'''` یا `dy/dx`
-- توان: `x^2`، `x**(1/2)` (نماد `**` نیز پشتیبانی می‌شود)
-- ضرب ضمنی: `2x`، `(x+1)(x-1)`، `2sin(x)`
-- توابع: `sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `ln`, `log`, `sqrt`, `abs`
-- قدر مطلق: `|x|`
-- شکل دیفرانسیلی: `(x+y)dx + (x+2y)dy = 0`
-- اعداد: صحیح و اعشاری دقیق (`0.25` به کسر `1/4` تبدیل می‌شود)
-- ثابت‌ها: `e` و `pi`
-
-راهنمای کامل: [`docs/expressions.md`](docs/expressions.md)
+Full reference: [`docs/api.md`](docs/api.md)
 
 ---
 
-## محدودیت‌های آگاهانه
+## Expression syntax
 
-- معادلات مرتبهٔ بالا **ناهمگن** با ضرایب متغیر در این نسخه پوشش داده نشده‌اند.
-- روش‌های سری توانی و فروبنیوس پیاده‌سازی نشده‌اند.
-- ریکاتی تنها با جواب خصوصیِ یافت‌شده/داده‌شده یا تبدیل مرتبهٔ دوم با ضرایب ثابت حل می‌شود.
-- انتگرال‌های غیرمقدماتی به‌صورت `Integral` باقی می‌مانند (دقیق، اما بسته نیستند).
-- انتگرال‌گیری به روش‌های جدول، تغییر متغیر، جزء‌به‌جزء، توابع گویا و توان‌های مثلثاتی محدود است؛ انتگرال معین در رابط کاربری وجود ندارد.
-- رابط کاربری مشتق را تا مرتبهٔ دوم ارائه می‌دهد (API با فیلد `order` مرتبهٔ بالاتر را هم می‌پذیرد).
-- دستگاه‌های معادلات و معادلات با مشتق جزئی در دامنهٔ این نسخه نیستند.
+- Variables: `x`, `y`, `c`, and any other name
+- Derivatives: `y'`, `y''`, `y'''`, or `dy/dx`
+- Powers: `x^2`, `x**(1/2)` (`**` is also supported)
+- Implicit multiplication: `2x`, `(x+1)(x-1)`, `2sin(x)`
+- Functions: `sin`, `cos`, `tan`, `cot`, `sec`, `csc`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `exp`, `ln`, `log`, `sqrt`, `abs`
+- Absolute value: `|x|`
+- Differential form: `(x+y)dx + (x+2y)dy = 0`
+- Numbers: exact integers and decimals (`0.25` becomes the fraction `1/4`)
+- Constants: `e` and `pi`
+
+Full guide: [`docs/expressions.md`](docs/expressions.md)
 
 ---
 
-## مجوز
+## Known limitations
 
-MIT — فایل [`LICENSE`](LICENSE) را ببینید.
+- Higher-order **non-homogeneous** equations with variable coefficients are not covered in this version.
+- Power-series and Frobenius methods are not implemented.
+- Riccati equations are solved only with a found/given particular solution or a constant-coefficient second-order reduction.
+- Non-elementary integrals remain as `Integral` nodes (exact, but not closed-form).
+- Integration is limited to table, substitution, integration by parts, rational functions, and trigonometric powers; definite integrals are not exposed in the UI.
+- The UI offers first and second derivatives only (the API accepts higher `order` values).
+- Systems of equations and partial differential equations are outside the scope of this version.
+
+---
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
