@@ -309,14 +309,129 @@ class ResultView extends StatelessWidget {
 
   String _typeName() {
     if (result.mode == 'derivative') {
-      return result.order >= 2
-          ? l10n.t('Second derivative', 'مشتق مرتبهٔ دوم')
-          : l10n.t('First derivative', 'مشتق مرتبهٔ اول');
+      if (result.implicit) return l10n.t('Implicit derivative', 'مشتق ضمنی');
+      switch (result.order) {
+        case 3:
+          return l10n.t('Third derivative', 'مشتق مرتبهٔ سوم');
+        case 2:
+          return l10n.t('Second derivative', 'مشتق مرتبهٔ دوم');
+        default:
+          return l10n.t('First derivative', 'مشتق مرتبهٔ اول');
+      }
     }
     if (result.mode == 'integral') {
-      return l10n.t('Indefinite integral', 'انتگرال نامعین');
+      final def = result.definite;
+      switch (result.dimension) {
+        case 3:
+          return def
+              ? l10n.t('Triple integral (definite)', 'انتگرال سه‌گانهٔ معین')
+              : l10n.t('Triple integral', 'انتگرال سه‌گانه');
+        case 2:
+          return def
+              ? l10n.t('Double integral (definite)', 'انتگرال دوگانهٔ معین')
+              : l10n.t('Double integral', 'انتگرال دوگانه');
+        default:
+          return def
+              ? l10n.t('Definite integral', 'انتگرال معین')
+              : l10n.t('Indefinite integral', 'انتگرال نامعین');
+      }
     }
     return l10n.isFa ? result.typeFa : result.typeEn;
+  }
+
+  String _formatNumber(double v) {
+    if (v.isNaN) return '—';
+    if (!v.isFinite) return v.sign < 0 ? '−∞' : '∞';
+    if (v.abs() < 1e-12) return '0';
+    var s = v.toStringAsPrecision(10);
+    if (s.contains('e')) return s;
+    if (s.contains('.')) s = s.replaceFirst(RegExp(r'0+$'), '');
+    if (s.endsWith('.')) s = s.substring(0, s.length - 1);
+    return s;
+  }
+
+  List<String> get _integralVars =>
+      result.vars.isEmpty ? <String>[result.variable] : result.vars;
+
+  ExView? _integralFormula() {
+    final f = result.normalized;
+    if (f == null) return null;
+    final vars = _integralVars;
+    final latexSigns = vars.length >= 3
+        ? '\\iiint'
+        : (vars.length == 2 ? '\\iint' : '\\int');
+    final prettySigns = vars.length >= 3
+        ? '∫∫∫'
+        : (vars.length == 2 ? '∫∫' : '∫');
+    final diffs = vars.map((v) => '\\,d$v').join();
+    final prettyDiffs = vars.map((v) => ' d$v').join();
+    final solutionLatex = result.solution?.latex;
+    final solutionPretty = result.solution?.pretty;
+    final valueText = _formatNumber(result.numericValue);
+
+    String latex;
+    String pretty;
+    if (result.definite) {
+      final buffer = StringBuffer();
+      for (var i = vars.length - 1; i >= 0; i--) {
+        final lo = i < result.lower.length ? result.lower[i] : '0';
+        final hi = i < result.upper.length ? result.upper[i] : '1';
+        buffer.write('\\int_{$lo}^{$hi}');
+      }
+      latex = '$buffer ${f.latex}$diffs';
+      latex += ' = ${solutionLatex ?? valueText}';
+      pretty = '$prettySigns${result.lower.isEmpty ? '' : ' '}${f.pretty}$prettyDiffs';
+      if (result.lower.length == vars.length && result.upper.length == vars.length) {
+        final bounds = <String>[];
+        for (var i = 0; i < vars.length; i++) {
+          bounds.add('${vars[i]}: ${result.lower[i]} → ${result.upper[i]}');
+        }
+        pretty = '${bounds.join(', ')}:  $pretty';
+      }
+      pretty += ' = ${solutionPretty ?? valueText}';
+    } else {
+      latex = '$latexSigns ${f.latex}$diffs = ${solutionLatex ?? ''} + C';
+      pretty = '$prettySigns ${f.pretty}$prettyDiffs = ${solutionPretty ?? ''} + C';
+    }
+    return ExView(plain: pretty, pretty: pretty, latex: latex);
+  }
+
+  ExView? _derivativeFormula() {
+    final d = result.solution;
+    if (d == null) return null;
+    final v = result.variable.isEmpty ? 'x' : result.variable;
+    final order = result.order <= 0 ? 1 : result.order;
+    if (result.implicit) {
+      final y = result.vars.isNotEmpty ? result.vars.first : 'y';
+      final symbol = order == 3
+          ? 'd³$y/d$v³'
+          : order == 2
+              ? 'd²$y/d$v²'
+              : 'd$y/d$v';
+      final latex = order == 3
+          ? '\\frac{d^{3}$y}{d$v^{3}}'
+          : order == 2
+              ? '\\frac{d^{2}$y}{d$v^{2}}'
+              : '\\frac{d$y}{d$v}';
+      return ExView(
+        plain: '$symbol = ${d.plain}',
+        pretty: '$symbol = ${d.pretty}',
+        latex: '$latex = ${d.latex}',
+      );
+    }
+    final f = result.normalized;
+    if (f == null) return null;
+    final symbol = order == 3 ? 'd³' : (order == 2 ? 'd²' : 'd');
+    final latexOp = order == 3
+        ? '\\frac{d^{3}}{d$v^{3}}'
+        : order == 2
+            ? '\\frac{d^{2}}{d$v^{2}}'
+            : '\\frac{d}{d$v}';
+    return ExView(
+      plain: '$symbol/d$v [${f.plain}] = ${d.plain}',
+      pretty: '$symbol/d$v [${f.pretty}] = ${d.pretty}',
+      latex: '$latexOp\\left(${f.latex}\\right) = ${d.latex}',
+    );
   }
 
   Widget _answerCard(BuildContext context) {
@@ -358,22 +473,29 @@ class ResultView extends StatelessWidget {
       children.add(const SizedBox(height: 12));
       children.add(_independenceBanner(context));
     } else if (result.mode == 'integral') {
-      children.add(SectionLabel(l10n.t('Indefinite integral', 'انتگرال نامعین')));
+      final isDefinite = result.definite;
+      children.add(SectionLabel(isDefinite
+          ? l10n.t('Definite integral', 'انتگرال معین')
+          : l10n.t('Indefinite integral', 'انتگرال نامعین')));
       children.add(const SizedBox(height: 10));
-      final f = result.normalized;
-      final antiderivative = result.solution;
-      if (f != null && antiderivative != null) {
-        final v = result.variable;
-        final pretty = '∫ ${f.pretty} d$v = ${antiderivative.pretty} + C';
-        final latex =
-            '\\int ${f.latex}\\,d$v = ${antiderivative.latex} + C';
+      final formula = _integralFormula();
+      if (formula != null) {
         children.add(MathBlock(
-          math: ExView(plain: pretty, pretty: pretty, latex: latex),
+          math: formula,
           accent: true,
           size: 21,
           tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-          onCopyLatex: () =>
-              _copyLatex(context, ExView(plain: pretty, pretty: pretty, latex: latex)),
+          onCopyLatex: () => _copyLatex(context, formula),
+        ));
+      }
+      if (isDefinite && result.solution != null && result.hasNumeric) {
+        children.add(const SizedBox(height: 10));
+        children.add(Text(
+          '≈ ${_formatNumber(result.numericValue)}',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(fontFamily: 'DejaVu Sans Mono', letterSpacing: 0.2),
         ));
       }
       if (result.method.isNotEmpty) {
@@ -389,24 +511,14 @@ class ResultView extends StatelessWidget {
     } else if (result.mode == 'derivative') {
       children.add(SectionLabel(l10n.t('Derivative', 'مشتق')));
       children.add(const SizedBox(height: 10));
-      final f = result.normalized;
-      final d = result.solution;
-      if (f != null && d != null) {
-        final v = result.variable;
-        final second = result.order >= 2;
-        final pretty = second
-            ? 'd²/d$v² [${f.pretty}] = ${d.pretty}'
-            : 'd/d$v [${f.pretty}] = ${d.pretty}';
-        final latex = second
-            ? '\\frac{d^2}{d$v^2}\\left(${f.latex}\\right) = ${d.latex}'
-            : '\\frac{d}{d$v}\\left(${f.latex}\\right) = ${d.latex}';
+      final formula = _derivativeFormula();
+      if (formula != null) {
         children.add(MathBlock(
-          math: ExView(plain: pretty, pretty: pretty, latex: latex),
+          math: formula,
           accent: true,
           size: 21,
           tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-          onCopyLatex: () =>
-              _copyLatex(context, ExView(plain: pretty, pretty: pretty, latex: latex)),
+          onCopyLatex: () => _copyLatex(context, formula),
         ));
       }
     } else if (result.mode == 'envelope') {

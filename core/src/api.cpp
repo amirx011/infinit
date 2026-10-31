@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iomanip>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -237,6 +238,17 @@ std::string resultJson(const ode::Result& r) {
     o << ",\"functions\":" << strArrayJson(r.functions);
     o << ",\"family\":" << q(r.family);
 
+    // calculus extras
+    o << ",\"dimension\":" << r.dimension;
+    o << ",\"definite\":" << (r.definite ? "true" : "false");
+    o << ",\"implicit\":" << (r.implicit ? "true" : "false");
+    o << ",\"has_numeric\":" << (r.hasNumeric ? "true" : "false");
+    o << ",\"numeric_value\":" << std::setprecision(17)
+      << (r.hasNumeric ? r.numericValue : 0.0);
+    o << ",\"vars\":" << strArrayJson(r.vars);
+    o << ",\"lower\":" << strArrayJson(r.lower);
+    o << ",\"upper\":" << strArrayJson(r.upper);
+
     o << ",\"steps\":[";
     for (size_t i = 0; i < r.steps.size(); ++i) {
         if (i) o << ",";
@@ -275,7 +287,32 @@ ode::Result handle(const std::string& request) {
         return ode::solveWronskian(fns, req.str("x", "x"), req.str("lang", "en"));
     }
     if (mode == "integral") {
-        return ode::integrateExpression(req.str("input"), req.str("x", "x"), req.str("lang", "en"));
+        auto strList = [&](const char* key) {
+            std::vector<std::string> out;
+            if (const JVal* a = req.get(key)) {
+                if (a->kind == JVal::Arr)
+                    for (auto& v : a->arr)
+                        if (v.kind == JVal::Str) out.push_back(v.s);
+                if (a->kind == JVal::Str) out.push_back(a->s);
+            }
+            return out;
+        };
+        std::vector<std::string> vars = strList("vars");
+        if (vars.empty()) {
+            int dim = 1;
+            if (const JVal* d = req.get("dimension"))
+                if (d->kind == JVal::Num) dim = (int)d->n;
+            if (dim < 1) dim = 1;
+            if (dim > 3) dim = 3;
+            static const char* defaults[] = {"x", "y", "z"};
+            for (int i = 0; i < dim; ++i) vars.push_back(defaults[i]);
+        }
+        std::vector<std::string> lower = strList("lower");
+        std::vector<std::string> upper = strList("upper");
+        if (lower.size() < vars.size()) lower.resize(vars.size(), "0");
+        if (upper.size() < vars.size()) upper.resize(vars.size(), "1");
+        return ode::integrateMulti(req.str("input"), vars, req.boolean("definite", false), lower,
+                                   upper, req.str("lang", "en"));
     }
     if (mode == "derivative") {
         int order = 1;

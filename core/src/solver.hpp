@@ -45,6 +45,16 @@ struct Result {
     std::vector<std::string> functions;
     std::string family;
 
+    // calculus extras: multiple / definite integrals and implicit derivatives
+    int dimension = 1;                 // 1, 2 or 3
+    bool definite = false;             // definite integral with bounds
+    bool implicit = false;             // implicit derivative (equation input)
+    bool hasNumeric = false;           // numeric evaluation available
+    double numericValue = 0.0;         // numeric value of the definite integral
+    std::vector<std::string> vars;     // integration variables, innermost first
+    std::vector<std::string> lower;    // bounds (printable)
+    std::vector<std::string> upper;
+
     std::vector<Step> steps;
     std::vector<std::string> assumptions;
     std::vector<std::string> warnings;
@@ -73,6 +83,10 @@ Result integrateExpression(const std::string& input, const std::string& x = "x",
                            const std::string& lang = "en");
 Result derivativeExpression(const std::string& input, const std::string& x = "x", int order = 1,
                             const std::string& lang = "en");
+// Multi-dimensional (1..3) and/or definite integration.
+Result integrateMulti(const std::string& input, const std::vector<std::string>& vars,
+                      bool definite, const std::vector<std::string>& lower,
+                      const std::vector<std::string>& upper, const std::string& lang = "en");
 
 // helpers shared with the API
 Ex parseODE(const std::string& input, const std::string& x, std::string* dep);

@@ -12,6 +12,8 @@ set(ODE_SOURCES
     src/algebra.cpp
     src/poly.cpp
     src/calculus.cpp
+    src/astdiff.cpp
+    src/quadrature.cpp
     src/ode.cpp
     src/numeric.cpp
     src/numeric.c

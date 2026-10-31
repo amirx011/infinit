@@ -224,18 +224,6 @@ class _AppDrawer extends StatelessWidget {
         label: l10n.t('Envelope & orthogonal', 'پوش و مسیرهای متعامد'),
       ),
     ];
-    final calculusItems = [
-      (
-        index: 4,
-        icon: Icons.integration_instructions_rounded,
-        label: l10n.t('Integral', 'انتگرال'),
-      ),
-      (
-        index: 5,
-        icon: Icons.drive_file_rename_outline_rounded,
-        label: l10n.t('Derivative', 'مشتق'),
-      ),
-    ];
     return Drawer(
       backgroundColor: c.card,
       child: SafeArea(
@@ -289,24 +277,11 @@ class _AppDrawer extends StatelessWidget {
                       onTap: () => onSelected(item.index),
                     ),
                   const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    child: Text(
-                      l10n.t('CALCULUS', 'حساب دیفرانسیل و انتگرال'),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.7,
-                          ),
-                    ),
+                  _CalculusGroup(
+                    l10n: l10n,
+                    selected: selected,
+                    onSelected: onSelected,
                   ),
-                  for (final item in calculusItems)
-                    _DrawerTile(
-                      icon: item.icon,
-                      label: item.label,
-                      selected: selected == item.index,
-                      onTap: () => onSelected(item.index),
-                    ),
                 ],
               ),
             ),
@@ -317,16 +292,123 @@ class _AppDrawer extends StatelessWidget {
   }
 }
 
+/// Collapsible "calculus" entry of the drawer: tapping the row (or its chevron)
+/// reveals the derivative and integral modules inside the same hamburger menu.
+class _CalculusGroup extends StatefulWidget {
+  const _CalculusGroup({
+    required this.l10n,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final L10n l10n;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  State<_CalculusGroup> createState() => _CalculusGroupState();
+}
+
+class _CalculusGroupState extends State<_CalculusGroup> {
+  late bool _open = widget.selected == 4 || widget.selected == 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l = widget.l10n;
+    final active = widget.selected == 4 || widget.selected == 5;
+    final items = [
+      (
+        index: 5,
+        icon: Icons.drive_file_rename_outline_rounded,
+        label: l.t('Derivative', 'مشتق'),
+        badge: l.t('1st–3rd order', 'مرتبهٔ ۱ تا ۳'),
+      ),
+      (
+        index: 4,
+        icon: Icons.integration_instructions_rounded,
+        label: l.t('Integral', 'انتگرال'),
+        badge: l.t('1D / 2D / 3D', 'یگانه / دوگانه / سه‌گانه'),
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: active && !_open ? c.accentSoft : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _open = !_open),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.calculate_rounded,
+                      size: 19, color: active ? c.accent : c.muted),
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Text(
+                      l.t('Differential & integral', 'حساب دیفرانسیل و انتگرال'),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                        color: active ? c.accent : c.text,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  AnimatedRotation(
+                    turns: _open ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(Icons.keyboard_arrow_down_rounded,
+                        size: 21, color: active ? c.accent : c.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          duration: const Duration(milliseconds: 190),
+          crossFadeState:
+              _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          sizeCurve: Curves.easeOutCubic,
+          firstChild: const SizedBox(width: double.infinity, height: 0),
+          secondChild: Padding(
+            padding: const EdgeInsetsDirectional.only(start: 16, top: 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final item in items)
+                  _DrawerTile(
+                    icon: item.icon,
+                    label: item.label,
+                    hint: item.badge,
+                    selected: widget.selected == item.index,
+                    onTap: () => widget.onSelected(item.index),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _DrawerTile extends StatelessWidget {
   const _DrawerTile({
     required this.icon,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.hint,
   });
 
   final IconData icon;
   final String label;
+  final String? hint;
   final bool selected;
   final VoidCallback onTap;
 
@@ -362,6 +444,11 @@ class _DrawerTile extends StatelessWidget {
                     width: 5,
                     height: 5,
                     decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
+                  )
+                else if (hint != null && hint!.isNotEmpty)
+                  Text(
+                    hint!,
+                    style: TextStyle(fontSize: 9.5, color: c.muted),
                   ),
               ],
             ),
@@ -493,8 +580,8 @@ class _HomePage extends StatelessWidget {
           icon: Icons.drive_file_rename_outline_rounded,
           title: l10n.t('Derivative', 'مشتق'),
           subtitle: l10n.t(
-            'First and second derivatives, with exact symbolic simplification.',
-            'مشتق مرتبهٔ اول و دوم، با ساده‌سازی نمادین دقیق.',
+            'First, second and third derivatives, explicit or implicit, on the AST.',
+            'مشتق مرتبهٔ اول تا سوم، صریح یا ضمنی، روی درخت عبارت.',
           ),
           onTap: () => onOpen(5),
         ),
@@ -503,8 +590,8 @@ class _HomePage extends StatelessWidget {
           icon: Icons.integration_instructions_rounded,
           title: l10n.t('Integral', 'انتگرال'),
           subtitle: l10n.t(
-            'Single integrals with automatic substitution and integration by parts.',
-            'انتگرال یگانه با تشخیص خودکار تغییر متغیر و جزء‌به‌جزء.',
+            'Single, double and triple integrals — indefinite or definite with bounds.',
+            'انتگرال یگانه، دوگانه و سه‌گانه — نامعین یا معین با کران.',
           ),
           onTap: () => onOpen(4),
         ),
@@ -735,10 +822,12 @@ class _OptionTile extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.hint,
   });
 
   final IconData icon;
   final String label;
+  final String? hint;
   final bool selected;
   final VoidCallback onTap;
 

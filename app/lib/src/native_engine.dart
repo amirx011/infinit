@@ -131,12 +131,30 @@ class NativeEngine {
         'lang': lang,
       });
 
-  SolveResult integral(String input, {String x = 'x', String lang = 'en'}) => solve({
-        'mode': 'integral',
-        'input': input,
-        'x': x,
-        'lang': lang,
-      });
+  SolveResult integral(
+    String input, {
+    String x = 'x',
+    List<String>? vars,
+    int dimension = 1,
+    bool definite = false,
+    List<String> lower = const [],
+    List<String> upper = const [],
+    String lang = 'en',
+  }) {
+    const defaults = <String>['x', 'y', 'z'];
+    final activeVars = vars ?? defaults.take(dimension).toList();
+    return solve({
+      'mode': 'integral',
+      'input': input,
+      'x': x,
+      'dimension': activeVars.length,
+      'vars': activeVars,
+      'definite': definite,
+      'lower': lower,
+      'upper': upper,
+      'lang': lang,
+    });
+  }
 
   SolveResult derivative(
     String input, {

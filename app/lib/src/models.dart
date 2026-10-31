@@ -79,6 +79,14 @@ class SolveResult {
     required this.checks,
     required this.warnings,
     required this.assumptions,
+    required this.dimension,
+    required this.definite,
+    required this.implicit,
+    required this.hasNumeric,
+    required this.numericValue,
+    required this.vars,
+    required this.lower,
+    required this.upper,
   });
 
   final bool ok;
@@ -112,6 +120,16 @@ class SolveResult {
   final List<CheckView> checks;
   final List<String> warnings;
   final List<String> assumptions;
+
+  /// 1, 2 or 3 for single / double / triple integrals.
+  final int dimension;
+  final bool definite;
+  final bool implicit;
+  final bool hasNumeric;
+  final double numericValue;
+  final List<String> vars;
+  final List<String> lower;
+  final List<String> upper;
 
   static List<ExView> _exList(dynamic value) {
     if (value is! List) return const [];
@@ -159,6 +177,14 @@ class SolveResult {
             : const [],
         warnings: _strList(j['warnings']),
         assumptions: _strList(j['assumptions']),
+        dimension: (j['dimension'] as num?)?.toInt() ?? 1,
+        definite: j['definite'] == true,
+        implicit: j['implicit'] == true,
+        hasNumeric: j['has_numeric'] == true,
+        numericValue: (j['numeric_value'] as num?)?.toDouble() ?? 0,
+        vars: _strList(j['vars']),
+        lower: _strList(j['lower']),
+        upper: _strList(j['upper']),
       );
 
   factory SolveResult.fromRaw(String raw) {

@@ -6,6 +6,8 @@ import '../native_engine.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
+/// Derivative workspace: order 1, then (below it) order 2, then order 3.
+/// Equations such as `x^2+y^2=4` are differentiated implicitly.
 class DerivativePage extends StatefulWidget {
   const DerivativePage({
     super.key,
@@ -27,8 +29,10 @@ class _DerivativePageState extends State<DerivativePage> {
   final _xv = TextEditingController(text: 'x');
   final _firstKey = GlobalKey();
   final _secondKey = GlobalKey();
+  final _thirdKey = GlobalKey();
   SolveResult? _first;
   SolveResult? _second;
+  SolveResult? _third;
   String? _error;
   bool _busy = false;
 
@@ -38,6 +42,7 @@ class _DerivativePageState extends State<DerivativePage> {
     'ln(x)/x',
     'x*sin(x)',
     'tan(x)',
+    'x^2+y^2=4',
   ];
 
   @override
@@ -46,6 +51,7 @@ class _DerivativePageState extends State<DerivativePage> {
     if (oldWidget.l10n.isFa != widget.l10n.isFa) {
       _first = null;
       _second = null;
+      _third = null;
       _error = null;
     }
   }
@@ -56,6 +62,9 @@ class _DerivativePageState extends State<DerivativePage> {
     _xv.dispose();
     super.dispose();
   }
+
+  GlobalKey _keyFor(int order) =>
+      order == 1 ? _firstKey : (order == 2 ? _secondKey : _thirdKey);
 
   void _compute(int order) {
     final engine = widget.engine;
@@ -73,8 +82,12 @@ class _DerivativePageState extends State<DerivativePage> {
     setState(() {
       _busy = true;
       _error = null;
+      // A new computation invalidates the higher orders below it.
       if (order == 1) {
         _second = null;
+        _third = null;
+      } else if (order == 2) {
+        _third = null;
       }
     });
     try {
@@ -88,12 +101,14 @@ class _DerivativePageState extends State<DerivativePage> {
       setState(() {
         if (order == 1) {
           _first = r;
-        } else {
+        } else if (order == 2) {
           _second = r;
+        } else {
+          _third = r;
         }
         _busy = false;
       });
-      revealWidget(order == 1 ? _firstKey : _secondKey);
+      revealWidget(_keyFor(order));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -118,8 +133,8 @@ class _DerivativePageState extends State<DerivativePage> {
                 icon: Icons.drive_file_rename_outline_rounded,
                 title: l.t('Derivatives', 'مشتق'),
                 subtitle: l.t(
-                  'Compute the first derivative, then optionally the second derivative.',
-                  'مشتق مرتبهٔ اول را حساب کنید و در صورت نیاز مشتق مرتبهٔ دوم را ببینید.',
+                  'First, second and third derivatives — explicit (AST walk, chain and product rules) or implicit from an equation.',
+                  'مشتق مرتبهٔ اول، دوم و سوم — صریح (پیمایش درخت AST، قواعد زنجیره‌ای و ضرب) یا ضمنی از یک معادله.',
                 ),
               ),
               const SizedBox(height: 18),
@@ -134,7 +149,8 @@ class _DerivativePageState extends State<DerivativePage> {
                   height: 1.5,
                 ),
                 decoration: InputDecoration(
-                  hintText: l.t('e.g. x^3*sin(x)', 'مثلاً x^3*sin(x)'),
+                  hintText: l.t('e.g. x^3*sin(x)  or  x^2+y^2=4',
+                      'مثلاً x^3*sin(x)  یا  x^2+y^2=4'),
                   prefixIcon: Icon(Icons.edit_outlined, size: 20, color: c.muted),
                 ),
                 onSubmitted: (_) => _compute(1),
@@ -226,6 +242,22 @@ class _DerivativePageState extends State<DerivativePage> {
               icon: Icons.exposure_plus_2_rounded),
           const SizedBox(height: 10),
           Container(key: _secondKey, child: ResultView(result: _second!, l10n: l)),
+          const SizedBox(height: 14),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : () => _compute(3),
+              icon: const Icon(Icons.looks_3_rounded, size: 18),
+              label: Text(l.t('Compute third derivative', 'محاسبهٔ مشتق مرتبهٔ سوم')),
+            ),
+          ),
+        ],
+        if (_third != null) ...[
+          const SizedBox(height: 18),
+          SectionLabel(l.t('Third derivative', 'مشتق مرتبهٔ سوم'),
+              icon: Icons.looks_3_rounded),
+          const SizedBox(height: 10),
+          Container(key: _thirdKey, child: ResultView(result: _third!, l10n: l)),
         ],
       ],
     );
