@@ -87,6 +87,24 @@ class SolveResult {
     required this.vars,
     required this.lower,
     required this.upper,
+    required this.point,
+    required this.side,
+    required this.limitExists,
+    required this.limitInfinite,
+    required this.limitSign,
+    required this.leftExists,
+    required this.rightExists,
+    required this.leftInfinite,
+    required this.rightInfinite,
+    required this.leftSign,
+    required this.rightSign,
+    required this.leftValue,
+    required this.rightValue,
+    required this.valueDefined,
+    required this.valueAt,
+    required this.continuous,
+    required this.discontinuity,
+    required this.laws,
   });
 
   final bool ok;
@@ -130,6 +148,26 @@ class SolveResult {
   final List<String> vars;
   final List<String> lower;
   final List<String> upper;
+
+  /// Limit / continuity payload.
+  final String point;
+  final String side;
+  final bool limitExists;
+  final bool limitInfinite;
+  final int limitSign;
+  final bool leftExists;
+  final bool rightExists;
+  final bool leftInfinite;
+  final bool rightInfinite;
+  final int leftSign;
+  final int rightSign;
+  final ExView? leftValue;
+  final ExView? rightValue;
+  final bool valueDefined;
+  final ExView? valueAt;
+  final bool continuous;
+  final String discontinuity;
+  final List<String> laws;
 
   static List<ExView> _exList(dynamic value) {
     if (value is! List) return const [];
@@ -185,6 +223,24 @@ class SolveResult {
         vars: _strList(j['vars']),
         lower: _strList(j['lower']),
         upper: _strList(j['upper']),
+        point: (j['point'] ?? '').toString(),
+        side: (j['side'] ?? 'both').toString(),
+        limitExists: j['limit_exists'] == true,
+        limitInfinite: j['limit_infinite'] == true,
+        limitSign: (j['limit_sign'] as num?)?.toInt() ?? 1,
+        leftExists: j['left_exists'] == true,
+        rightExists: j['right_exists'] == true,
+        leftInfinite: j['left_infinite'] == true,
+        rightInfinite: j['right_infinite'] == true,
+        leftSign: (j['left_sign'] as num?)?.toInt() ?? 1,
+        rightSign: (j['right_sign'] as num?)?.toInt() ?? 1,
+        leftValue: ExView.fromJson(j['left_value']),
+        rightValue: ExView.fromJson(j['right_value']),
+        valueDefined: j['value_defined'] == true,
+        valueAt: ExView.fromJson(j['value_at']),
+        continuous: j['continuous'] == true,
+        discontinuity: (j['discontinuity'] ?? '').toString(),
+        laws: _strList(j['laws']),
       );
 
   factory SolveResult.fromRaw(String raw) {

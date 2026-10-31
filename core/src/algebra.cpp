@@ -1,5 +1,5 @@
 // Infinit Lab — algebraic normalisation, expansion, simplification, root finding
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #include "expr.hpp"
 #include <set>
 #include <functional>

@@ -1,5 +1,5 @@
 // Infinit Lab — exact symbolic expression core
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include <cstdint>
 #include <memory>

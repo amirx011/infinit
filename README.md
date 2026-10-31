@@ -122,4 +122,6 @@ The UI links to the native library `libodecore.so` through `dart:ffi`; the Flutt
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+Apache License 2.0 — see [`LICENSE`](LICENSE).
+
+Copyright 2026 Infinit Lab contributors.

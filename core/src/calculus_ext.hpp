@@ -1,5 +1,5 @@
 // Infinit Lab — AST differentiation, implicit derivatives and quadrature
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include "expr.hpp"
 

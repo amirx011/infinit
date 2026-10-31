@@ -1,5 +1,5 @@
 // Infinit Lab — differentiation and exact integration
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #include "expr.hpp"
 #include "poly.hpp"
 #include <functional>

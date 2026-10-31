@@ -1,5 +1,5 @@
 // Infinit Lab — recursive descent parser
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #include "expr.hpp"
 #include <cctype>
 #include <regex>

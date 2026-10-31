@@ -319,6 +319,14 @@ class ResultView extends StatelessWidget {
           return l10n.t('First derivative', 'مشتق مرتبهٔ اول');
       }
     }
+    if (result.mode == 'limit') {
+      if (result.side == 'left') return l10n.t('Left-hand limit', 'حد از چپ');
+      if (result.side == 'right') return l10n.t('Right-hand limit', 'حد از راست');
+      return l10n.t('Limit', 'حد');
+    }
+    if (result.mode == 'continuity') {
+      return l10n.t('Continuity', 'پیوستگی');
+    }
     if (result.mode == 'integral') {
       final def = result.definite;
       switch (result.dimension) {
@@ -348,6 +356,64 @@ class ResultView extends StatelessWidget {
     if (s.contains('.')) s = s.replaceFirst(RegExp(r'0+$'), '');
     if (s.endsWith('.')) s = s.substring(0, s.length - 1);
     return s;
+  }
+
+  String _limitSideText(ExView? value, bool infinite, int sign) {
+    if (value != null) return value.pretty;
+    if (infinite) return sign < 0 ? '−∞' : '∞';
+    return l10n.t('does not exist', 'وجود ندارد');
+  }
+
+  String _limitSideLatex(ExView? value, bool infinite, int sign) {
+    if (value != null) return value.latex;
+    if (infinite) return sign < 0 ? '-\\infty' : '\\infty';
+    return '\\text{DNE}';
+  }
+
+  String _lawName(String id) {
+    switch (id) {
+      case 'constant':
+        return l10n.t('constant law', 'قانون ثابت');
+      case 'identity':
+        return l10n.t('identity law', 'قانون متغیر');
+      case 'sum':
+        return l10n.t('sum law', 'قانون جمع');
+      case 'product':
+        return l10n.t('product law', 'قانون ضرب');
+      case 'quotient':
+        return l10n.t('quotient law', 'قانون تقسیم');
+      case 'power':
+        return l10n.t('power law', 'قانون توان');
+      case 'composite':
+        return l10n.t('composition', 'ترکیب');
+      case 'lhopital':
+        return l10n.t("L'Hôpital", 'هوپیتال');
+      case 'algebraic_simplification':
+        return l10n.t('algebraic simplification', 'ساده‌سازی جبری');
+      case 'exponential_rewrite':
+        return l10n.t('exponential rewrite', 'بازنویسی نمایی');
+      case 'squeeze':
+        return l10n.t('squeeze law', 'قانون فشردگی');
+      case 'two_sided':
+        return l10n.t('two-sided check', 'بررسی دوطرفه');
+      default:
+        return id;
+    }
+  }
+
+  String _discontinuityName(String kind) {
+    switch (kind) {
+      case 'removable':
+        return l10n.t('Removable discontinuity', 'انقطاع رفع‌شدنی');
+      case 'jump':
+        return l10n.t('Jump discontinuity', 'انقطاع جهشی');
+      case 'infinite':
+        return l10n.t('Infinite discontinuity', 'انقطاع نامتناهی');
+      case 'oscillatory':
+        return l10n.t('The limit does not exist', 'حد وجود ندارد');
+      default:
+        return l10n.t('Not continuous', 'پیوسته نیست');
+    }
   }
 
   List<String> get _integralVars =>
@@ -506,6 +572,127 @@ class ResultView extends StatelessWidget {
           children: [
             TypeBadge(_methodName(result.method, l10n), icon: Icons.route_outlined),
           ],
+        ));
+      }
+    } else if (result.mode == 'limit') {
+      children.add(SectionLabel(l10n.t('Limit', 'حد')));
+      children.add(const SizedBox(height: 10));
+      final f = result.normalized;
+      final v = result.variable.isEmpty ? 'x' : result.variable;
+      final a = result.point.isEmpty ? '0' : result.point;
+      final sub = result.side == 'left'
+          ? '$a^-'
+          : (result.side == 'right' ? '$a^+' : a);
+      String rhsLatex;
+      String rhsPretty;
+      if (result.solution != null) {
+        rhsLatex = result.solution!.latex;
+        rhsPretty = result.solution!.pretty;
+      } else if (result.limitInfinite) {
+        rhsLatex = result.limitSign < 0 ? '-\\infty' : '\\infty';
+        rhsPretty = result.limitSign < 0 ? '−∞' : '∞';
+      } else if (result.hasNumeric) {
+        rhsLatex = '\\approx ${_formatNumber(result.numericValue)}';
+        rhsPretty = '≈ ${_formatNumber(result.numericValue)}';
+      } else {
+        rhsLatex = '\\text{does not exist}';
+        rhsPretty = l10n.t('does not exist', 'وجود ندارد');
+      }
+      final bodyLatex = f == null ? '' : f.latex;
+      final bodyPretty = f == null ? '' : f.pretty;
+      final formula = ExView(
+        plain: 'lim $v -> $sub  $bodyPretty  = $rhsPretty',
+        pretty: 'lim $v → $sub  ($bodyPretty) = $rhsPretty',
+        latex: '\\lim_{$v \\to $sub} $bodyLatex = $rhsLatex',
+      );
+      children.add(MathBlock(
+        math: formula,
+        accent: true,
+        size: 21,
+        tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
+        onCopyLatex: () => _copyLatex(context, formula),
+      ));
+      if (result.side == 'both' && (result.leftExists || result.rightExists || result.leftInfinite || result.rightInfinite)) {
+        children.add(const SizedBox(height: 12));
+        children.add(Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            TypeBadge(
+              '${l10n.t('Left', 'چپ')}: ${_limitSideText(result.leftValue, result.leftInfinite, result.leftSign)}',
+              icon: Icons.west_rounded,
+              tone: c.muted,
+            ),
+            TypeBadge(
+              '${l10n.t('Right', 'راست')}: ${_limitSideText(result.rightValue, result.rightInfinite, result.rightSign)}',
+              icon: Icons.east_rounded,
+              tone: c.muted,
+            ),
+          ],
+        ));
+      }
+      if (result.laws.isNotEmpty) {
+        children.add(const SizedBox(height: 12));
+        children.add(Text(
+          '${l10n.t('Rules', 'قوانین')}: ${result.laws.map((e) => _lawName(e)).join(' · ')}',
+          style: Theme.of(context).textTheme.bodySmall,
+        ));
+      }
+    } else if (result.mode == 'continuity') {
+      final v = result.variable.isEmpty ? 'x' : result.variable;
+      final a = result.point.isEmpty ? '0' : result.point;
+      final verdict = result.continuous
+          ? l10n.t('Continuous at this point', 'در این نقطه پیوسته است')
+          : _discontinuityName(result.discontinuity);
+      children.add(SectionLabel(l10n.t('Continuity', 'پیوستگی')));
+      children.add(const SizedBox(height: 10));
+      children.add(Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: result.continuous ? c.accentSoft : c.warningSoft,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: (result.continuous ? c.accent : c.warning).withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              result.continuous ? Icons.check_circle_rounded : Icons.info_rounded,
+              size: 19,
+              color: result.continuous ? c.success : c.warning,
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(verdict, style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          ],
+        ),
+      ));
+      children.add(const SizedBox(height: 12));
+      final lines = <ExView>[
+        ExView(
+          plain: 'lim $v -> $a-  f = ${_limitSideText(result.leftValue, result.leftInfinite, result.leftSign)}',
+          pretty: 'lim $v → $a⁻  f($v) = ${_limitSideText(result.leftValue, result.leftInfinite, result.leftSign)}',
+          latex:
+              '\\lim_{$v \\to $a^-} f($v) = ${_limitSideLatex(result.leftValue, result.leftInfinite, result.leftSign)}',
+        ),
+        ExView(
+          plain: 'lim $v -> $a+  f = ${_limitSideText(result.rightValue, result.rightInfinite, result.rightSign)}',
+          pretty: 'lim $v → $a⁺  f($v) = ${_limitSideText(result.rightValue, result.rightInfinite, result.rightSign)}',
+          latex:
+              '\\lim_{$v \\to $a^+} f($v) = ${_limitSideLatex(result.rightValue, result.rightInfinite, result.rightSign)}',
+        ),
+        ExView(
+          plain: 'f($a) = ${result.valueAt?.plain ?? 'undefined'}',
+          pretty: 'f($a) = ${result.valueAt?.pretty ?? l10n.t('undefined', 'تعریف‌نشده')}',
+          latex: 'f($a) = ${result.valueAt?.latex ?? '\\text{undefined}'}',
+        ),
+      ];
+      for (final line in lines) {
+        children.add(Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: MathBlock(math: line, size: 18),
         ));
       }
     } else if (result.mode == 'derivative') {

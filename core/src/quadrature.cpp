@@ -3,7 +3,7 @@
 // Gauss–Kronrod 7/15 rule with adaptive bisection for one variable, and nested
 // quadrature for double / triple integrals (the outer panel is adaptive, the
 // inner panels use the fixed 15-point rule).
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #include "calculus_ext.hpp"
 #include "numeric.hpp"
 

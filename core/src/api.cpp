@@ -1,5 +1,5 @@
 // Infinit Lab — JSON API on top of the native solver.
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #include "odecore.h"
 #include "solver.hpp"
 
@@ -238,6 +238,26 @@ std::string resultJson(const ode::Result& r) {
     o << ",\"functions\":" << strArrayJson(r.functions);
     o << ",\"family\":" << q(r.family);
 
+    // limits and continuity
+    o << ",\"point\":" << q(r.point);
+    o << ",\"side\":" << q(r.side);
+    o << ",\"limit_exists\":" << (r.limitExists ? "true" : "false");
+    o << ",\"limit_infinite\":" << (r.limitInfinite ? "true" : "false");
+    o << ",\"limit_sign\":" << r.limitSign;
+    o << ",\"left_exists\":" << (r.leftExists ? "true" : "false");
+    o << ",\"right_exists\":" << (r.rightExists ? "true" : "false");
+    o << ",\"left_infinite\":" << (r.leftInfinite ? "true" : "false");
+    o << ",\"right_infinite\":" << (r.rightInfinite ? "true" : "false");
+    o << ",\"left_sign\":" << r.leftSign;
+    o << ",\"right_sign\":" << r.rightSign;
+    o << ",\"left_value\":" << exJson(r.leftValue);
+    o << ",\"right_value\":" << exJson(r.rightValue);
+    o << ",\"value_defined\":" << (r.valueDefined ? "true" : "false");
+    o << ",\"value_at\":" << exJson(r.valueAt);
+    o << ",\"continuous\":" << (r.continuous ? "true" : "false");
+    o << ",\"discontinuity\":" << q(r.discontinuity);
+    o << ",\"laws\":" << strArrayJson(r.laws);
+
     // calculus extras
     o << ",\"dimension\":" << r.dimension;
     o << ",\"definite\":" << (r.definite ? "true" : "false");
@@ -313,6 +333,14 @@ ode::Result handle(const std::string& request) {
         if (upper.size() < vars.size()) upper.resize(vars.size(), "1");
         return ode::integrateMulti(req.str("input"), vars, req.boolean("definite", false), lower,
                                    upper, req.str("lang", "en"));
+    }
+    if (mode == "limit") {
+        return ode::limitExpression(req.str("input"), req.str("x", "x"), req.str("point", "0"),
+                                    req.str("side", "both"), req.str("lang", "en"));
+    }
+    if (mode == "continuity") {
+        return ode::continuityExpression(req.str("input"), req.str("x", "x"),
+                                         req.str("point", "0"), req.str("lang", "en"));
     }
     if (mode == "derivative") {
         int order = 1;

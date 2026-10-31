@@ -21,9 +21,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Infinit Lab'), findsOneWidget);
+    expect(find.text('Every equation has a form.'), findsOneWidget);
     expect(find.text('Derivative'), findsOneWidget);
     expect(find.text('Integral'), findsWidgets);
-    expect(find.text('Differential equations'), findsOneWidget);
+    expect(find.text('Forms we recognise'), findsOneWidget);
   });
 
   testWidgets('switches to Persian and back', (tester) async {
@@ -51,9 +52,12 @@ void main() {
     expect(find.text('Modules'), findsOneWidget);
     expect(find.text('Integral'), findsWidgets);
 
-    await tester.tap(find.text('Integral').last);
+    await tester.tap(find.text('Differential & integral'));
     await tester.pumpAndSettle();
-    expect(find.text('Indefinite integral'), findsWidgets);
+    await tester.tap(find.descendant(
+        of: find.byType(Drawer), matching: find.text('Integral')));
+    await tester.pumpAndSettle();
+    expect(find.text('Integrals'), findsOneWidget);
   });
 
   testWidgets('computes an integral from the drawer module', (tester) async {
@@ -65,7 +69,10 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Integral').last);
+    await tester.tap(find.text('Differential & integral'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+        of: find.byType(Drawer), matching: find.text('Integral')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, '2*x*cos(x^2)');
@@ -87,7 +94,10 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Derivative').last);
+    await tester.tap(find.text('Differential & integral'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+        of: find.byType(Drawer), matching: find.text('Derivative')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Compute first derivative'));
@@ -131,6 +141,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+        of: find.byType(Drawer), matching: find.text('Solve an equation')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, "y' = y");

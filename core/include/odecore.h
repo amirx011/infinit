@@ -1,5 +1,5 @@
 // Infinit Lab — C ABI for the exact differential-equation engine.
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #ifndef INFINIT_ODECORE_H
 #define INFINIT_ODECORE_H
 

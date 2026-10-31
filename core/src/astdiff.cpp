@@ -11,7 +11,7 @@
 // Because every rule recurses on the children of the node, the chain rule and
 // the product rule come out of the tree structure itself; no pattern matching
 // on strings is involved.
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #include "calculus_ext.hpp"
 
 #include <algorithm>

@@ -12,18 +12,23 @@ class OdePage extends StatefulWidget {
     required this.engine,
     required this.l10n,
     this.engineError,
+    this.initialEquation,
   });
 
   final NativeEngine? engine;
   final String? engineError;
   final L10n l10n;
 
+  /// Pre-filled equation (used when a form card on the home screen is tapped).
+  final String? initialEquation;
+
   @override
   State<OdePage> createState() => _OdePageState();
 }
 
 class _OdePageState extends State<OdePage> {
-  final _input = TextEditingController(text: "y' = y");
+  late final TextEditingController _input =
+      TextEditingController(text: widget.initialEquation ?? "y' = y");
   final _xv = TextEditingController(text: 'x');
   final _yv = TextEditingController(text: 'y');
   final _particular = TextEditingController();

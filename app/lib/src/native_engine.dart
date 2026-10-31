@@ -170,6 +170,36 @@ class NativeEngine {
         'lang': lang,
       });
 
+  SolveResult limit(
+    String input, {
+    String x = 'x',
+    String point = '0',
+    String side = 'both',
+    String lang = 'en',
+  }) =>
+      solve({
+        'mode': 'limit',
+        'input': input,
+        'x': x,
+        'point': point,
+        'side': side,
+        'lang': lang,
+      });
+
+  SolveResult continuity(
+    String input, {
+    String x = 'x',
+    String point = '0',
+    String lang = 'en',
+  }) =>
+      solve({
+        'mode': 'continuity',
+        'input': input,
+        'x': x,
+        'point': point,
+        'lang': lang,
+      });
+
   SolveResult wronskian(List<String> functions, {String x = 'x', String lang = 'en'}) => solve({
         'mode': 'wronskian',
         'functions': functions,

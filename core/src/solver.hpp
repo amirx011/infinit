@@ -1,5 +1,5 @@
 // Infinit Lab — public solver model
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include "expr.hpp"
 
@@ -55,6 +55,26 @@ struct Result {
     std::vector<std::string> lower;    // bounds (printable)
     std::vector<std::string> upper;
 
+    // limits and continuity
+    std::string point;                 // the point the variable approaches
+    std::string side = "both";         // both / left / right
+    bool limitExists = false;
+    bool limitInfinite = false;        // diverges to +-infinity
+    int limitSign = 1;                 // sign of the divergence
+    bool leftExists = false;
+    bool rightExists = false;
+    bool leftInfinite = false;
+    bool rightInfinite = false;
+    int leftSign = 1;
+    int rightSign = 1;
+    Ex leftValue;                      // finite one-sided values
+    Ex rightValue;
+    bool valueDefined = false;         // f(point) exists
+    Ex valueAt;                        // f(point)
+    bool continuous = false;
+    std::string discontinuity;         // removable / jump / infinite / oscillatory / domain
+    std::vector<std::string> laws;     // limit laws that fired
+
     std::vector<Step> steps;
     std::vector<std::string> assumptions;
     std::vector<std::string> warnings;
@@ -83,6 +103,12 @@ Result integrateExpression(const std::string& input, const std::string& x = "x",
                            const std::string& lang = "en");
 Result derivativeExpression(const std::string& input, const std::string& x = "x", int order = 1,
                             const std::string& lang = "en");
+// Limit of an expression as a variable approaches a point (side: both/left/right).
+Result limitExpression(const std::string& input, const std::string& x, const std::string& point,
+                       const std::string& side = "both", const std::string& lang = "en");
+// Continuity of an expression at a point (one-sided limits + value of the function).
+Result continuityExpression(const std::string& input, const std::string& x,
+                            const std::string& point, const std::string& lang = "en");
 // Multi-dimensional (1..3) and/or definite integration.
 Result integrateMulti(const std::string& input, const std::vector<std::string>& vars,
                       bool definite, const std::vector<std::string>& lower,

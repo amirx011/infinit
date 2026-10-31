@@ -2,10 +2,13 @@
 // (integrals: indefinite, definite, double and triple; derivatives: orders 1–3
 //  and implicit differentiation)
 #include "numeric.hpp"
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #include "calculus_ext.hpp"
+#include "limits.hpp"
 #include "solver.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <map>
@@ -550,6 +553,345 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
     } catch (const std::exception& e) {
         r.ok = false;
         r.error = (en ? std::string("Derivative error: ") : std::string("خطای مشتق‌گیری: ")) + e.what();
+    }
+    return r;
+}
+
+// ------------------------------------------------------ limits & continuity
+
+namespace {
+
+std::string lowerCopy(const std::string& s) {
+    std::string out = s;
+    for (auto& ch : out) ch = (char)std::tolower((unsigned char)ch);
+    return out;
+}
+
+bool looksInfinite(const std::string& text, int* sign) {
+    std::string t = trim(text);
+    t.erase(std::remove_if(t.begin(), t.end(), [](unsigned char c) { return std::isspace(c); }),
+            t.end());
+    int s = 1;
+    if (!t.empty() && (t[0] == '+' )) t.erase(t.begin());
+    else if (!t.empty() && t[0] == '-') { s = -1; t.erase(t.begin()); }
+    const std::string l = lowerCopy(t);
+    if (t == "\xE2\x88\x9E" || l == "inf" || l == "infinity" || l == "oo" || l == "INF") {
+        if (sign) *sign = s;
+        return true;
+    }
+    return false;
+}
+
+Ex parsePoint(const std::string& text) {
+    int sign = 1;
+    if (looksInfinite(text, &sign)) return infinityPoint(sign);
+    return parseExpr(text);
+}
+
+std::string pointText(const Ex& point) {
+    int sign = 1;
+    if (isInfinityPoint(point, &sign)) return sign < 0 ? "-\xE2\x88\x9E" : "\xE2\x88\x9E";
+    return toPlain(point);
+}
+
+std::string outcomeText(const LimitOutcome& l, bool en) {
+    switch (l.kind) {
+        case LimitOutcome::Finite:
+            return l.value ? toPlain(l.value) : fmtReal(l.number);
+        case LimitOutcome::PosInf: return "\xE2\x88\x9E";
+        case LimitOutcome::NegInf: return "-\xE2\x88\x9E";
+        default: return en ? "does not exist" : "وجود ندارد";
+    }
+}
+
+std::string safeText(const Ex& e) { return e ? toPlain(e) : std::string(); }
+
+bool outcomeSame(const LimitOutcome& a, const LimitOutcome& b) {
+    if (a.kind != b.kind) return false;
+    if (a.kind != LimitOutcome::Finite) return true;
+    if (!a.value || !b.value) {
+        if (!a.value && !b.value) return std::fabs(a.number - b.number) <= 1e-9 * std::max(1.0, std::fabs(a.number));
+        return false;
+    }
+    if (safeText(a.value) == safeText(b.value)) return true;
+    try {
+        return numericallyEqual(a.value, b.value, {}, 6, 1e-9);
+    } catch (...) {
+        return false;
+    }
+}
+
+const char* lawEn(const std::string& id) {
+    if (id == "constant") return "constant law";
+    if (id == "identity") return "identity law";
+    if (id == "sum") return "sum law";
+    if (id == "product") return "product law";
+    if (id == "quotient") return "quotient law";
+    if (id == "power") return "power law";
+    if (id == "composite") return "composition (continuity)";
+    if (id == "lhopital") return "L'H\u00f4pital's rule";
+    if (id == "algebraic_simplification") return "algebraic simplification";
+    if (id == "exponential_rewrite") return "exponential rewrite";
+    if (id == "two_sided") return "two-sided comparison";
+    return "limit law";
+}
+
+const char* lawFa(const std::string& id) {
+    if (id == "constant") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062b\u0627\u0628\u062a";
+    if (id == "identity") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u0645\u062a\u063a\u06cc\u0631";
+    if (id == "sum") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062c\u0645\u0639";
+    if (id == "product") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u0636\u0631\u0628";
+    if (id == "quotient") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062e\u0627\u0631\u062c\u200c\u0642\u0633\u0645\u062a";
+    if (id == "power") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062a\u0648\u0627\u0646";
+    if (id == "composite") return "\u062a\u0631\u06a9\u06cc\u0628 (\u067e\u06cc\u0648\u0633\u062a\u06af\u06cc)";
+    if (id == "lhopital") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u0647\u0648\u067e\u06cc\u062a\u0627\u0644";
+    if (id == "algebraic_simplification") return "\u0633\u0627\u062f\u0647\u200c\u0633\u0627\u0632\u06cc \u062c\u0628\u0631\u06cc";
+    if (id == "exponential_rewrite") return "\u0628\u0627\u0632\u0646\u0648\u06cc\u0633\u06cc \u0646\u0645\u0627\u06cc\u06cc";
+    if (id == "two_sided") return "\u0645\u0642\u0627\u06cc\u0633\u0647\u0654 \u062f\u0648\u0637\u0631\u0641\u0647";
+    return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062d\u062f";
+}
+
+std::string lawsText(const std::vector<std::string>& laws, bool en) {
+    std::string out;
+    for (const auto& l : laws) {
+        if (!out.empty()) out += en ? ", " : "\u060c ";
+        out += en ? lawEn(l) : lawFa(l);
+    }
+    return out;
+}
+
+void publish(Result& r, const LimitOutcome& l) {
+    r.limitExists = l.kind != LimitOutcome::Undefined;
+    r.limitInfinite = l.kind == LimitOutcome::PosInf || l.kind == LimitOutcome::NegInf;
+    r.limitSign = l.kind == LimitOutcome::NegInf ? -1 : 1;
+    if (l.kind == LimitOutcome::Finite) {
+        if (l.value) {
+            r.solution = l.value;
+            r.explicitY = l.value;
+            r.isExplicit = true;
+            r.closedForm = true;
+        } else {
+            r.closedForm = false;
+        }
+        if (l.numeric) {
+            r.hasNumeric = true;
+            r.numericValue = l.number;
+        }
+    }
+}
+
+std::string sideText(const std::string& side, bool en) {
+    if (side == "left") return en ? "from the left" : "\u0627\u0632 \u0633\u0645\u062a \u0686\u067e";
+    if (side == "right") return en ? "from the right" : "\u0627\u0632 \u0633\u0645\u062a \u0631\u0627\u0633\u062a";
+    return en ? "two-sided" : "\u062f\u0648\u0637\u0631\u0641\u0647";
+}
+
+} // namespace
+
+Result limitExpression(const std::string& input, const std::string& x, const std::string& point,
+                       const std::string& side, const std::string& lang) {
+    const bool en = lang != "fa";
+    Result r;
+    r.mode = "limit";
+    r.typeId = "limit";
+    r.engine = "native";
+    r.variable = x;
+    r.point = point;
+    r.side = side == "left" || side == "right" ? side : "both";
+    r.typeFa = r.side == "left" ? "\u062d\u062f \u0627\u0632 \u0686\u067e"
+               : r.side == "right" ? "\u062d\u062f \u0627\u0632 \u0631\u0627\u0633\u062a"
+                                   : "\u062d\u062f";
+    try {
+        Ex f = parseExpr(input);
+        Ex a = parsePoint(point);
+        r.normalized = f;
+        r.vars = {x};
+        r.point = pointText(a);
+
+        std::vector<std::string> laws;
+        const int dir = r.side == "left" ? -1 : (r.side == "right" ? 1 : 0);
+        LimitOutcome L = limitOf(f, x, a, dir, &laws);
+        publish(r, L);
+        r.laws = laws;
+
+        r.steps.push_back({en ? "Expression" : "\u0639\u0628\u0627\u0631\u062a", f,
+                           en ? "The expression whose limit is computed."
+                              : "\u0639\u0628\u0627\u0631\u062a\u06cc \u06a9\u0647 \u062d\u062f \u0622\u0646 \u0645\u062d\u0627\u0633\u0628\u0647 \u0645\u06cc\u200c\u0634\u0648\u062f."});
+        r.steps.push_back(
+            {en ? "Approach" : "\u0646\u0632\u062f\u06cc\u06a9\u200c\u0634\u062f\u0646", nullptr,
+             x + " \u2192 " + pointText(a) + "  (" + sideText(r.side, en) + ")"});
+
+        if (r.side == "both" && !isInfinityPoint(a)) {
+            LimitOutcome left = limitOf(f, x, a, -1, nullptr);
+            LimitOutcome right = limitOf(f, x, a, 1, nullptr);
+            r.leftExists = left.kind == LimitOutcome::Finite;
+            r.rightExists = right.kind == LimitOutcome::Finite;
+            r.leftInfinite = left.kind == LimitOutcome::PosInf || left.kind == LimitOutcome::NegInf;
+            r.rightInfinite = right.kind == LimitOutcome::PosInf || right.kind == LimitOutcome::NegInf;
+            r.leftSign = left.kind == LimitOutcome::NegInf ? -1 : 1;
+            r.rightSign = right.kind == LimitOutcome::NegInf ? -1 : 1;
+            if (left.kind == LimitOutcome::Finite) r.leftValue = left.value;
+            if (right.kind == LimitOutcome::Finite) r.rightValue = right.value;
+            r.steps.push_back({en ? "Left limit" : "\u062d\u062f \u0686\u067e", left.value,
+                               outcomeText(left, en)});
+            r.steps.push_back({en ? "Right limit" : "\u062d\u062f \u0631\u0627\u0633\u062a", right.value,
+                               outcomeText(right, en)});
+            const bool agree = outcomeSame(left, right);
+            r.checks.push_back(
+                {en ? "One-sided limits agree" : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0645\u0648\u0627\u0641\u0642\u0646\u062f", agree,
+                 agree ? (en ? "The two one-sided limits are equal." : "\u062f\u0648 \u062d\u062f \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0628\u0631\u0627\u0628\u0631\u0646\u062f.")
+                       : (en ? "The one-sided limits differ, so the two-sided limit does not exist."
+                             : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0645\u062a\u0641\u0627\u0648\u062a\u0646\u062f\u061b \u067e\u0633 \u062d\u062f \u062f\u0648\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f.")});
+        }
+
+        if (!laws.empty())
+            r.steps.push_back({en ? "Limit laws applied" : "\u0642\u0648\u0627\u0646\u06cc\u0646 \u062d\u062f \u0628\u0647\u200c\u06a9\u0627\u0631\u0631\u0641\u062a\u0647", nullptr,
+                               lawsText(laws, en)});
+
+        if (L.kind == LimitOutcome::Finite) {
+            r.steps.push_back({en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", L.value,
+                               outcomeText(L, en)});
+            if (L.numeric) {
+                r.warnings.push_back(
+                    en ? "This value was established numerically; no closed form was found."
+                       : "\u0627\u06cc\u0646 \u0645\u0642\u062f\u0627\u0631 \u0628\u0647\u200c\u0635\u0648\u0631\u062a \u0639\u062f\u062f\u06cc \u0628\u0647\u200c\u062f\u0633\u062a \u0622\u0645\u062f\u0647 \u0627\u0633\u062a\u061b \u0641\u0631\u0645 \u0628\u0633\u062a\u0647\u200c\u0627\u06cc \u067e\u06cc\u062f\u0627 \u0646\u0634\u062f.");
+            }
+        } else if (L.kind == LimitOutcome::Undefined) {
+            r.steps.push_back(
+                {en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
+                 (en ? "The limit does not exist: " : "\u062d\u062f \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f: ") +
+                     L.reason});
+        } else {
+            r.steps.push_back({en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
+                               (en ? "The expression diverges to " : "\u0639\u0628\u0627\u0631\u062a \u0628\u0647 ") +
+                                   outcomeText(L, en)});
+        }
+        r.ok = true;
+    } catch (const std::exception& e) {
+        r.ok = false;
+        r.error = (en ? std::string("Limit error: ") : std::string("\u062e\u0637\u0627\u06cc \u062d\u062f: ")) +
+                  e.what();
+    }
+    return r;
+}
+
+Result continuityExpression(const std::string& input, const std::string& x,
+                            const std::string& point, const std::string& lang) {
+    const bool en = lang != "fa";
+    Result r;
+    r.mode = "continuity";
+    r.typeId = "continuity";
+    r.engine = "native";
+    r.variable = x;
+    r.point = point;
+    r.side = "both";
+    r.typeFa = "\u067e\u06cc\u0648\u0633\u062a\u06af\u06cc";
+    try {
+        Ex f = parseExpr(input);
+        Ex a = parsePoint(point);
+        if (isInfinityPoint(a))
+            throw std::runtime_error(en ? "continuity needs a finite point"
+                                        : "\u067e\u06cc\u0648\u0633\u062a\u06af\u06cc \u062f\u0631 \u0646\u0642\u0637\u0647\u0654 \u0645\u062a\u0646\u0627\u0647\u06cc \u0645\u0639\u0646\u0627 \u0646\u062f\u0627\u0631\u062f");
+        r.normalized = f;
+        r.vars = {x};
+        r.point = pointText(a);
+
+        std::vector<std::string> laws;
+        ContinuityOutcome c = continuityOf(f, x, a, &laws);
+        r.laws = laws;
+
+        r.leftExists = c.left.kind == LimitOutcome::Finite;
+        r.rightExists = c.right.kind == LimitOutcome::Finite;
+        r.leftInfinite = c.left.kind == LimitOutcome::PosInf || c.left.kind == LimitOutcome::NegInf;
+        r.rightInfinite = c.right.kind == LimitOutcome::PosInf || c.right.kind == LimitOutcome::NegInf;
+        r.leftSign = c.left.kind == LimitOutcome::NegInf ? -1 : 1;
+        r.rightSign = c.right.kind == LimitOutcome::NegInf ? -1 : 1;
+        if (c.left.kind == LimitOutcome::Finite) r.leftValue = c.left.value;
+        if (c.right.kind == LimitOutcome::Finite) r.rightValue = c.right.value;
+        r.valueDefined = c.valueDefined;
+        r.valueAt = c.value;
+        r.continuous = c.continuous;
+        r.discontinuity = c.kind;
+        r.limitExists = c.left.kind == LimitOutcome::Finite && c.right.kind == LimitOutcome::Finite &&
+                        r.continuous;
+        r.limitSign = c.left.kind == LimitOutcome::NegInf ? -1 : 1;
+        if (r.continuous && c.value) {
+            r.solution = c.value;
+            r.explicitY = c.value;
+            r.isExplicit = true;
+            r.closedForm = true;
+        } else if (!c.valueDefined) {
+            r.closedForm = false;
+        }
+
+        r.steps.push_back({en ? "Function" : "\u062a\u0627\u0628\u0639", f,
+                           en ? "Continuity is tested at a single point."
+                              : "\u067e\u06cc\u0648\u0633\u062a\u06af\u06cc \u062f\u0631 \u06cc\u06a9 \u0646\u0642\u0637\u0647 \u0628\u0631\u0631\u0633\u06cc \u0645\u06cc\u200c\u0634\u0648\u062f."});
+        r.steps.push_back({en ? "Point" : "\u0646\u0642\u0637\u0647", a, x + " = " + pointText(a)});
+        r.steps.push_back({en ? "Left limit" : "\u062d\u062f \u0686\u067e", c.left.value,
+                           outcomeText(c.left, en)});
+        r.steps.push_back({en ? "Right limit" : "\u062d\u062f \u0631\u0627\u0633\u062a", c.right.value,
+                           outcomeText(c.right, en)});
+        r.steps.push_back(
+            {en ? "Value of the function" : "\u0645\u0642\u062f\u0627\u0631 \u062a\u0627\u0628\u0639", c.value,
+             c.valueDefined ? safeText(c.value)
+                            : (en ? "not defined at this point" : "\u062f\u0631 \u0627\u06cc\u0646 \u0646\u0642\u0637\u0647 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647")});
+
+        // The four conditions the definition of continuity requires.
+        const bool sameLimits = r.leftExists && r.rightExists && outcomeSame(c.left, c.right);
+        auto valueEqualsLimit = [&](const Ex& v, const LimitOutcome& l) {
+            if (!v || l.kind != LimitOutcome::Finite) return false;
+            if (!l.value) {
+                bool ok = false;
+                const double d = evalReal(v, {}, &ok);
+                return ok && std::fabs(d - l.number) <=
+                                 1e-9 * std::max(1.0, std::fabs(l.number));
+            }
+            if (safeText(v) == safeText(l.value)) return true;
+            try {
+                return numericallyEqual(v, l.value, {}, 6, 1e-9);
+            } catch (...) {
+                return false;
+            }
+        };
+        const bool sameValue = sameLimits && r.valueDefined && valueEqualsLimit(c.value, c.left);
+        r.checks.push_back({en ? "Left limit exists" : "\u062d\u062f \u0686\u067e \u0645\u0648\u062c\u0648\u062f \u0627\u0633\u062a", r.leftExists,
+                            outcomeText(c.left, en)});
+        r.checks.push_back({en ? "Right limit exists" : "\u062d\u062f \u0631\u0627\u0633\u062a \u0645\u0648\u062c\u0648\u062f \u0627\u0633\u062a", r.rightExists,
+                            outcomeText(c.right, en)});
+        r.checks.push_back({en ? "Left limit = right limit" : "\u062d\u062f \u0686\u067e = \u062d\u062f \u0631\u0627\u0633\u062a", sameLimits,
+                            sameLimits ? (en ? "The one-sided limits agree." : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0628\u0631\u0627\u0628\u0631\u0646\u062f.")
+                                       : (en ? "They differ or one of them does not exist."
+                                             : "\u0645\u062a\u0641\u0627\u0648\u062a\u0646\u062f \u06cc\u0627 \u06cc\u06a9\u06cc \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f.")});
+        r.checks.push_back({en ? "Value at the point is defined" : "\u0645\u0642\u062f\u0627\u0631 \u062f\u0631 \u0646\u0642\u0637\u0647 \u062a\u0639\u0631\u06cc\u0641 \u0634\u062f\u0647 \u0627\u0633\u062a", r.valueDefined,
+                            r.valueDefined ? safeText(c.value)
+                                           : (en ? "f is not defined there." : "\u062a\u0627\u0628\u0639 \u0622\u0646\u062c\u0627 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a.")});
+        r.checks.push_back({en ? "Value equals the limit" : "\u0645\u0642\u062f\u0627\u0631 = \u062d\u062f", sameValue,
+                            sameValue ? (en ? "f(a) equals the common limit." : "f(a) \u0628\u0631\u0627\u0628\u0631 \u062d\u062f \u0645\u0634\u062a\u0631\u06a9 \u0627\u0633\u062a.")
+                                      : (en ? "f(a) is different from the limit." : "f(a) \u0628\u0627 \u062d\u062f \u0641\u0631\u0642 \u062f\u0627\u0631\u062f.")});
+
+        std::string verdict;
+        if (r.continuous) {
+            verdict = en ? "Continuous at this point." : "\u062f\u0631 \u0627\u06cc\u0646 \u0646\u0642\u0637\u0647 \u067e\u06cc\u0648\u0633\u062a\u0647 \u0627\u0633\u062a.";
+        } else if (c.kind == "removable") {
+            verdict = en ? "Removable discontinuity." : "\u0627\u0646\u0642\u0637\u0627\u0639 \u0631\u0641\u0639\u200c\u0634\u062f\u0646\u06cc.";
+        } else if (c.kind == "jump") {
+            verdict = en ? "Jump discontinuity." : "\u0627\u0646\u0642\u0637\u0627\u0639 \u062c\u0647\u0634\u06cc.";
+        } else if (c.kind == "infinite") {
+            verdict = en ? "Infinite discontinuity (vertical asymptote)."
+                         : "\u0627\u0646\u0642\u0637\u0627\u0639 \u0646\u0627\u0645\u062a\u0646\u0627\u0647\u06cc (\u0645\u062c\u0627\u0633\u0645 \u0639\u0645\u0648\u062f\u06cc).";
+        } else {
+            verdict = en ? "The limit does not exist, so the function is not continuous here."
+                         : "\u062d\u062f \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f\u060c \u067e\u0633 \u062a\u0627\u0628\u0639 \u0627\u06cc\u0646\u062c\u0627 \u067e\u06cc\u0648\u0633\u062a\u0647 \u0646\u06cc\u0633\u062a.";
+        }
+        r.steps.push_back({en ? "Conclusion" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
+                           verdict + " " + c.note});
+        r.ok = true;
+    } catch (const std::exception& e) {
+        r.ok = false;
+        r.error = (en ? std::string("Continuity error: ")
+                      : std::string("\u062e\u0637\u0627\u06cc \u067e\u06cc\u0648\u0633\u062a\u06af\u06cc: ")) +
+                  e.what();
     }
     return r;
 }

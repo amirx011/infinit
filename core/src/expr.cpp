@@ -1,5 +1,5 @@
 // Infinit Lab — expression constructors, canonical form, ordering, printing
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #include "expr.hpp"
 #include <sstream>
 #include <cassert>
@@ -378,9 +378,8 @@ static bool exactTrig(const std::string& fn, const Rational& k0, Rational& out) 
     // use symmetry: sin(k*pi)
     auto sinVal = [](const Rational& t, Rational& v) -> bool {
         // t in [0,2)
-        if (t.n == 0) { v = 0; return true; }
-        if (t.n == 2 * t.d) { v = 0; return true; }
-        if (t.n == t.d / 2 || (t.d == 2 && t.n == 1)) { v = 1; return true; }
+        if (t.n == 0 || t.n == t.d || t.n == 2 * t.d) { v = 0; return true; }
+        if (2 * t.n == t.d) { v = 1; return true; }
         if (t.d == 6) {
             if (t.n == 1) { v = Rational(1, 2); return true; }
             if (t.n == 5) { v = Rational(1, 2); return true; }
@@ -409,12 +408,15 @@ static bool exactTrig(const std::string& fn, const Rational& k0, Rational& out) 
         return false;
     }
     if (fn == "cos") {
-        Rational kk = Rational(k.n + k.d, k.d); // cos(k) = sin(k + pi/2)
+        Rational kk = Rational(2 * k.n + k.d, 2 * k.d); // cos(k*pi) = sin((k + 1/2)*pi)
         Rational s;
         if (exactTrig("sin", kk, s)) { out = s; return true; }
         return false;
     }
     if (fn == "tan") {
+        // tan(pi/4) and tan(3pi/4) = -+1 are exact even though sin and cos are not rational.
+        if (k.d == 4 && (k.n == 1 || k.n == 5)) { out = 1; return true; }
+        if (k.d == 4 && (k.n == 3 || k.n == 7)) { out = -1; return true; }
         Rational s, c;
         if (exactTrig("sin", k, s) && exactTrig("cos", k, c) && !c.isZero()) { out = s / c; return true; }
         return false;

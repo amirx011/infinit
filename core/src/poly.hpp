@@ -1,5 +1,5 @@
 // Infinit Lab — univariate polynomials over Q, factoring, partial fractions
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include "expr.hpp"
 

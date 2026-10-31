@@ -19,6 +19,7 @@ set(ODE_SOURCES
     src/numeric.c
     src/api.cpp
     src/calculus_api.cpp
+    src/limits.cpp
 )
 
 option(ODE_BUILD_TESTS "Build native test executables" ON)
