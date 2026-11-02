@@ -80,6 +80,14 @@ struct Result {
     std::vector<std::string> warnings;
     std::vector<Check> checks;
     bool closedForm = true;
+    // True when every reported check passed.  `ok` says the solver produced an
+    // answer; `verified` says the answer survived independent verification.
+    bool verified = true;
+    // Definite integrals: the integrand is singular or a bound is infinite.
+    bool improper = false;
+    // The requested quantity does not exist (divergent integral / limit).
+    bool divergent = false;
+    std::vector<std::string> singularities;
     long long timeMs = 0;
 };
 
@@ -113,6 +121,12 @@ Result continuityExpression(const std::string& input, const std::string& x,
 Result integrateMulti(const std::string& input, const std::vector<std::string>& vars,
                       bool definite, const std::vector<std::string>& lower,
                       const std::vector<std::string>& upper, const std::string& lang = "en");
+
+// Verify an explicit candidate against F(x, y, y′, …) = 0.  Derivative nodes
+// are replaced by the derivatives of `yExpr`; the check is appended to
+// `r.checks` unless one is already present.  Exposed for the solver tests.
+void verifyExplicit(Result& r, const Ex& F, const Ex& yExpr, const std::string& x,
+                    const std::string& y, bool en = true);
 
 // helpers shared with the API
 Ex parseODE(const std::string& input, const std::string& x, std::string* dep);

@@ -54,6 +54,25 @@ int main() {
     check("int 1/tan(x)", toPlain(simplify(integrate(parseExpr("1/tan(x)"), "x"))), "ln(abs(sin(x)))");
     check("cancel sign", toPlain(simplify(parseExpr("(y-x)/(x*(x-y))"))), "-1/x");
     check("cancel content", toPlain(simplify(parseExpr("(2-2*x*y)/(x^2*y-x)"))), "-2/x");
+    {
+        // Extracting the content of a powered factor must raise it to the
+        // same power: 1/(-x/3 + C/x^2)^2 = 9/(x - 3C/x^2)^2.
+        Ex s = simplify(parseExpr("(2*C/x^3 + 1/3)/(-1/3*x + C/x^2)^2"));
+        Ex v = simplify(substitute(substitute(s, "C", Num(1)), "x", Num(2)));
+        check("cancel content power", toPlain(v), "84/25");
+    }
+    // parsing edge cases
+    check("scientific notation", toPlain(parseExpr("1e-3")), "1/1000");
+    check("scientific notation uppercase", toPlain(parseExpr("2E5")), "200000");
+    check("nested absolute value", toPlain(parseExpr("||x|-1|")), "abs(abs(x) - 1)");
+    {
+        bool threw = false;
+        try { parseExpr(std::string(1200, '1')); } catch (const std::exception&) { threw = true; }
+        check("over-long input rejected", threw ? "yes" : "no", "yes");
+        threw = false;
+        try { parseExpr("1.2345678901234567890123"); } catch (const std::exception&) { threw = true; }
+        check("over-long decimal rejected", threw ? "yes" : "no", "yes");
+    }
     check("exp product", toPlain(simplify(parseExpr("exp(x)*exp(2*x)"))), "exp(3*x)");
     check("sqrt(8)", toPlain(simplify(parseExpr("sqrt(8)"))), "2*sqrt(2)");
     check("sqrt(1/2)", toPlain(simplify(parseExpr("sqrt(1/2)"))), "1/2*sqrt(2)");

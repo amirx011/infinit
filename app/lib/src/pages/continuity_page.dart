@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../charts.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
@@ -33,6 +34,9 @@ class _ContinuityPageState extends State<ContinuityPage> {
   SolveResult? _result;
   String? _error;
   bool _busy = false;
+  String? _plottedExpr;
+  String _plottedVar = 'x';
+  String _plottedPoint = '0';
 
   static const _examples = <(String, String)>[
     ('x^2', '2'),
@@ -62,12 +66,33 @@ class _ContinuityPageState extends State<ContinuityPage> {
     super.dispose();
   }
 
-  void _compute() {
+  double? get _guideX {
+    final raw = _plottedPoint
+        .replaceAll('−', '-')
+        .replaceAll(' ', '')
+        .toLowerCase();
+    if (raw == 'inf' || raw == '+inf' || raw == 'infinity') return null;
+    return double.tryParse(raw);
+  }
+
+  (double, double) get _plotWindow {
+    final x = _guideX;
+    if (x == null) return (-8, 8);
+    return (x - 3, x + 3);
+  }
+
+  Future<void> _compute() async {
     final engine = widget.engine;
     final l = widget.l10n;
     if (engine == null) {
-      setState(() => _error = widget.engineError ??
-          l.t('The computation engine is unavailable.', 'موتور محاسبات در دسترس نیست.'));
+      setState(
+        () => _error =
+            widget.engineError ??
+            l.t(
+              'The computation engine is unavailable.',
+              'موتور محاسبات در دسترس نیست.',
+            ),
+      );
       return;
     }
     final text = _input.text.trim();
@@ -75,15 +100,20 @@ class _ContinuityPageState extends State<ContinuityPage> {
       setState(() => _error = l.t('Enter a function.', 'یک تابع وارد کنید.'));
       return;
     }
+    final variable = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
+    final point = _point.text.trim().isEmpty ? '0' : _point.text.trim();
     setState(() {
       _busy = true;
       _error = null;
+      _plottedExpr = text;
+      _plottedVar = variable;
+      _plottedPoint = point;
     });
     try {
-      final r = engine.continuity(
+      final r = await engine.continuityAsync(
         text,
-        x: _xv.text.trim().isEmpty ? 'x' : _xv.text.trim(),
-        point: _point.text.trim().isEmpty ? '0' : _point.text.trim(),
+        x: variable,
+        point: point,
         lang: l.isFa ? 'fa' : 'en',
       );
       if (!mounted) return;
@@ -113,6 +143,7 @@ class _ContinuityPageState extends State<ContinuityPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PageTitle(
+                tone: c.accentAlt,
                 icon: Icons.timeline_rounded,
                 title: l.t('Continuity', 'پیوستگی'),
                 subtitle: l.t(
@@ -133,7 +164,11 @@ class _ContinuityPageState extends State<ContinuityPage> {
                 ),
                 decoration: InputDecoration(
                   hintText: l.t('e.g. (x^2-4)/(x-2)', 'مثلاً (x^2-4)/(x-2)'),
-                  prefixIcon: Icon(Icons.edit_outlined, size: 20, color: c.muted),
+                  prefixIcon: Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: c.muted,
+                  ),
                 ),
                 onSubmitted: (_) => _compute(),
               ),
@@ -146,7 +181,10 @@ class _ContinuityPageState extends State<ContinuityPage> {
                       controller: _xv,
                       textDirection: TextDirection.ltr,
                       textAlign: TextAlign.left,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 14,
+                      ),
                       decoration: InputDecoration(
                         labelText: l.t('Variable', 'متغیر'),
                         isDense: true,
@@ -159,7 +197,10 @@ class _ContinuityPageState extends State<ContinuityPage> {
                       controller: _point,
                       textDirection: TextDirection.ltr,
                       textAlign: TextAlign.left,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 14,
+                      ),
                       decoration: InputDecoration(
                         labelText: l.t('Point', 'نقطه'),
                         hintText: '0, 1, pi/2',
@@ -171,8 +212,10 @@ class _ContinuityPageState extends State<ContinuityPage> {
                 ],
               ),
               const SizedBox(height: 14),
-              Text(l.t('Examples', 'نمونه‌ها'),
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                l.t('Examples', 'نمونه‌ها'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 7,
@@ -196,14 +239,52 @@ class _ContinuityPageState extends State<ContinuityPage> {
                     ? const SizedBox(
                         width: 17,
                         height: 17,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.timeline_rounded, size: 19),
-                label: Text(_busy
-                    ? l.t('Checking…', 'در حال بررسی…')
-                    : l.t('Check continuity', 'بررسی پیوستگی')),
+                label: Text(
+                  _busy
+                      ? l.t('Checking…', 'در حال بررسی…')
+                      : l.t('Check continuity', 'بررسی پیوستگی'),
+                ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        LearningCard(
+          l10n: l,
+          title: l.t('Three conditions for continuity', 'سه شرط پیوستگی'),
+          idea: l.t(
+            'A function is continuous at a point when it is defined there, its two-sided limit exists, and that limit equals the function value. All three must hold together.',
+            'تابع در یک نقطه پیوسته است وقتی آنجا تعریف شده باشد، حد دوطرفه وجود داشته باشد و آن حد با مقدار تابع برابر باشد. هر سه شرط باید هم‌زمان برقرار باشند.',
+          ),
+          points: [
+            l.t(
+              'Compute the left and right limits independently; equality is what makes the two-sided limit exist.',
+              'حد چپ و راست را جدا حساب کنید؛ برابری آن‌ها وجود حد دوطرفه را می‌سازد.',
+            ),
+            l.t(
+              'A removable gap can be repaired by redefining one point; a jump or an infinite break cannot.',
+              'شکاف رفع‌شدنی با بازتعریف یک نقطه درست می‌شود؛ پرش یا انقطاع نامتناهی نه.',
+            ),
+          ],
+          example: const ExView(
+            plain: 'f(x) = (x^2-4)/(x-2)  has a removable gap at x = 2',
+            pretty: 'f(x) = (x² − 4)/(x − 2)  ⇒  gap at x = 2',
+            latex:
+                r'f(x)=\frac{x^{2}-4}{x-2}\ \text{has a removable gap at }x=2',
+          ),
+          exampleCaption: l.t(
+            'The limit is 4, but f(2) is undefined, so the function is not continuous at 2 until the point is filled in.',
+            'حد برابر ۴ است اما f(2) تعریف نشده؛ پس تابع در ۲ پیوسته نیست تا وقتی این نقطه پر شود.',
+          ),
+          pitfall: l.t(
+            'An existing limit is not enough: the value f(a) must also be defined and match it.',
+            'وجود حد کافی نیست: مقدار f(a) هم باید تعریف شده و برابر آن باشد.',
           ),
         ),
         if (_error != null) ...[
@@ -218,16 +299,43 @@ class _ContinuityPageState extends State<ContinuityPage> {
                 Icon(Icons.error_outline_rounded, color: c.warning, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: SelectableText(_error!,
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  child: SelectableText(
+                    _error!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ),
               ],
             ),
           ),
         ],
+        if (_result != null && _plottedExpr != null) ...[
+          const SizedBox(height: 16),
+          CurvePlot(
+            engine: widget.engine,
+            expression: _plottedExpr!,
+            variable: _plottedVar,
+            l10n: l,
+            xmin: _plotWindow.$1,
+            xmax: _plotWindow.$2,
+            height: 270,
+            color: c.accent,
+            title: l.t(
+              'Around $_plottedVar = $_plottedPoint',
+              'حول $_plottedVar = $_plottedPoint',
+            ),
+            caption: l.t(
+              'Continuity is a visual agreement: the curve must arrive at the same height from both sides and meet the printed value.',
+              'پیوستگی یعنی توافق دیداری: منحنی باید از دو طرف به یک ارتفاع برسد و همان مقدار تعریف‌شده را قطع کند.',
+            ),
+            guides: [?_guideX],
+          ),
+        ],
         if (_result != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: _result!, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: _result!, l10n: l),
+          ),
         ],
       ],
     );

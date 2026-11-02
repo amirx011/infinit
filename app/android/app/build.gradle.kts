@@ -67,3 +67,65 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// ---------------------------------------------------------------------------
+// Native engine (libodecore.so)
+//
+// Flutter only packages the shared libraries that already sit in jniLibs, so a
+// plain `flutter build apk` used to produce an APK without the exact-arithmetic
+// core — the app then reported "native engine unavailable" at runtime.  This
+// task cross-compiles the C++ core with the NDK before every build and stages
+// it for the ABIs below, so the APK is always self-contained.
+//
+//   skip it:            -Pinfinit.skipCore=true
+//   limit the ABIs:     INFINIT_ANDROID_ABIS=arm64-v8a,x86_64
+// ---------------------------------------------------------------------------
+val odeCoreAbis: String =
+    System.getenv("INFINIT_ANDROID_ABIS") ?: "arm64-v8a,armeabi-v7a,x86_64"
+val skipOdeCore: Boolean = (project.findProperty("infinit.skipCore") as String?) == "true"
+
+val buildOdeCoreAndroid by tasks.registering {
+    group = "build"
+    description = "Cross-compiles libodecore.so for Android and stages it in jniLibs."
+
+    val script = rootProject.file("../../scripts/build_android.sh")
+    val coreDir = rootProject.file("../../core")
+    val jniDir = file("src/main/jniLibs")
+
+    inputs.files(script)
+    inputs.files(fileTree(coreDir) {
+        include("CMakeLists.txt", "include/**", "src/**")
+    })
+    inputs.property("abis", odeCoreAbis)
+    outputs.dir(jniDir)
+
+    doLast {
+        if (skipOdeCore) {
+            logger.lifecycle("libodecore: skipped (-Pinfinit.skipCore=true)")
+            return@doLast
+        }
+        if (!script.exists()) {
+            throw GradleException("Missing build script: ${script.absolutePath}")
+        }
+        logger.lifecycle("libodecore: building for $odeCoreAbis")
+        val process = ProcessBuilder("bash", script.absolutePath, "--core-only")
+            .directory(rootProject.projectDir)
+            .redirectErrorStream(true)
+            .also { it.environment()["ABIS"] = odeCoreAbis.replace(',', ' ') }
+            .start()
+        process.inputStream.bufferedReader().useLines { lines ->
+            lines.forEach { logger.lifecycle("  $it") }
+        }
+        val code = process.waitFor()
+        if (code != 0) {
+            throw GradleException(
+                "libodecore.so could not be built for Android (exit code $code).\n" +
+                    "Install the NDK and the host cmake/ninja, or run " +
+                    "scripts/build_android.sh manually.",
+            )
+        }
+    }
+}
+
+tasks.named("preBuild").configure { dependsOn(buildOdeCoreAndroid) }
+

@@ -507,6 +507,7 @@ LimitOutcome powLimit(const Ex& base, const Ex& exp, const std::string& v, const
 bool isContinuousFn(const std::string& name) {
     return name == "sin" || name == "cos" || name == "exp" || name == "atan" || name == "asin" ||
            name == "acos" || name == "sinh" || name == "cosh" || name == "tanh" ||
+           name == "asinh" || name == "acosh" ||
            name == "sqrt" || name == "ln" || name == "abs" || name == "log" ||
            name == "sec" || name == "csc" || name == "cot" || name == "tan";
 }
@@ -540,11 +541,36 @@ LimitOutcome funcLimit(const Ex& e, const std::string& v, const Ex& a, int dir,
             addRule(rules, "composite");
             return mkInf(1, "absolute value of an infinite argument");
         }
+        if (name == "sinh") {
+            addRule(rules, "composite");
+            const int sign = A.kind == LimitOutcome::PosInf ? 1 : -1;
+            return mkInf(sign, "hyperbolic sine of an infinite argument");
+        }
+        if (name == "cosh") {
+            addRule(rules, "composite");
+            return mkInf(1, "hyperbolic cosine of an infinite argument");
+        }
+        if (name == "asinh") {
+            addRule(rules, "composite");
+            const int sign = A.kind == LimitOutcome::PosInf ? 1 : -1;
+            return mkInf(sign, "inverse hyperbolic sine of an infinite argument");
+        }
+        if (name == "acosh") {
+            addRule(rules, "composite");
+            return A.kind == LimitOutcome::PosInf ? mkInf(1, "inverse hyperbolic cosine of +infinity")
+                                                  : mkUndef("inverse hyperbolic cosine is undefined below 1");
+        }
         if (name == "sin" || name == "cos" || name == "tan" || name == "tanh" || name == "atan") {
-            if (name == "tanh" || name == "atan") {
+            if (name == "tanh") {
                 addRule(rules, "composite");
                 const int sign = A.kind == LimitOutcome::PosInf ? 1 : -1;
                 return mkFinite(Num(sign));
+            }
+            if (name == "atan") {
+                // arctan(+inf) = pi/2 and arctan(-inf) = -pi/2 (not +-1).
+                addRule(rules, "composite");
+                const int sign = A.kind == LimitOutcome::PosInf ? 1 : -1;
+                return mkFinite(Mul(Num(Rational(sign, 2)), Sym("pi")));
             }
             return mkUndef("the trigonometric argument grows without bound");
         }
@@ -557,6 +583,12 @@ LimitOutcome funcLimit(const Ex& e, const std::string& v, const Ex& a, int dir,
             Ex inner = A.value;
             if ((name == "ln" || name == "log") && isZero(inner)) {
                 // ln(u) with u -> 0
+                if (e->args[0]->isFunc("abs")) {
+                    // ln|u| -> -inf from both sides; the absolute value makes
+                    // the logarithm defined on a punctured neighbourhood.
+                    addRule(rules, "composite");
+                    return mkInf(-1, "logarithm of an absolute value tending to zero");
+                }
                 if (dir > 0) {
                     addRule(rules, "composite");
                     return mkInf(-1, "logarithm tends to zero from the right");
@@ -758,10 +790,7 @@ LimitOutcome limitUndirected(const Ex& f, const std::string& v, const Ex& a, int
 }
 
 bool limitEqual(const LimitOutcome& x, const LimitOutcome& y) {
-    if (x.kind != y.kind) {
-        if (x.kind == LimitOutcome::Finite && y.kind == LimitOutcome::Finite) return false;
-        return false;
-    }
+    if (x.kind != y.kind) return false;
     if (x.kind != LimitOutcome::Finite) return true;
     if (!x.value || !y.value) return false;
     if (sameExpr(x.value, y.value)) return true;

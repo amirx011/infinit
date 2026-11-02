@@ -1,10 +1,11 @@
 // Infinit Lab — single/multiple variable calculus API
-// (integrals: indefinite, definite, double and triple; derivatives: orders 1–3
+// (integrals: indefinite, definite, double and triple; derivatives: orders 1–10
 //  and implicit differentiation)
 #include "numeric.hpp"
 // SPDX-License-Identifier: Apache-2.0
 #include "calculus_ext.hpp"
 #include "limits.hpp"
+#include "localize.hpp"
 #include "solver.hpp"
 
 #include <algorithm>
@@ -137,15 +138,398 @@ Result integrateExpression(const std::string& input, const std::string& x,
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;
-        r.error = (en ? std::string("Integration error: ") : std::string("خطای انتگرال‌گیری: ")) + e.what();
+        r.error = (en ? std::string("Integration error: ") : std::string("خطای انتگرال‌گیری: ")) +
+                  localizeError(e.what(), en);
     }
     return r;
 }
 
 namespace {
 
-// Definite integral of one variable: exact antiderivative evaluation first, then
-// adaptive Gauss–Kronrod quadrature when no elementary antiderivative exists.
+// ---------------------------------------------------- definite integrals
+//
+// A definite integral is only equal to F(b)-F(a) when the integrand is defined
+// and continuous on the whole interval.  The routines below collect the poles
+// of the integrand, split the interval at them, and evaluate one-sided limits of
+// the antiderivative.  Convergent improper integrals are reported as such;
+// divergent ones are reported as divergent instead of returning a finite wrong
+// number.
+
+struct PolePoint {
+    Ex at;                 // exact point when available
+    double numericAt = 0;  // always usable
+    bool exact = false;
+};
+
+struct EdgeValue {
+    bool divergent = false;
+    bool exact = false;
+    Ex value;
+    bool numeric = false;
+    double number = 0;
+};
+
+double evalPoint(const Ex& f, const std::string& x, double at, bool* ok) {
+    bool good = false;
+    double v = std::nan("");
+    try {
+        v = evalReal(f, {{x, at}}, &good);
+    } catch (...) {
+        good = false;
+    }
+    if (ok) *ok = good && std::isfinite(v);
+    return v;
+}
+
+bool linearCoeffs(const Ex& e, const std::string& x, Ex* c1, Ex* c0) {
+    std::vector<Ex> c;
+    if (!polyCoeffs(expand(e), x, c)) return false;
+    if (c.size() > 2) return false;
+    *c0 = c.empty() ? Num(0) : c[0];
+    *c1 = c.size() > 1 ? c[1] : Num(0);
+    bool ok0 = false, ok1 = false;
+    evalReal(*c0, {}, &ok0);
+    evalReal(*c1, {}, &ok1);
+    return ok0 && ok1 && !(*c1)->isZero();
+}
+
+// sin/cos of a linear argument: build the exact zeros ((2k+1)pi/2 for cos,
+// k*pi for sin) and keep the ones inside the interval.
+void addTrigRoots(const Ex& inner, const std::string& x, bool sine, double lo, double hi,
+                  std::vector<PolePoint>& out) {
+    Ex c1, c0;
+    if (!linearCoeffs(inner, x, &c1, &c0)) return;
+    const Ex inv = Pow(c1, Num(-1));
+    for (int k = -512; k <= 512; ++k) {
+        Ex root;
+        if (sine) {
+            root = simplify(Mul(Add(Mul(Num(k), Sym("pi")), Mul(Num(-1), c0)), inv));
+        } else {
+            root = simplify(Mul(
+                Add(Mul(Num(2 * k + 1), Sym("pi"), Num(Rational(1, 2))), Mul(Num(-1), c0)), inv));
+        }
+        bool ok = false;
+        const double at = evalReal(root, {}, &ok);
+        if (!ok || !std::isfinite(at)) continue;
+        if (at < lo - 1e-9 || at > hi + 1e-9) continue;
+        out.push_back({root, at, true});
+    }
+}
+
+void collectPoleBases(const Ex& e, const std::string& x, std::vector<Ex>& out) {
+    if (!e) return;
+    if (e->isPow() && e->args.size() == 2) {
+        const Ex& p = e->args[1];
+        if (p->isNum() && p->num.isNeg() && dependsOn(e->args[0], x))
+            out.push_back(e->args[0]);
+    }
+    if (e->isFunc() && !e->args.empty()) {
+        const std::string& n = e->name;
+        if (n == "tan" || n == "sec") out.push_back(Fn("cos", {e->args[0]}));
+        else if (n == "cot" || n == "csc") out.push_back(Fn("sin", {e->args[0]}));
+    }
+    for (const auto& a : e->args) collectPoleBases(a, x, out);
+}
+
+void addSymbolicPoles(const Ex& f, const std::string& x, double lo, double hi,
+                      std::vector<PolePoint>& out) {
+    std::vector<Ex> bases;
+    collectPoleBases(f, x, bases);
+    for (const auto& base : bases) {
+        if (!dependsOn(base, x)) continue;
+        if (base->isFunc() && base->args.size() == 1 &&
+            (base->name == "cos" || base->name == "sin")) {
+            addTrigRoots(base->args[0], x, base->name == "sin", lo, hi, out);
+            continue;
+        }
+        std::vector<Ex> roots;
+        try {
+            roots = solvePoly(expand(base), x, 8);
+        } catch (...) {
+            continue;
+        }
+        for (const auto& root : roots) {
+            bool ok = false;
+            const double at = evalReal(root, {}, &ok);
+            if (!ok || !std::isfinite(at)) continue;
+            if (at < lo - 1e-9 || at > hi + 1e-9) continue;
+            out.push_back({simplify(root), at, true});
+        }
+    }
+}
+
+// Does |f| grow without bound as we approach `at` from one side?  This is what
+// distinguishes a pole from a merely large but smooth value (e.g. exp(10x)).
+bool growsWithoutBound(const Ex& f, const std::string& x, double at, int dir) {
+    double prev = 0;
+    int count = 0, growth = 0;
+    for (double d : {1e-2, 1e-4, 1e-6, 1e-8}) {
+        bool ok = false;
+        const double v = evalPoint(f, x, at + dir * d, &ok);
+        if (!ok) return true;
+        const double a = std::fabs(v);
+        if (count > 0 && a > 5.0 * std::max(prev, 1.0)) ++growth;
+        prev = a;
+        ++count;
+    }
+    return count >= 2 && growth >= 2 && prev > 1e3;
+}
+
+void addNumericPoles(const Ex& f, const std::string& x, double lo, double hi,
+                     std::vector<PolePoint>& out) {
+    const int N = 1024;
+    if (!(hi > lo)) return;
+    std::vector<double> vals(N + 1, std::nan(""));
+    std::vector<double> mags;
+    mags.reserve(N + 1);
+    for (int i = 0; i <= N; ++i) {
+        const double t = lo + (hi - lo) * (double)i / N;
+        bool ok = false;
+        vals[i] = evalPoint(f, x, t, &ok);
+        if (ok) mags.push_back(std::fabs(vals[i]));
+        else vals[i] = std::nan("");
+    }
+    if (mags.empty()) return;
+    std::sort(mags.begin(), mags.end());
+    const double median = mags[mags.size() / 2];
+    const double threshold = std::max(100.0, 50.0 * median);
+
+    size_t added = 0;
+    for (int i = 1; i < N && added < 8; ++i) {
+        if (std::isfinite(vals[i]) && std::fabs(vals[i]) < threshold) continue;
+        const double left = std::isfinite(vals[i - 1]) ? std::fabs(vals[i - 1]) : 1e300;
+        const double right = std::isfinite(vals[i + 1]) ? std::fabs(vals[i + 1]) : 1e300;
+        const double here = std::isfinite(vals[i]) ? std::fabs(vals[i]) : 1e300;
+        if (here < left || here < right) continue;
+
+        double a = lo + (hi - lo) * (double)(i - 1) / N;
+        double b = lo + (hi - lo) * (double)(i + 1) / N;
+        for (int it = 0; it < 70; ++it) {
+            const double m1 = a + (b - a) / 3.0;
+            const double m2 = b - (b - a) / 3.0;
+            bool ok1 = false, ok2 = false;
+            const double v1 = evalPoint(f, x, m1, &ok1);
+            const double v2 = evalPoint(f, x, m2, &ok2);
+            const double a1 = ok1 ? std::fabs(v1) : 1e300;
+            const double a2 = ok2 ? std::fabs(v2) : 1e300;
+            if (a1 < a2) a = m1;
+            else b = m2;
+        }
+        const double at = 0.5 * (a + b);
+        if (!growsWithoutBound(f, x, at, -1) && !growsWithoutBound(f, x, at, +1)) continue;
+        out.push_back({nullptr, at, false});
+        ++added;
+    }
+}
+
+void dedupePoles(std::vector<PolePoint>& poles) {
+    std::sort(poles.begin(), poles.end(),
+              [](const PolePoint& a, const PolePoint& b) { return a.numericAt < b.numericAt; });
+    std::vector<PolePoint> out;
+    for (const auto& p : poles) {
+        if (!out.empty() && std::fabs(p.numericAt - out.back().numericAt) < 1e-7) {
+            if (p.exact && !out.back().exact) out.back() = p;
+            continue;
+        }
+        out.push_back(p);
+    }
+    poles.swap(out);
+}
+
+std::vector<PolePoint> findPoles(const Ex& f, const std::string& x, double lo, double hi,
+                                 bool scanNumeric) {
+    std::vector<PolePoint> poles;
+    addSymbolicPoles(f, x, lo, hi, poles);
+    if (scanNumeric) addNumericPoles(f, x, lo, hi, poles);
+    dedupePoles(poles);
+    return poles;
+}
+
+// A removable singularity (for example sin(x)/x at 0) has a finite limit and
+// does not make the integral improper.
+bool hasFiniteLimit(const Ex& f, const std::string& x, const Ex& at, int dir) {
+    try {
+        LimitOutcome l = limitOf(f, x, at, dir, nullptr);
+        if (l.kind != LimitOutcome::Finite) return false;
+        if (l.value) {
+            bool ok = false;
+            const double d = evalReal(l.value, {}, &ok);
+            return ok && std::isfinite(d);
+        }
+        return l.numeric && std::isfinite(l.number);
+    } catch (...) {
+        return false;
+    }
+}
+
+double valueOf(const EdgeValue& v) {
+    if (v.exact) {
+        bool ok = false;
+        const double d = evalReal(v.value, {}, &ok);
+        if (ok && std::isfinite(d)) return d;
+    }
+    return v.number;
+}
+
+// Limit of the antiderivative at a finite point.  Direct substitution is used
+// when the point is not a pole; otherwise both the symbolic one-sided limit and
+// a numeric convergence probe are tried.
+EdgeValue evalFiniteBoundary(const Ex& F, const std::string& x, const Ex& at, double atNum,
+                             int dir, bool isPole) {
+    EdgeValue out;
+    if (!isPole) {
+        try {
+            Ex v = simplify(substitute(F, x, at));
+            bool ok = false;
+            const double d = evalReal(v, {}, &ok);
+            if (ok && std::isfinite(d)) {
+                out.exact = true;
+                out.value = v;
+                return out;
+            }
+        } catch (...) {}
+    }
+    try {
+        LimitOutcome l = limitOf(F, x, at, dir, nullptr);
+        if (l.kind == LimitOutcome::PosInf || l.kind == LimitOutcome::NegInf) {
+            out.divergent = true;
+            return out;
+        }
+        if (l.kind == LimitOutcome::Finite) {
+            if (l.value) {
+                bool ok = false;
+                const double d = evalReal(l.value, {}, &ok);
+                if (ok && std::isfinite(d)) {
+                    out.exact = true;
+                    out.value = l.value;
+                    return out;
+                }
+            } else if (l.numeric) {
+                out.numeric = true;
+                out.number = l.number;
+                return out;
+            }
+        }
+    } catch (...) {}
+
+    // Numeric fallback: a convergent limit has shrinking increments, while a
+    // logarithmic or algebraic divergence keeps producing comparable jumps.
+    double vals[6];
+    int n = 0;
+    for (double d : {1e-2, 1e-4, 1e-6, 1e-8, 1e-10, 1e-12}) {
+        bool ok = false;
+        const double v = evalPoint(F, x, atNum + dir * d, &ok);
+        if (ok) vals[n++] = v;
+    }
+    if (n == 0) {
+        out.divergent = true;
+        return out;
+    }
+    if (std::fabs(vals[n - 1]) > 1e8) {
+        out.divergent = true;
+        return out;
+    }
+    int nonShrink = 0;
+    double prevDiff = 1e18;
+    for (int i = 1; i < n; ++i) {
+        const double diff = std::fabs(vals[i] - vals[i - 1]);
+        if (diff > prevDiff * 0.5) ++nonShrink;
+        prevDiff = diff;
+    }
+    if (nonShrink >= 2) {
+        out.divergent = true;
+        return out;
+    }
+    out.numeric = true;
+    out.number = vals[n - 1];
+    return out;
+}
+
+EdgeValue evalInfiniteBoundary(const Ex& F, const std::string& x, int sign) {
+    EdgeValue out;
+    try {
+        LimitOutcome l = limitOf(F, x, infinityPoint(sign), sign, nullptr);
+        if (l.kind == LimitOutcome::PosInf || l.kind == LimitOutcome::NegInf) {
+            out.divergent = true;
+            return out;
+        }
+        if (l.kind == LimitOutcome::Finite) {
+            if (l.value) {
+                bool ok = false;
+                const double d = evalReal(l.value, {}, &ok);
+                if (ok && std::isfinite(d)) {
+                    out.exact = true;
+                    out.value = l.value;
+                    return out;
+                }
+            } else if (l.numeric) {
+                out.numeric = true;
+                out.number = l.number;
+                return out;
+            }
+        }
+    } catch (...) {}
+
+    double vals[6];
+    int n = 0;
+    for (double R : {1e1, 1e2, 1e3, 1e4, 1e5, 1e6}) {
+        bool ok = false;
+        const double v = evalPoint(F, x, sign * R, &ok);
+        if (ok) vals[n++] = v;
+    }
+    if (n == 0) {
+        out.divergent = true;
+        return out;
+    }
+    int nonShrink = 0;
+    double prevDiff = 1e18;
+    for (int i = 1; i < n; ++i) {
+        const double diff = std::fabs(vals[i] - vals[i - 1]);
+        if (diff > prevDiff * 0.5) ++nonShrink;
+        prevDiff = diff;
+    }
+    if (nonShrink >= 2 && std::fabs(vals[n - 1]) > std::fabs(vals[0])) {
+        out.divergent = true;
+        return out;
+    }
+    out.numeric = true;
+    out.number = vals[n - 1];
+    return out;
+}
+
+// Quadrature over an infinite tail.  The integral is sampled on growing
+// truncations; a non-decaying sequence of increments means divergence.
+double numericToInfinity(const Ex& f, const std::string& x, double a, int sign) {
+    double prev = std::nan("");
+    double prevDiff = 1e18;
+    int nonShrink = 0;
+    double last = std::nan("");
+    for (double R : {10.0, 100.0, 1000.0, 1e4, 1e5}) {
+        const double lo = sign > 0 ? a : a - R;
+        const double hi = sign > 0 ? a + R : a;
+        const double v = quadratureAdaptive([&](double t) { return evalAt(f, {{x, t}}); }, lo, hi,
+                                            1e-10);
+        if (!std::isfinite(v)) return std::nan("");
+        if (std::isfinite(prev)) {
+            const double diff = std::fabs(v - prev);
+            if (diff > prevDiff * 0.5 && diff > 1e-7 * std::max(1.0, std::fabs(v))) ++nonShrink;
+            prevDiff = diff;
+        }
+        prev = v;
+        last = v;
+    }
+    if (nonShrink >= 2) return std::nan("");
+    return last;
+}
+
+struct Edge {
+    bool infinite = false;
+    int infSign = 1;
+    bool pole = false;
+    Ex at;
+    double num = 0;
+};
+
 Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                                const std::string& loText, const std::string& hiText,
                                const std::string& lang) {
@@ -173,29 +557,230 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                            (en ? "From " : "از ") + boundText(lo) + (en ? " to " : " تا ") +
                                boundText(hi)});
 
+        int loSign = 1, hiSign = 1;
+        const bool loInf = isInfinityPoint(lo, &loSign);
+        const bool hiInf = isInfinityPoint(hi, &hiSign);
+        bool okLo = false, okHi = false;
+        const double loNum = evalReal(lo, {}, &okLo);
+        const double hiNum = evalReal(hi, {}, &okHi);
+        const bool finiteBounds = !loInf && !hiInf && okLo && okHi;
+
         bool closed = false;
         std::string method;
         Ex F = integrate(f, x, &closed, &method);
         bool exact = closed && !hasUnevaluatedIntegral(F);
 
-        double numeric = std::nan("");
+        // Look for poles: exact roots of denominators and, on a bounded
+        // interval, numerical candidates refined by a divergence test.
+        std::vector<PolePoint> poles;
+        if (F) {
+            const double scanLo = loInf ? -50.0 : loNum;
+            const double scanHi = hiInf ? 50.0 : hiNum;
+            poles = findPoles(f, x, scanLo, scanHi, finiteBounds);
+        }
+
+        std::vector<PolePoint> interior;
+        bool loPole = false, hiPole = false;
+        for (const auto& p : poles) {
+            const bool atLo = !loInf && std::fabs(p.numericAt - loNum) < 1e-7;
+            const bool atHi = !hiInf && std::fabs(p.numericAt - hiNum) < 1e-7;
+            if (atLo) { loPole = true; continue; }
+            if (atHi) { hiPole = true; continue; }
+            if ((loInf || p.numericAt > loNum) && (hiInf || p.numericAt < hiNum))
+                interior.push_back(p);
+        }
+
+        // Drop removable singularities from the singular set.
         {
-            bool okLo = false, okHi = false;
-            const double a = evalReal(lo, {}, &okLo);
-            const double b = evalReal(hi, {}, &okHi);
-            if (okLo && okHi && std::isfinite(a) && std::isfinite(b)) {
-                numeric = quadratureAdaptive([&](double t) { return evalAt(f, {{x, t}}); }, a, b,
-                                             1e-10);
+            std::vector<PolePoint> kept;
+            for (const auto& p : poles) {
+                int dir = 0;
+                if (!loInf && std::fabs(p.numericAt - loNum) < 1e-7) dir = 1;
+                else if (!hiInf && std::fabs(p.numericAt - hiNum) < 1e-7) dir = -1;
+                if (p.exact && p.at && hasFiniteLimit(f, x, p.at, dir)) continue;
+                kept.push_back(p);
             }
+            if (kept.size() != poles.size()) {
+                poles.swap(kept);
+                interior.clear();
+                loPole = false;
+                hiPole = false;
+                for (const auto& p : poles) {
+                    const bool atLo = !loInf && std::fabs(p.numericAt - loNum) < 1e-7;
+                    const bool atHi = !hiInf && std::fabs(p.numericAt - hiNum) < 1e-7;
+                    if (atLo) { loPole = true; continue; }
+                    if (atHi) { hiPole = true; continue; }
+                    if ((loInf || p.numericAt > loNum) && (hiInf || p.numericAt < hiNum))
+                        interior.push_back(p);
+                }
+            }
+        }
+
+        bool integrandSingularLo = false, integrandSingularHi = false;
+        bool improper = loInf || hiInf || loPole || hiPole || !interior.empty();
+        // An endpoint where the antiderivative itself fails (e.g. ln x at 0)
+        // is an improper integral even without a rational pole.
+        if (exact && !improper && finiteBounds) {
+            bool ok1 = false, ok2 = false;
+            const double v1 = evalReal(simplify(substitute(F, x, lo)), {}, &ok1);
+            const double v2 = evalReal(simplify(substitute(F, x, hi)), {}, &ok2);
+            if ((!ok1 || !std::isfinite(v1)) || (!ok2 || !std::isfinite(v2))) improper = true;
+        }
+        // Likewise an integrand that is unbounded at an endpoint (logarithmic
+        // or fractional-power singularity) makes the integral improper.
+        if (exact && !improper && finiteBounds) {
+            bool ok1 = false, ok2 = false;
+            evalPoint(f, x, loNum, &ok1);
+            evalPoint(f, x, hiNum, &ok2);
+            if (!ok1 && !hasFiniteLimit(f, x, lo, +1)) {
+                improper = true;
+                integrandSingularLo = true;
+            }
+            if (!ok2 && !hasFiniteLimit(f, x, hi, -1)) {
+                improper = true;
+                integrandSingularHi = true;
+            }
+        }
+
+        auto noteSingularity = [&](const std::string& point) {
+            if (std::find(r.singularities.begin(), r.singularities.end(), point) ==
+                r.singularities.end())
+                r.singularities.push_back(point);
+        };
+        for (const auto& p : poles)
+            noteSingularity(p.exact && p.at ? toPlain(p.at) : fmtReal(p.numericAt));
+        if (integrandSingularLo) noteSingularity(toPlain(lo));
+        if (integrandSingularHi) noteSingularity(toPlain(hi));
+
+        if (exact && improper) {
+            // Split the interval at every singularity and add one-sided limits.
+            std::vector<Edge> edges;
+            edges.push_back({loInf, loSign, loPole, lo, loNum});
+            for (const auto& p : interior)
+                edges.push_back({false, 1, true, p.at, p.numericAt});
+            edges.push_back({hiInf, hiSign, hiPole, hi, hiNum});
+
+            bool divergent = false;
+            bool allExact = true;
+            bool haveApprox = false;
+            Ex exactTotal = Num(0);
+            double approxTotal = 0.0;
+            for (size_t i = 0; i + 1 < edges.size() && !divergent; ++i) {
+                const Edge& left = edges[i];
+                const Edge& right = edges[i + 1];
+                EdgeValue a = left.infinite
+                                  ? evalInfiniteBoundary(F, x, left.infSign)
+                                  : evalFiniteBoundary(F, x, left.at, left.num, +1, left.pole);
+                EdgeValue b = right.infinite
+                                  ? evalInfiniteBoundary(F, x, right.infSign)
+                                  : evalFiniteBoundary(F, x, right.at, right.num, -1, right.pole);
+                if (a.divergent || b.divergent) {
+                    divergent = true;
+                    break;
+                }
+                if (a.exact && b.exact) {
+                    exactTotal =
+                        Add(exactTotal, Add(b.value, Mul(Num(-1), a.value)));
+                } else {
+                    allExact = false;
+                }
+                approxTotal += valueOf(b) - valueOf(a);
+                if (a.numeric || b.numeric) haveApprox = true;
+            }
+
+            r.improper = true;
+            r.method = "definite";
+            if (divergent) {
+                r.divergent = true;
+                r.closedForm = false;
+                r.hasNumeric = false;
+                r.solution = nullptr;
+                r.explicitY = nullptr;
+                r.isExplicit = false;
+                r.steps.push_back(
+                    {en ? "Singularity analysis" : "تحلیل تکینگی", nullptr,
+                     en ? "The antiderivative does not have a finite one-sided limit at a "
+                          "singular point, so the improper integral diverges."
+                        : "پادمشتق در یک نقطهٔ تکین حد یک‌طرفهٔ متناهی ندارد؛ بنابراین انتگرال "
+                          "ناسره واگرا است."});
+                r.warnings.push_back(
+                    en ? "The definite integral diverges; no finite value exists."
+                       : "انتگرال معین واگرا است؛ مقدار متناهی وجود ندارد.");
+                r.checks.push_back(
+                    {en ? "Convergence analysis" : "تحلیل همگرایی", true,
+                     en ? "Divergence was established from the one-sided limits of the "
+                          "antiderivative."
+                        : "واگرایی از حدهای یک‌طرفهٔ پادمشتق مشخص شد."});
+            } else {
+                r.closedForm = allExact;
+                if (allExact) {
+                    Ex val = simplify(exactTotal);
+                    bool ok = false;
+                    const double value = evalReal(val, {}, &ok);
+                    if (ok && std::isfinite(value)) {
+                        r.solution = val;
+                        r.explicitY = val;
+                        r.isExplicit = true;
+                        r.hasNumeric = true;
+                        r.numericValue = value;
+                    } else {
+                        r.hasNumeric = std::isfinite(approxTotal);
+                        r.numericValue = approxTotal;
+                        r.closedForm = false;
+                    }
+                } else {
+                    r.solution = nullptr;
+                    r.explicitY = nullptr;
+                    r.isExplicit = false;
+                    r.hasNumeric = std::isfinite(approxTotal);
+                    r.numericValue = approxTotal;
+                    r.verified = false;
+                }
+                if (!interior.empty() || loPole || hiPole) {
+                    std::string list;
+                    for (const auto& p : poles) {
+                        if (!list.empty()) list += ", ";
+                        list += p.exact && p.at ? toPlain(p.at) : fmtReal(p.numericAt);
+                    }
+                    r.steps.push_back(
+                        {en ? "Improper integral" : "انتگرال ناسره", nullptr,
+                         en ? ("Singular points: " + list +
+                               ". The interval is split there and one-sided limits are used.")
+                            : ("نقاط تکین: " + list +
+                               "؛ بازه در آن‌ها تقسیم و حدهای یک‌طرفه استفاده می‌شود.")});
+                }
+                if (loInf || hiInf) {
+                    r.steps.push_back(
+                        {en ? "Infinite bounds" : "کران‌های نامتناهی", nullptr,
+                         en ? "The antiderivative is evaluated in the limit at infinity."
+                            : "پادمشتق در حد بی‌نهایت ارزیابی می‌شود."});
+                }
+                r.checks.push_back(
+                    {en ? "Convergence analysis" : "تحلیل همگرایی", true,
+                     en ? "Every one-sided limit is finite, so the improper integral converges."
+                        : "همهٔ حدهای یک‌طرفه متناهی‌اند؛ پس انتگرال ناسره همگرا است."});
+                if (!allExact) {
+                    r.warnings.push_back(
+                        en ? "The improper integral was evaluated numerically from finite "
+                             "limits; the result is approximate."
+                           : "انتگرال ناسره به‌صورت عددی از حدهای متناهی محاسبه شد؛ نتیجه تقریبی است.");
+                }
+            }
+            r.ok = true;
+            return r;
+        }
+
+        double numeric = std::nan("");
+        if (finiteBounds) {
+            numeric = quadratureAdaptive([&](double t) { return evalAt(f, {{x, t}}); }, loNum,
+                                         hiNum, 1e-10);
         }
 
         if (exact) {
             Ex val = simplify(Add(substitute(F, x, hi), Mul(Num(-1), substitute(F, x, lo))));
             bool ok = false;
             const double value = evalReal(val, {}, &ok);
-            if (!ok || !std::isfinite(value)) {
-                exact = false;
-            } else {
+            if (ok && std::isfinite(value)) {
                 r.solution = val;
                 r.explicitY = val;
                 r.isExplicit = true;
@@ -215,42 +800,88 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                         {en ? "Quadrature cross-check" : "بررسی با کوادراتور", match,
                          en ? ("Independent quadrature gives " + fmtReal(numeric) + ".")
                             : ("کوادراتور مستقل مقدار " + fmtReal(numeric) + " را می‌دهد.")});
-                    if (!match)
-                        r.warnings.push_back(
-                            en ? "The exact value and the numeric quadrature disagree; the "
-                                 "integrand may be singular on the interval."
-                               : "مقدار دقیق و کوادراتور عددی با هم نمی‌خوانند؛ ممکن است "
-                                 "انتگرال‌ده روی بازه تکین باشد.");
                 }
+                r.ok = true;
+                return r;
             }
+            exact = false;
         }
 
-        if (!exact) {
-            if (!std::isfinite(numeric)) throw std::runtime_error("quadrature failed");
+        if (improper) {
+            // No elementary antiderivative: integrate numerically, but only
+            // after the singular structure has been taken into account.
+            bool divergent = false;
+            double value = std::nan("");
+            if (interior.empty() && !loPole && !hiPole) {
+                if (loInf && hiInf) {
+                    const double left = numericToInfinity(f, x, 0.0, -1);
+                    const double right = numericToInfinity(f, x, 0.0, +1);
+                    if (!std::isfinite(left) || !std::isfinite(right)) divergent = true;
+                    else value = left + right;
+                } else if (loInf) {
+                    value = numericToInfinity(f, x, hiNum, -1);
+                    if (!std::isfinite(value)) divergent = true;
+                } else if (hiInf) {
+                    value = numericToInfinity(f, x, loNum, +1);
+                    if (!std::isfinite(value)) divergent = true;
+                }
+            }
+            r.improper = true;
             r.method = "numeric";
             r.closedForm = false;
-            r.hasNumeric = true;
-            r.numericValue = numeric;
-            // No closed form: the answer is the numeric value itself, so no
-            // symbolic solution is published (a rounded fraction would look exact).
-            r.solution = nullptr;
-            r.explicitY = nullptr;
-            r.isExplicit = false;
+            if (divergent) {
+                r.divergent = true;
+                r.hasNumeric = false;
+                r.solution = nullptr;
+                r.warnings.push_back(en ? "The definite integral diverges; no finite value exists."
+                                        : "انتگرال معین واگرا است؛ مقدار متناهی وجود ندارد.");
+            } else if (std::isfinite(value)) {
+                r.hasNumeric = true;
+                r.numericValue = value;
+                r.solution = nullptr;
+                r.explicitY = nullptr;
+                r.isExplicit = false;
+                r.verified = false;
+                r.warnings.push_back(
+                    en ? "The improper integral was evaluated numerically; convergence was "
+                         "checked, but the value is approximate."
+                       : "انتگرال ناسره به‌صورت عددی محاسبه شد؛ همگرایی بررسی شد اما مقدار تقریبی است.");
+            } else {
+                throw std::runtime_error(
+                    en ? "the integrand is singular and no elementary antiderivative was found"
+                       : "انتگرال‌ده تکین است و پادمشتق مقدماتی پیدا نشد");
+            }
             r.steps.push_back(
-                {en ? "Quadrature" : "کوادراتور", nullptr,
-                 en ? ("No elementary antiderivative; adaptive Gauss–Kronrod gives " +
-                       fmtReal(numeric) + ".")
-                    : ("پادمشتق مقدماتی موجود نیست؛ گاوس–کرانرود تطبیقی مقدار " +
-                       fmtReal(numeric) + " را می‌دهد.")});
-            r.warnings.push_back(en
-                ? "The answer is a high-accuracy numerical value, not a closed form."
-                : "جواب یک مقدار عددی با دقت بالا است، نه فرم بسته.");
+                {en ? "Numerical improper integral" : "انتگرال ناسرهٔ عددی", nullptr,
+                 en ? "The singular points are excluded and the truncated integrals are compared."
+                    : "نقاط تکین کنار گذاشته و انتگرال‌های بریده‌شده مقایسه می‌شوند."});
+            r.ok = true;
+            return r;
         }
+
+        if (!std::isfinite(numeric))
+            throw std::runtime_error(en ? "quadrature failed" : "کوادراتور شکست خورد");
+        r.method = "numeric";
+        r.closedForm = false;
+        r.hasNumeric = true;
+        r.numericValue = numeric;
+        r.solution = nullptr;
+        r.explicitY = nullptr;
+        r.isExplicit = false;
+        r.steps.push_back(
+            {en ? "Quadrature" : "کوادراتور", nullptr,
+             en ? ("No elementary antiderivative; adaptive Gauss–Kronrod gives " +
+                   fmtReal(numeric) + ".")
+                : ("پادمشتق مقدماتی موجود نیست؛ گاوس–کرانرود تطبیقی مقدار " +
+                   fmtReal(numeric) + " را می‌دهد.")});
+        r.warnings.push_back(en
+            ? "The answer is a high-accuracy numerical value, not a closed form."
+            : "جواب یک مقدار عددی با دقت بالا است، نه فرم بسته.");
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;
         r.error = (en ? std::string("Definite integral error: ")
-                      : std::string("خطای انتگرال معین: ")) + e.what();
+                      : std::string("خطای انتگرال معین: ")) + localizeError(e.what(), en);
     }
     return r;
 }
@@ -309,7 +940,8 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
             r.ok = true;
         } catch (const std::exception& e) {
             r.ok = false;
-            r.error = (en ? std::string("Integration error: ") : std::string("خطای انتگرال‌گیری: ")) + e.what();
+            r.error = (en ? std::string("Integration error: ") : std::string("خطای انتگرال‌گیری: ")) +
+                  localizeError(e.what(), en);
         }
         return r;
     }
@@ -415,7 +1047,8 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
     } catch (const std::exception& e) {
         r.ok = false;
         r.error = (en ? std::string("Multiple integral error: ")
-                      : std::string("خطای انتگرال چندگانه: ")) + e.what();
+                      : std::string("خطای انتگرال چندگانه: ")) +
+                  localizeError(e.what(), en);
     }
     return r;
 }
@@ -427,10 +1060,19 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
     r.mode = "derivative";
     r.typeId = "derivative";
     r.engine = "native";
-    r.order = order < 1 ? 1 : (order > 3 ? 3 : order);
     r.variable = x;
+    if (order < 1 || order > 10) {
+        r.ok = false;
+        r.order = order < 1 ? 0 : order;
+        r.error = en ? "The derivative order must be between 1 and 10."
+                     : "مرتبهٔ مشتق باید بین ۱ و ۱۰ باشد.";
+        return r;
+    }
+    r.order = order;
     r.typeFa = r.order == 1 ? "مشتق مرتبهٔ اول"
-                            : (r.order == 2 ? "مشتق مرتبهٔ دوم" : "مشتق مرتبهٔ سوم");
+               : r.order == 2 ? "مشتق مرتبهٔ دوم"
+               : r.order == 3 ? "مشتق مرتبهٔ سوم"
+                              : "مشتق مرتبهٔ " + std::to_string(r.order);
     try {
         const bool equation = input.find('=') != std::string::npos;
         if (equation) {
@@ -446,10 +1088,15 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
             std::vector<std::string> syms;
             collectSymbols(F, syms);
             std::string dep;
-            for (const auto& s : syms) {
-                if (s == x || s == "pi" || s == "e") continue;
-                dep = s;
-                break;
+            // Prefer y as the dependent variable when the equation contains it;
+            // otherwise use the first remaining symbol (e.g. u in F(x,u)=0).
+            if (x != "y" && std::find(syms.begin(), syms.end(), "y") != syms.end()) dep = "y";
+            if (dep.empty()) {
+                for (const auto& s : syms) {
+                    if (s == x || s == "pi" || s == "e") continue;
+                    dep = s;
+                    break;
+                }
             }
             if (dep.empty())
                 throw std::runtime_error(en ? "the equation has no dependent variable"
@@ -484,6 +1131,13 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
                 r.steps.push_back({en ? "Third derivative" : "مشتق سوم", d,
                                    en ? "Apply the total derivative once more."
                                       : "بار دیگر مشتق کل را اعمال می‌کنیم."});
+            if (r.order > 3)
+                r.steps.push_back(
+                    {en ? ("Derivative of order " + std::to_string(r.order))
+                        : ("مشتق مرتبهٔ " + std::to_string(r.order)),
+                     d,
+                     en ? "The total derivative D = ∂/∂x + y′·∂/∂y is applied repeatedly."
+                        : "عملگر مشتق کل D = ∂/∂x + y′·∂/∂y به‌طور مکرر اعمال می‌شود."});
 
             // Consistency check: F_x + F_y·y' must vanish.
             try {
@@ -506,12 +1160,10 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
         r.normalized = f;
         std::vector<DerivationNote> notes;
         Ex current = f;
-        Ex d1, d2, d3;
+        std::vector<Ex> derivatives;
         for (int k = 1; k <= r.order; ++k) {
             current = simplify(diffAst(current, x, &notes));
-            if (k == 1) d1 = current;
-            if (k == 2) d2 = current;
-            if (k == 3) d3 = current;
+            derivatives.push_back(current);
         }
         r.solution = current;
         r.explicitY = current;
@@ -533,9 +1185,18 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
         if (!rules.empty())
             r.steps.push_back({en ? "Rules applied" : "قواعد به‌کاررفته", nullptr,
                                en ? ("Rules: " + rules) : ("قواعد: " + rules)});
-        if (d1) r.steps.push_back({en ? "First derivative" : "مشتق اول", d1});
-        if (d2) r.steps.push_back({en ? "Second derivative" : "مشتق دوم", d2});
-        if (d3) r.steps.push_back({en ? "Third derivative" : "مشتق سوم", d3});
+        if (derivatives.size() >= 1)
+            r.steps.push_back({en ? "First derivative" : "مشتق اول", derivatives[0]});
+        if (derivatives.size() >= 2)
+            r.steps.push_back({en ? "Second derivative" : "مشتق دوم", derivatives[1]});
+        if (derivatives.size() >= 3)
+            r.steps.push_back({en ? "Third derivative" : "مشتق سوم", derivatives[2]});
+        for (size_t k = 3; k < derivatives.size(); ++k) {
+            r.steps.push_back(
+                {en ? ("Derivative of order " + std::to_string(k + 1))
+                    : ("مشتق مرتبهٔ " + std::to_string(k + 1)),
+                 derivatives[k]});
+        }
 
         // Cross-check against the ODE engine's differentiator.
         try {
@@ -552,7 +1213,8 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;
-        r.error = (en ? std::string("Derivative error: ") : std::string("خطای مشتق‌گیری: ")) + e.what();
+        r.error = (en ? std::string("Derivative error: ") : std::string("خطای مشتق‌گیری: ")) +
+                  localizeError(e.what(), en);
     }
     return r;
 }
@@ -575,7 +1237,7 @@ bool looksInfinite(const std::string& text, int* sign) {
     if (!t.empty() && (t[0] == '+' )) t.erase(t.begin());
     else if (!t.empty() && t[0] == '-') { s = -1; t.erase(t.begin()); }
     const std::string l = lowerCopy(t);
-    if (t == "\xE2\x88\x9E" || l == "inf" || l == "infinity" || l == "oo" || l == "INF") {
+    if (t == "\xE2\x88\x9E" || l == "inf" || l == "infinity" || l == "oo") {
         if (sign) *sign = s;
         return true;
     }
@@ -633,6 +1295,7 @@ const char* lawEn(const std::string& id) {
     if (id == "algebraic_simplification") return "algebraic simplification";
     if (id == "exponential_rewrite") return "exponential rewrite";
     if (id == "two_sided") return "two-sided comparison";
+    if (id == "squeeze") return "squeeze theorem (numeric bounds)";
     return "limit law";
 }
 
@@ -648,6 +1311,7 @@ const char* lawFa(const std::string& id) {
     if (id == "algebraic_simplification") return "\u0633\u0627\u062f\u0647\u200c\u0633\u0627\u0632\u06cc \u062c\u0628\u0631\u06cc";
     if (id == "exponential_rewrite") return "\u0628\u0627\u0632\u0646\u0648\u06cc\u0633\u06cc \u0646\u0645\u0627\u06cc\u06cc";
     if (id == "two_sided") return "\u0645\u0642\u0627\u06cc\u0633\u0647\u0654 \u062f\u0648\u0637\u0631\u0641\u0647";
+    if (id == "squeeze") return "\u0642\u0636\u06cc\u0647\u0654 \u0641\u0634\u0627\u0631\u062f\u0646 (\u06a9\u0631\u0627\u0646\u200c\u0647\u0627\u06cc \u0639\u062f\u062f\u06cc)";
     return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062d\u062f";
 }
 
@@ -770,7 +1434,7 @@ Result limitExpression(const std::string& input, const std::string& x, const std
     } catch (const std::exception& e) {
         r.ok = false;
         r.error = (en ? std::string("Limit error: ") : std::string("\u062e\u0637\u0627\u06cc \u062d\u062f: ")) +
-                  e.what();
+                  localizeError(e.what(), en);
     }
     return r;
 }
@@ -891,7 +1555,7 @@ Result continuityExpression(const std::string& input, const std::string& x,
         r.ok = false;
         r.error = (en ? std::string("Continuity error: ")
                       : std::string("\u062e\u0637\u0627\u06cc \u067e\u06cc\u0648\u0633\u062a\u06af\u06cc: ")) +
-                  e.what();
+                  localizeError(e.what(), en);
     }
     return r;
 }

@@ -70,24 +70,60 @@ struct Rational {
     explicit operator double() const { return toDouble(); }
 };
 
+// Portable overflow-checked arithmetic: __int128 is not available on every
+// Android ABI (32-bit ARM rejects it), so the compiler builtins are used
+// instead.  They are supported by GCC and Clang on all targets.
+inline bool mulOverflows(long long x, long long y, long long* out) {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_mul_overflow(x, y, out);
+#else
+    const long double p = (long double)x * (long double)y;
+    if (p > (long double)INT64_MAX || p < (long double)INT64_MIN) return true;
+    *out = (long long)p;
+    return false;
+#endif
+}
+inline bool addOverflows(long long x, long long y, long long* out) {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_add_overflow(x, y, out);
+#else
+    const long double p = (long double)x + (long double)y;
+    if (p > (long double)INT64_MAX || p < (long double)INT64_MIN) return true;
+    *out = (long long)p;
+    return false;
+#endif
+}
+inline bool subOverflows(long long x, long long y, long long* out) {
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_sub_overflow(x, y, out);
+#else
+    const long double p = (long double)x - (long double)y;
+    if (p > (long double)INT64_MAX || p < (long double)INT64_MIN) return true;
+    *out = (long long)p;
+    return false;
+#endif
+}
+
 inline Rational operator+(Rational a, Rational b) {
-    __int128 n = (__int128)a.n * b.d + (__int128)b.n * a.d;
-    __int128 d = (__int128)a.d * b.d;
-    if (n > INT64_MAX || n < INT64_MIN || d > INT64_MAX) throw OverflowError("integer coefficient too large");
-    return Rational((long long)n, (long long)d);
+    long long t1 = 0, t2 = 0, n = 0, d = 0;
+    if (mulOverflows(a.n, b.d, &t1) || mulOverflows(b.n, a.d, &t2) ||
+        addOverflows(t1, t2, &n) || mulOverflows(a.d, b.d, &d))
+        throw OverflowError("integer coefficient too large");
+    return Rational(n, d);
 }
 inline Rational operator-(Rational a, Rational b) {
-    __int128 n = (__int128)a.n * b.d - (__int128)b.n * a.d;
-    __int128 d = (__int128)a.d * b.d;
-    if (n > INT64_MAX || n < INT64_MIN || d > INT64_MAX) throw OverflowError("integer coefficient too large");
-    return Rational((long long)n, (long long)d);
+    long long t1 = 0, t2 = 0, n = 0, d = 0;
+    if (mulOverflows(a.n, b.d, &t1) || mulOverflows(b.n, a.d, &t2) ||
+        subOverflows(t1, t2, &n) || mulOverflows(a.d, b.d, &d))
+        throw OverflowError("integer coefficient too large");
+    return Rational(n, d);
 }
 inline Rational operator-(Rational a) { return Rational(-a.n, a.d); }
 inline Rational operator*(Rational a, Rational b) {
-    __int128 n = (__int128)a.n * b.n;
-    __int128 d = (__int128)a.d * b.d;
-    if (n > INT64_MAX || n < INT64_MIN || d > INT64_MAX) throw OverflowError("integer coefficient too large");
-    return Rational((long long)n, (long long)d);
+    long long n = 0, d = 0;
+    if (mulOverflows(a.n, b.n, &n) || mulOverflows(a.d, b.d, &d))
+        throw OverflowError("integer coefficient too large");
+    return Rational(n, d);
 }
 inline Rational operator/(Rational a, Rational b) {
     if (b.n == 0) throw std::runtime_error("division by zero");
@@ -96,7 +132,14 @@ inline Rational operator/(Rational a, Rational b) {
 inline bool operator==(Rational a, Rational b) { return a.n == b.n && a.d == b.d; }
 inline bool operator!=(Rational a, Rational b) { return !(a == b); }
 inline bool operator<(Rational a, Rational b) {
-    return (__int128)a.n * b.d < (__int128)b.n * a.d;
+    long long l = 0, r = 0;
+    if (mulOverflows(a.n, b.d, &l) || mulOverflows(b.n, a.d, &r)) {
+        // Extreme magnitudes: fall back to a long-double comparison.  The
+        // rationals are always normalised, so this is a last-resort path.
+        return (long double)a.n * (long double)b.d <
+               (long double)b.n * (long double)a.d;
+    }
+    return l < r;
 }
 
 std::string rationalToString(Rational r); // "3", "-1/2"

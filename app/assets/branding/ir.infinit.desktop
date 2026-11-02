@@ -1,0 +1,14 @@
+# Infinit Lab — desktop entry for Linux shortcuts.
+#
+# 1) Copy this file to ~/.local/share/applications/ir.infinit.desktop
+# 2) Point Exec= at the "infinit" executable
+# 3) Point Icon= at app/assets/branding/infinit-icon-512.png (or the .svg)
+[Desktop Entry]
+Type=Application
+Name=Infinit Lab
+Comment=Exact symbolic calculus and differential equations
+Exec=/path/to/infinit
+Icon=/path/to/infinit-icon-512.png
+Terminal=false
+Categories=Education;Math;
+StartupWMClass=ir.infinit

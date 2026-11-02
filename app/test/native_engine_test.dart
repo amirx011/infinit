@@ -77,4 +77,92 @@ void main() {
     expect(result.orthogonal, isNotNull);
     expect(result.orthogonal!.pretty, contains('x'));
   });
+
+  test('derivative orders are not clamped', () {
+    final fifth = engine.derivative('x^6', order: 5);
+    expect(fifth.ok, isTrue);
+    expect(fifth.order, 5);
+    expect(fifth.solution?.plain, contains('720'));
+
+    final tenth = engine.derivative('x^10', order: 10);
+    expect(tenth.ok, isTrue);
+    expect(tenth.order, 10);
+    expect(tenth.solution?.plain, '3628800');
+
+    final rejected = engine.derivative('x^2', order: 11);
+    expect(rejected.ok, isFalse);
+    expect(rejected.error, isNotEmpty);
+  });
+
+  test('improper and divergent integrals are reported honestly', () {
+    final divergent = engine.integral(
+      '1/x^2',
+      definite: true,
+      lower: ['-1'],
+      upper: ['1'],
+    );
+    expect(divergent.ok, isTrue);
+    expect(divergent.divergent, isTrue);
+    expect(divergent.solution, isNull);
+
+    final convergent = engine.integral(
+      '1/sqrt(x)',
+      definite: true,
+      lower: ['0'],
+      upper: ['1'],
+    );
+    expect(convergent.ok, isTrue);
+    expect(convergent.improper, isTrue);
+    expect(convergent.divergent, isFalse);
+    expect(convergent.solution?.plain, '2');
+  });
+
+  test('async solver runs on a background isolate', () async {
+    final result = await engine.derivativeAsync('x^4', order: 4);
+    expect(result.ok, isTrue);
+    expect(result.order, 4);
+    expect(result.solution?.plain, '24');
+
+    final ode = await engine.solveOdeAsync("y' = y");
+    expect(ode.ok, isTrue);
+    expect(ode.explicitY?.pretty, contains('exp'));
+  });
+
+  test('samples a function and marks undefined points', () async {
+    final sample = await engine.sampleAsync(
+      '1/x',
+      xmin: -2,
+      xmax: 2,
+      samples: 41,
+    );
+    expect(sample.ok, isTrue);
+    expect(sample.xs.length, 41);
+    expect(sample.ys.length, 41);
+    expect(sample.ys.any((v) => v.isNaN), isTrue);
+  });
+
+  test('domain and range scan reports intervals and asymptotes', () async {
+    final domain = await engine.domainAsync('1/(x^2-1)');
+    expect(domain.ok, isTrue);
+    expect(domain.domain.length, 3);
+    expect(domain.asymptotes.length, 2);
+    expect(domain.range.any((i) => i.loInfinite), isTrue);
+    expect(domain.range.any((i) => i.hiInfinite), isTrue);
+  });
+
+  test('direction field returns slopes and RK4 curves', () async {
+    final field = await engine.fieldAsync(
+      "y' = y",
+      cols: 9,
+      rows: 9,
+      curves: 3,
+    );
+    expect(field.ok, isTrue);
+    expect(field.rhs, contains('y'));
+    expect(field.curves, isNotEmpty);
+    expect(
+      field.slopes.expand((row) => row).where((v) => v.isFinite),
+      isNotEmpty,
+    );
+  });
 }

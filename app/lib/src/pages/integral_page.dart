@@ -53,19 +53,8 @@ class _IntegralPageState extends State<IntegralPage> {
       '1/(x^2-x+1)',
       'sin(x)^2',
     ],
-    2: [
-      'x*y',
-      'x^2+y^2',
-      'sin(x)*cos(y)',
-      'exp(-(x^2+y^2))',
-      'x*exp(y)',
-    ],
-    3: [
-      'x*y*z',
-      'x^2+y^2+z^2',
-      'exp(-(x^2+y^2+z^2))',
-      'sin(x)*y*z',
-    ],
+    2: ['x*y', 'x^2+y^2', 'sin(x)*cos(y)', 'exp(-(x^2+y^2))', 'x*exp(y)'],
+    3: ['x*y*z', 'x^2+y^2+z^2', 'exp(-(x^2+y^2+z^2))', 'sin(x)*y*z'],
   };
 
   List<String> get _vars => const ['x', 'y', 'z'].take(_dimension).toList();
@@ -109,17 +98,25 @@ class _IntegralPageState extends State<IntegralPage> {
     });
   }
 
-  void _solve() {
+  Future<void> _solve() async {
     final engine = widget.engine;
     final l = widget.l10n;
     if (engine == null) {
-      setState(() => _error = widget.engineError ??
-          l.t('The computation engine is unavailable.', 'موتور محاسبات در دسترس نیست.'));
+      setState(
+        () => _error =
+            widget.engineError ??
+            l.t(
+              'The computation engine is unavailable.',
+              'موتور محاسبات در دسترس نیست.',
+            ),
+      );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(() => _error = l.t('Enter an expression.', 'یک عبارت وارد کنید.'));
+      setState(
+        () => _error = l.t('Enter an expression.', 'یک عبارت وارد کنید.'),
+      );
       return;
     }
     final singleVar = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
@@ -131,9 +128,12 @@ class _IntegralPageState extends State<IntegralPage> {
         final lo = _lo[v]!.text.trim();
         final hi = _hi[v]!.text.trim();
         if (lo.isEmpty || hi.isEmpty) {
-          setState(() => _error = l.t(
+          setState(
+            () => _error = l.t(
               'Enter both bounds for every variable.',
-              'برای هر متغیر هر دو کران را وارد کنید.'));
+              'برای هر متغیر هر دو کران را وارد کنید.',
+            ),
+          );
           return;
         }
         lower.add(lo);
@@ -145,7 +145,7 @@ class _IntegralPageState extends State<IntegralPage> {
       _error = null;
     });
     try {
-      final r = engine.integral(
+      final r = await engine.integralAsync(
         text,
         x: singleVar,
         vars: vars,
@@ -182,6 +182,7 @@ class _IntegralPageState extends State<IntegralPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PageTitle(
+                tone: c.success,
                 icon: Icons.integration_instructions_rounded,
                 title: l.t('Integrals', 'انتگرال'),
                 subtitle: l.t(
@@ -190,8 +191,10 @@ class _IntegralPageState extends State<IntegralPage> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(l.t('Order', 'تعداد متغیر'),
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                l.t('Order', 'تعداد متغیر'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               SegmentedButton<int>(
                 segments: [
@@ -216,8 +219,10 @@ class _IntegralPageState extends State<IntegralPage> {
                 onSelectionChanged: (s) => _setDimension(s.first),
               ),
               const SizedBox(height: 16),
-              Text(l.t('Type', 'نوع انتگرال'),
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                l.t('Type', 'نوع انتگرال'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               SegmentedButton<bool>(
                 segments: [
@@ -238,8 +243,10 @@ class _IntegralPageState extends State<IntegralPage> {
               ),
               if (_definite) ...[
                 const SizedBox(height: 16),
-                Text(l.t('Bounds', 'کران‌ها'),
-                    style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  l.t('Bounds', 'کران‌ها'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 10,
@@ -268,7 +275,11 @@ class _IntegralPageState extends State<IntegralPage> {
                 ),
                 decoration: InputDecoration(
                   hintText: l.t('e.g. x*exp(x)', 'مثلاً x*exp(x)'),
-                  prefixIcon: Icon(Icons.functions_rounded, size: 20, color: c.muted),
+                  prefixIcon: Icon(
+                    Icons.functions_rounded,
+                    size: 20,
+                    color: c.muted,
+                  ),
                 ),
                 onSubmitted: (_) => _solve(),
               ),
@@ -280,7 +291,10 @@ class _IntegralPageState extends State<IntegralPage> {
                     controller: _xv,
                     textDirection: TextDirection.ltr,
                     textAlign: TextAlign.left,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 14,
+                    ),
                     decoration: InputDecoration(
                       labelText: l.t('Variable', 'متغیر'),
                       isDense: true,
@@ -295,25 +309,35 @@ class _IntegralPageState extends State<IntegralPage> {
                   children: [
                     for (final v in _vars)
                       Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: c.accentSoft,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: c.accent.withValues(alpha: 0.25)),
+                          border: Border.all(
+                            color: c.accent.withValues(alpha: 0.25),
+                          ),
                         ),
-                        child: Text('d$v',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: c.accent)),
+                        child: Text(
+                          'd$v',
+                          style: TextStyle(
+                            fontFamily: 'Vazirmatn',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: c.accent,
+                          ),
+                        ),
                       ),
                   ],
                 ),
               ],
               const SizedBox(height: 14),
-              Text(l.t('Examples', 'نمونه‌ها'),
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                l.t('Examples', 'نمونه‌ها'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 7,
@@ -336,14 +360,54 @@ class _IntegralPageState extends State<IntegralPage> {
                     ? const SizedBox(
                         width: 17,
                         height: 17,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
-                    : const Icon(Icons.integration_instructions_rounded, size: 19),
-                label: Text(_busy
-                    ? l.t('Integrating…', 'در حال انتگرال‌گیری…')
-                    : l.t('Compute integral', 'محاسبهٔ انتگرال')),
+                    : const Icon(
+                        Icons.integration_instructions_rounded,
+                        size: 19,
+                      ),
+                label: Text(
+                  _busy
+                      ? l.t('Integrating…', 'در حال انتگرال‌گیری…')
+                      : l.t('Compute integral', 'محاسبهٔ انتگرال'),
+                ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        LearningCard(
+          l10n: l,
+          title: l.t('Integration is accumulation', 'انتگرال یعنی انباشت'),
+          idea: l.t(
+            'A definite integral adds up signed area; an indefinite integral lists every antiderivative at once. The two are linked by the fundamental theorem.',
+            'انتگرال معین مساحت علامت‌دار را جمع می‌زند؛ انتگرال نامعین همهٔ پادمشتق‌ها را یک‌جا نشان می‌دهد. قضیهٔ اساسی حساب این دو را به هم وصل می‌کند.',
+          ),
+          points: [
+            l.t(
+              'Substitution reverses the chain rule; look for an inner function and its derivative.',
+              'تغییر متغیر، قاعدهٔ زنجیره‌ای را برمی‌گرداند؛ دنبال تابع درونی و مشتقش بگردید.',
+            ),
+            l.t(
+              'For definite integrals, apply the bounds after finding the antiderivative — and mind the variable order in 2D and 3D.',
+              'در انتگرال معین، پس از یافتن پادمشتق کران‌ها را اعمال کنید و در دوگانه و سه‌گانه ترتیب متغیرها را در نظر بگیرید.',
+            ),
+          ],
+          example: const ExView(
+            plain: 'integral 2*x*cos(x^2) dx = sin(x^2) + C',
+            pretty: '∫ 2x cos(x²) dx = sin(x²) + C',
+            latex: r'\int 2x\cos\left(x^{2}\right)\,dx = \sin\left(x^{2}\right) + C',
+          ),
+          exampleCaption: l.t(
+            'With u = x², du = 2x dx, the integral becomes ∫ cos u du.',
+            'با u = x² و du = 2x dx، انتگرال به ∫ cos u du تبدیل می‌شود.',
+          ),
+          pitfall: l.t(
+            'An indefinite integral without + C is incomplete, and bounds must follow the same order as the differentials.',
+            'انتگرال نامعین بدون + C ناقص است و کران‌ها باید با ترتیب دیفرانسیل‌ها هماهنگ باشند.',
           ),
         ),
         if (_error != null) ...[
@@ -358,8 +422,10 @@ class _IntegralPageState extends State<IntegralPage> {
                 Icon(Icons.error_outline_rounded, color: c.warning, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: SelectableText(_error!,
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  child: SelectableText(
+                    _error!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ),
               ],
             ),
@@ -367,7 +433,10 @@ class _IntegralPageState extends State<IntegralPage> {
         ],
         if (_result != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: _result!, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: _result!, l10n: l),
+          ),
         ],
       ],
     );
@@ -392,20 +461,22 @@ class _BoundPair extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     Widget field(TextEditingController controller, String label) => SizedBox(
-          width: 74,
-          child: TextField(
-            controller: controller,
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13.5),
-            decoration: InputDecoration(
-              labelText: label,
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            ),
+      width: 74,
+      child: TextField(
+        controller: controller,
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 13.5),
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 10,
           ),
-        );
+        ),
+      ),
+    );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -416,7 +487,10 @@ class _BoundPair extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(variable, style: const TextStyle(fontFamily: 'monospace', fontSize: 14)),
+          Text(
+            variable,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+          ),
           const SizedBox(width: 8),
           field(lower, l10n.t('from', 'از')),
           const SizedBox(width: 6),

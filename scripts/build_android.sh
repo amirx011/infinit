@@ -1,9 +1,26 @@
 #!/usr/bin/env bash
-# Build libodecore.so for Android ABIs and package the Flutter APK.
+# Build libodecore.so for the Android ABIs and (optionally) package the APK.
+#
+#   scripts/build_android.sh              # native engine + APK
+#   scripts/build_android.sh --core-only  # native engine only (used by Gradle)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANDROID_SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Android/Sdk}}"
 FLUTTER_BIN="${FLUTTER_BIN:-$HOME/toolchains/flutter-sdk/bin}"
+
+CORE_ONLY=0
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --core-only) CORE_ONLY=1 ;;
+    -h|--help)
+      sed -n '2,5p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *) ARGS+=("$arg") ;;
+  esac
+done
+if (( ${#ARGS[@]} )); then set -- "${ARGS[@]}"; else set --; fi
 
 if [[ -n "${ANDROID_NDK_HOME:-}" ]]; then
   NDK="$ANDROID_NDK_HOME"
@@ -23,8 +40,13 @@ EOF
   exit 1
 fi
 
+if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1; then
+  echo "cmake and ninja are required to cross-compile the native engine." >&2
+  exit 1
+fi
+
 echo "Using NDK: $NDK"
-ABIS=(${ABIS:-arm64-v8a x86_64})
+ABIS=(${ABIS:-arm64-v8a armeabi-v7a x86_64})
 API="${ANDROID_API:-21}"
 
 for abi in "${ABIS[@]}"; do
@@ -47,6 +69,13 @@ for abi in "${ABIS[@]}"; do
   echo "  -> $dest/libodecore.so"
 done
 
+if [[ "$CORE_ONLY" == 1 ]]; then
+  echo
+  echo "Native engine staged for: ${ABIS[*]}"
+  echo "Location: $ROOT/app/android/app/src/main/jniLibs"
+  exit 0
+fi
+
 # Flutter/Gradle occasionally insists on a specific NDK revision.  Point it at
 # the installed one so a clean machine does not try to download another copy.
 NDK_VERSION="$(basename "$NDK")"
@@ -59,7 +88,7 @@ if ! flutter pub get --offline; then
   flutter pub get
 fi
 
-flutter build apk --release --target-platform android-arm64,android-x64 --no-pub "$@"
+flutter build apk --release --target-platform android-arm64,android-arm,android-x64 --no-pub "$@"
 
 VERSION="$(sed -n 's/^version: \([^+]*\).*/\1/p' "$ROOT/app/pubspec.yaml")"
 APK="$ROOT/app/build/app/outputs/flutter-apk/app-release.apk"

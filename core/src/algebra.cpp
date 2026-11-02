@@ -290,7 +290,9 @@ Ex cancelCommon(const Ex& a) {
                 Ex b = f->args[0]; Ex e = Num(-f->args[1]->num);
                 Rational ac; Ex prim;
                 if (addContent(b, ac, prim)) {
-                    coeff = Mul(coeff, Pow(Num(ac), Num(-1)));
+                    // (ac·prim)^−e = ac^−e · prim^−e, so the extracted
+                    // content must be raised to the same power.
+                    coeff = Mul(coeff, Pow(Num(ac), Mul(Num(-1), e)));
                     bump(neg, prim, e);
                     continue;
                 }
@@ -300,7 +302,8 @@ Ex cancelCommon(const Ex& a) {
                 if (f->isPow()) { b = f->args[0]; e = f->args[1]; }
                 Rational ac; Ex prim;
                 if (addContent(b, ac, prim)) {
-                    coeff = Mul(coeff, Num(ac));
+                    // (ac·prim)^e = ac^e · prim^e.
+                    coeff = Mul(coeff, Pow(Num(ac), e));
                     bump(pos, prim, e);
                     continue;
                 }

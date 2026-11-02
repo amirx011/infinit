@@ -303,6 +303,35 @@ int main() {
         expect(r.order == 2, "derivative order is 2");
         expect(r.solution && toPlain(r.solution) == "6*x", "second derivative of x^3 is 6x");
     }
+    {
+        Result r;
+        Ex F = Add(Deriv(Sym("y"), "x", 1), Mul(Num(-1), Sym("y")));
+        verifyExplicit(r, F, parseExpr("exp(x)"), "x", "y", true);
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "verification accepts exp(x) for y' = y");
+        Result bad;
+        verifyExplicit(bad, F, parseExpr("x^2"), "x", "y", true);
+        expect(bad.checks.size() == 1 && !bad.checks[0].ok,
+               "verification rejects x^2 for y' = y");
+    }
+    {
+        Result r = solveEnvelope("(x-c)^2+y^2=1");
+        expect(r.ok, "horizontal envelope computed");
+        expect(r.envelope.size() == 1, "one envelope curve for a horizontal envelope");
+        expect(r.envelope.size() == 1 && r.envelope[0] &&
+                   toPlain(r.envelope[0]).find("y^2 - 1") != std::string::npos,
+               "horizontal envelope is y^2 = 1");
+    }
+    {
+        Result r = solveWronskian({"1e-9*x", "1"});
+        expect(r.ok && r.independent, "tiny Wronskian is not treated as a proof of dependence");
+        expect(!r.warnings.empty(), "numerically tiny Wronskian produces a warning");
+    }
+    {
+        Result r = solve("(y')^2 = 1");
+        expect(r.ok, "quadratic-in-y' equation solved");
+        expect(!r.warnings.empty(), "a single returned branch is disclosed");
+    }
 
     // C ABI smoke test
     char* raw = ode_solve("{\"mode\":\"ode\",\"input\":\"y' = y\"}");
@@ -319,6 +348,16 @@ int main() {
         std::string response(raw);
         expect(response.find("\"independent\":false") != std::string::npos,
                "C ABI Wronskian dependence flag");
+        ode_free(raw);
+    }
+    raw = ode_solve("{\"mode\":\"wronskian\",\"functions\":\"sin(x)\"}");
+    expect(raw != nullptr, "C ABI Wronskian accepts a single string");
+    if (raw) {
+        std::string response(raw);
+        expect(response.find("\"ok\":true") != std::string::npos,
+               "C ABI single-function Wronskian is ok");
+        expect(response.find("\"independent\":true") != std::string::npos,
+               "C ABI single-function Wronskian is independent");
         ode_free(raw);
     }
 

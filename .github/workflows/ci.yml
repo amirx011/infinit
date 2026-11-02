@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  native:
+    name: Native core (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S core -B core/build -DODE_BUILD_TESTS=ON -DODE_BUILD_STATIC=ON
+
+      - name: Build
+        run: cmake --build core/build --parallel
+
+      - name: Test
+        run: ctest --test-dir core/build --output-on-failure
+
+  python:
+    name: SymPy oracle and cross-check
+    runs-on: ubuntu-latest
+    needs: native
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: python/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r python/requirements.txt
+
+      - name: Build native core
+        run: |
+          cmake -S core -B core/build -DODE_BUILD_TESTS=OFF -DODE_BUILD_STATIC=ON
+          cmake --build core/build --parallel
+
+      - name: Oracle tests
+        working-directory: python
+        run: python3 -m pytest -q
+
+      - name: Native vs SymPy cross-check
+        run: python3 python/tests/compare_cpp.py
+
+  flutter:
+    name: Flutter analyze and widget tests
+    runs-on: ubuntu-latest
+    needs: native
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Build native core for FFI tests
+        run: |
+          cmake -S core -B core/build -DODE_BUILD_TESTS=OFF -DODE_BUILD_STATIC=ON
+          cmake --build core/build --parallel
+
+      - name: Test
+        working-directory: app
+        env:
+          INFINIT_LIB: ${{ github.workspace }}/core/build/lib/libodecore.so
+        run: flutter test

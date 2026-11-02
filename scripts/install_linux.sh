@@ -13,13 +13,28 @@ PREFIX="${PREFIX:-$HOME/.local}"
 APP_DIR="$PREFIX/share/infinit"
 BIN_DIR="$PREFIX/bin"
 DESKTOP_DIR="$PREFIX/share/applications"
-ICON_DIR="$PREFIX/share/icons/hicolor/scalable/apps"
+ICON_ROOT="$PREFIX/share/icons/hicolor"
+ICON_SCALABLE_DIR="$ICON_ROOT/scalable/apps"
+APP_ID="ir.infinit"
+DESKTOP_FILE="$DESKTOP_DIR/$APP_ID.desktop"
 LAUNCHER="$BIN_DIR/infinit"
+
+# Icon sizes shipped in app/assets/branding.
+ICON_SIZES=(16 24 32 48 64 96 128 192 256 512)
+
+refresh_caches() {
+  command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+  command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -f -t "$ICON_ROOT" >/dev/null 2>&1 || true
+}
 
 uninstall() {
   rm -rf "$APP_DIR"
-  rm -f "$LAUNCHER" "$DESKTOP_DIR/infinit.desktop" "$ICON_DIR/infinit.svg"
-  command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+  rm -f "$LAUNCHER" "$DESKTOP_FILE" "$DESKTOP_DIR/infinit.desktop" \
+        "$ICON_SCALABLE_DIR/$APP_ID.svg" "$ICON_ROOT/scalable/apps/infinit.svg"
+  for size in "${ICON_SIZES[@]}"; do
+    rm -f "$ICON_ROOT/${size}x${size}/apps/$APP_ID.png"
+  done
+  refresh_caches
   echo "Infinit Lab removed from $PREFIX."
 }
 
@@ -61,7 +76,7 @@ fi
 
 echo "Installing into $APP_DIR"
 rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR" "$BIN_DIR" "$DESKTOP_DIR" "$ICON_DIR"
+mkdir -p "$APP_DIR" "$BIN_DIR" "$DESKTOP_DIR" "$ICON_SCALABLE_DIR"
 cp -a "$BUNDLE/." "$APP_DIR/"
 
 cat > "$LAUNCHER" <<EOF
@@ -70,9 +85,24 @@ exec "$APP_DIR/infinit" "\$@"
 EOF
 chmod +x "$LAUNCHER"
 
-cp "$ROOT/app/assets/infinit.svg" "$ICON_DIR/infinit.svg"
+# Install icons from the bundle (not from the source tree) so a packaged
+# archive is self-contained.  The scalable SVG is the fallback; the raster
+# sizes give the taskbar and app switcher a crisp icon without downscaling.
+ICON_SOURCE="$APP_DIR/data/flutter_assets/assets/branding"
+if [[ -f "$ICON_SOURCE/infinit-icon.svg" ]]; then
+  cp "$ICON_SOURCE/infinit-icon.svg" "$ICON_SCALABLE_DIR/$APP_ID.svg"
+elif [[ -f "$ROOT/app/assets/branding/infinit-icon.svg" && "$BUNDLE" == "$ROOT/app/build/linux/x64/release/bundle" ]]; then
+  cp "$ROOT/app/assets/branding/infinit-icon.svg" "$ICON_SCALABLE_DIR/$APP_ID.svg"
+fi
+for size in "${ICON_SIZES[@]}"; do
+  src="$ICON_SOURCE/infinit-icon-$size.png"
+  [[ -f "$src" ]] || continue
+  dir="$ICON_ROOT/${size}x${size}/apps"
+  mkdir -p "$dir"
+  cp "$src" "$dir/$APP_ID.png"
+done
 
-cat > "$DESKTOP_DIR/infinit.desktop" <<EOF
+cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Infinit Lab
@@ -80,14 +110,14 @@ Name[fa]=Infinit Lab
 Comment=Exact symbolic calculus and differential equations
 Comment[fa]=حساب دیفرانسیل و انتگرال و معادلات دیفرانسیل دقیق
 Exec=$LAUNCHER
-Icon=infinit
+Icon=$APP_ID
 Terminal=false
 Categories=Education;Math;Science;
 Keywords=ode;differential;equation;wronskian;envelope;
-StartupWMClass=infinit
+StartupWMClass=$APP_ID
 EOF
 
-command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$DESKTOP_DIR" >/dev/null 2>&1 || true
+refresh_caches
 
 # Report missing runtime libraries (the GTK development headers are only
 # needed at build time; the runtime GTK libraries are normally installed).
@@ -103,7 +133,7 @@ echo
 echo "Installed:"
 echo "  app:      $APP_DIR"
 echo "  command:  $LAUNCHER"
-echo "  menu:     $DESKTOP_DIR/infinit.desktop"
+echo "  menu:     $DESKTOP_FILE"
 echo
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
   echo "Add $BIN_DIR to PATH to run 'infinit' from a terminal:"

@@ -4,6 +4,7 @@
 #include "poly.hpp"
 #include "solver.hpp"
 #include "numeric.hpp"
+#include "localize.hpp"
 #include <chrono>
 #include <set>
 #include <functional>
@@ -16,8 +17,7 @@ static bool isZero(const Ex& e) {
 }
 
 static Ex Cst(int i = 1) {
-    if (i <= 0) return Sym("C");
-    if (i == 1) return Sym("C");
+    if (i <= 1) return Sym("C");
     return Sym("C" + std::to_string(i));
 }
 
@@ -158,8 +158,11 @@ static std::string enTitle(const std::string& fa) {
         {"حل مسیرهای متعامد", "Solve the orthogonal trajectories"},
         {"حداکثر ۶ تابع پشتیبانی می‌شود", "At most six functions are supported"}
     };
-    static std::map<std::string, std::string> norm;
-    if (norm.empty()) for (auto& kv : m) norm[normFa(kv.first)] = kv.second;
+    static const std::map<std::string, std::string> norm = [] {
+        std::map<std::string, std::string> out;
+        for (auto& kv : m) out[normFa(kv.first)] = kv.second;
+        return out;
+    }();
     auto it = norm.find(normFa(fa));
     return it == norm.end() ? "" : it->second;
 }
@@ -279,8 +282,11 @@ static std::string enNote(const std::string& faRaw) {
         {"پوش در نقاطی که F و F_c هموارند و حذف c معتبر است، تعریف می‌شود.",
          "The envelope is defined where F and F_c are smooth and eliminating c is valid."}
     };
-    static std::map<std::string, std::string> norm;
-    if (norm.empty()) for (auto& kv : m) norm[normFa(kv.first)] = kv.second;
+    static const std::map<std::string, std::string> norm = [] {
+        std::map<std::string, std::string> out;
+        for (auto& kv : m) out[normFa(kv.first)] = kv.second;
+        return out;
+    }();
     auto it = norm.find(fa);
     if (it != norm.end()) return it->second;
 
@@ -384,7 +390,7 @@ struct Builder {
         if (!en) { r.error = message; return; }
         if (!messageEn.empty()) { r.error = messageEn; return; }
         std::string x = enNote(message);
-        r.error = x.empty() ? message : x;
+        r.error = x.empty() ? localizeError(message, true) : x;
     }
 };
 
@@ -605,14 +611,23 @@ static Result trySimplifiedFallback(const Ex& F, const OdeOptions& opt) {
 }
 
 // ---------------------------------------------------------------- verification
-static void verifyExplicit(Result& r, const Ex& F, const Ex& yExpr, const std::string& x,
-                           const std::string& y, bool en = true) {
+void verifyExplicit(Result& r, const Ex& F, const Ex& yExpr, const std::string& x,
+                    const std::string& y, bool en) {
     if (!r.checks.empty()) return;
     try {
+        // The caller normally sets r.order, but the helper is also used
+        // directly in tests; derive the required order from F when needed.
+        int neededOrder = r.order;
+        std::function<void(const Ex&)> scan = [&](const Ex& e) {
+            if (!e) return;
+            if (isDeriv(e) && e->args[1]->isSym(x)) neededOrder = std::max(neededOrder, derivOrder(e));
+            for (auto& c : e->args) scan(c);
+        };
+        scan(F);
         std::map<std::string, Ex> sub;
         sub[y] = yExpr;
         Ex cur = yExpr;
-        for (int k = 1; k <= r.order; ++k) {
+        for (int k = 1; k <= neededOrder; ++k) {
             cur = simplify(diff(cur, x));
             sub["__d" + std::to_string(k)] = cur;
         }
@@ -789,6 +804,8 @@ static bool tryClairautLagrange(Builder& b, const Ex& F, const Ex& p) {
         bool fLin = polyCoeffs(expand(ff0), "p", fc) && fc.size() <= 2;
         if (gLin && fLin) return false;
     }
+    const size_t stepMark = b.r.steps.size();
+    const size_t warnMark = b.r.warnings.size();
     b.r.order = 1;
     b.step("شناسایی نوع", nullptr,
            clairaut ? "معادله به شکل کلرو است: y = x·y′ + f(y′)."
@@ -841,7 +858,11 @@ static bool tryClairautLagrange(Builder& b, const Ex& F, const Ex& p) {
         Ex gp = simplify(diff(gg, "p"));
         Ex fp = simplify(diff(ff, "p"));
         Ex den = simplify(Add(tp, Mul(Num(-1), gg)));
-        if (den->isZero()) return false;
+        if (den->isZero()) {
+            b.r.steps.resize(stepMark);
+            b.r.warnings.resize(warnMark);
+            return false;
+        }
         Ex Pc = simplify(Mul(Num(-1), gp, Pow(den, Num(-1))));
         Ex Qc = simplify(Mul(fp, Pow(den, Num(-1))));
         Ex xp = solveLinearODE("p", Pc, Qc);
@@ -865,13 +886,13 @@ static bool tryClairautLagrange(Builder& b, const Ex& F, const Ex& p) {
         // singular: p0 with g(p0)=p0
         auto roots = solvePoly(den, "p");
         for (auto& rr : roots) {
-            Ex c = substituteSubexpr(gg, tp, rr);
             Ex yy = simplify(Add(Mul(rr, Sym(b.x)), substituteSubexpr(ff, tp, rr)));
             b.r.singular.push_back(yy);
-            (void)c;
         }
         return true;
     } catch (...) {
+        b.r.steps.resize(stepMark);
+        b.r.warnings.resize(warnMark);
         return false;
     }
 }
@@ -912,7 +933,7 @@ static bool tryRiccati(Builder& b, const Ex& yp, const std::vector<TermPow>& ts)
         b.r.normalized = yp;
         setSolution(b.r, "riccati", "ریکاتی", ysol, true, ysol);
         if (b.r.closedForm) {
-            verifyExplicit(b.r, Add(yp, Mul(Num(-1), Add(Mul(Pc, Pow(Sym(b.y), Num(2))), Mul(Q, Sym(b.y)), R))),
+            verifyExplicit(b.r, Add(b.P, Mul(Num(-1), Add(Mul(Pc, Pow(Sym(b.y), Num(2))), Mul(Q, Sym(b.y)), R))),
                            ysol, b.x, b.y, b.en);
         } else {
             b.warn("جواب شامل انتگرال غیرمقدماتی است و به صورت کوادراتور دقیق ارائه شده است.",
@@ -1004,7 +1025,7 @@ static bool tryBernoulli(Builder& b, const Ex& yp, const std::vector<TermPow>& t
     b.r.singular.push_back(Num(0));
     setSolution(b.r, "bernoulli", "برنولی", ysol, true, ysol);
     if (b.r.closedForm)
-        verifyExplicit(b.r, Add(yp, Mul(Num(-1), Add(Mul(Pc, Sym(b.y)), Mul(Q, Pow(Sym(b.y), nEx))))),
+        verifyExplicit(b.r, Add(b.P, Mul(Num(-1), Add(Mul(Pc, Sym(b.y)), Mul(Q, Pow(Sym(b.y), nEx))))),
                        ysol, b.x, b.y, b.en);
     else
         b.warn("انتگرال‌های جواب مقدماتی نیستند؛ جواب به صورت کوادراتور دقیق ارائه شده است.");
@@ -1030,7 +1051,7 @@ static bool tryLinear(Builder& b, const Ex& yp, const std::vector<TermPow>& ts) 
     b.step("جواب عمومی", ysol);
     setSolution(b.r, "linear", "خطی", ysol, true, ysol);
     if (b.r.closedForm)
-        verifyExplicit(b.r, Add(yp, Mul(Num(-1), Add(Mul(pcoef, Sym(b.y)), q))), ysol, b.x, b.y, b.en);
+        verifyExplicit(b.r, Add(b.P, Mul(Num(-1), Add(Mul(pcoef, Sym(b.y)), q))), ysol, b.x, b.y, b.en);
     else
         b.warn("جواب شامل انتگرال غیرمقدماتی است و به صورت کوادراتور دقیق ارائه شده است.");
     return true;
@@ -1231,7 +1252,8 @@ static bool tryExact(Builder& b, const Ex& F, const Ex& M, const Ex& N, bool fro
     } catch (...) {}
     try {
         Ex den = simplify(Add(Mul(Sym(b.x), M), Mul(Num(-1), Mul(Sym(b.y), N))));
-        Ex f3 = simplify(Mul(d, Pow(den, Num(-1))));
+        // u = xy: μ'/μ = -(M_y - N_x)/(xM - yN), so the sign is negated here.
+        Ex f3 = simplify(Mul(Num(-1), d, Pow(den, Num(-1))));
         Ex sub = substituteSubexpr(f3, Mul(Sym(b.x), Sym(b.y)), Sym("u"));
         if (!dependsOn(sub, b.x) && !dependsOn(sub, b.y)) {
             Ex mu = stripAbs(simplify(expOf(integrate(sub, "u"))));
@@ -1449,6 +1471,14 @@ std::string typeNameFa(const std::string& id) {
         {"linear_cc", "خطی همگن با ضرایب ثابت"},
         {"linear_higher", "خطی مرتبهٔ بالا"},
         {"wronskian", "رونسکی"},
+        {"direct_integration", "انتگرال‌گیری مستقیم"},
+        {"quadrature", "انتگرال‌گیری مستقیم"},
+        {"derivative", "مشتق"},
+        {"derivative_implicit", "مشتق ضمنی"},
+        {"integral", "انتگرال نامعین"},
+        {"integral_definite", "انتگرال معین"},
+        {"limit", "حد"},
+        {"continuity", "پیوستگی"},
         {"envelope", "پوش خانوادهٔ منحنیها"}
     };
     auto it = m.find(id);
@@ -1588,33 +1618,36 @@ Result solveODE(const std::string& input, const OdeOptions& opt) {
         Ex G = substituteSubexpr(F, p, t);
         std::vector<Ex> cs;
         Ex yp;
-        if (polyCoeffs(expand(G), "__p", cs) && cs.size() >= 2 && !cs[1]->isZero()) {
-            if (cs.size() == 2) {
+        if (polyCoeffs(expand(G), "__p", cs) && cs.size() >= 2) {
+            if (cs.size() == 2 && !cs[1]->isZero()) {
                 yp = simplify(Mul(Num(-1), cs[0], Pow(cs[1], Num(-1))));
-            } else {
+            } else if (cs.size() == 3 && !cs[2]->isZero()) {
                 // nonlinear in y' (quadratic) — try symbolic quadratic formula
-                if (cs.size() == 3) {
-                    Ex disc = simplify(Add(Pow(cs[1], Num(2)), Mul(Num(-4), cs[2], cs[0])));
-                    Ex sq = Sqrt(disc);
-                    Ex root1 = simplify(Mul(Add(Mul(Num(-1), cs[1]), sq), Num(Rational(1, 2)), Pow(cs[2], Num(-1))));
-                    Ex root2 = simplify(Mul(Add(Mul(Num(-1), cs[1]), Mul(Num(-1), sq)), Num(Rational(1, 2)), Pow(cs[2], Num(-1))));
-                    // solve each branch independently (without steps duplication)
-                    Result best;
-                    for (auto& br : {root1, root2}) {
-                        std::string dep2;
-                        Ex F2 = Add(substituteSubexpr(F, p, br), Num(0));
-                        OdeOptions o2 = opt;
-                        o2.steps = opt.steps;
-                        Result rr = solveODE("y' = " + toPlain(br), o2);
-                        if (rr.ok) { best = rr; break; }
-                        (void)F2;
-                    }
-                    if (best.ok) {
-                        best.engine = "native";
-                        best.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
-                        return best;
-                    }
+                Ex disc = simplify(Add(Pow(cs[1], Num(2)), Mul(Num(-4), cs[2], cs[0])));
+                Ex sq = Sqrt(disc);
+                Ex root1 = simplify(Mul(Add(Mul(Num(-1), cs[1]), sq), Num(Rational(1, 2)), Pow(cs[2], Num(-1))));
+                Ex root2 = simplify(Mul(Add(Mul(Num(-1), cs[1]), Mul(Num(-1), sq)), Num(Rational(1, 2)), Pow(cs[2], Num(-1))));
+                // solve each branch independently (without steps duplication)
+                const bool twoBranches = !equals(root1, root2);
+                Result best;
+                for (auto& br : {root1, root2}) {
+                    OdeOptions o2 = opt;
+                    o2.steps = opt.steps;
+                    Result rr = solveODE("y' = " + toPlain(br), o2);
+                    if (rr.ok) { best = rr; break; }
                 }
+                if (best.ok) {
+                    if (twoBranches) {
+                        best.warnings.push_back(opt.lang != "fa"
+                            ? "The equation is quadratic in y'; only one solution branch is returned."
+                            : "معادله نسبت به y′ درجهٔ دوم است؛ تنها یک شاخه از جواب بازگردانده می‌شود.");
+                    }
+                    best.engine = "native";
+                    best.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                    return best;
+                }
+                yp = nullptr;
+            } else {
                 yp = nullptr;
             }
         }
@@ -1701,10 +1734,10 @@ Result solveODE(const std::string& input, const OdeOptions& opt) {
         r.normalized = F;
     } catch (const OverflowError& e) {
         b.fail(std::string("ضرایب عددی بیش از حد بزرگ شدند: ") + e.what(),
-               std::string("Numeric coefficients grew too large: ") + e.what());
+               std::string("Numeric coefficients grew too large: ") + localizeError(e.what(), true));
     } catch (const std::exception& e) {
         b.fail(std::string("خطا در تحلیل معادله: ") + e.what(),
-               std::string("Equation analysis error: ") + e.what());
+               std::string("Equation analysis error: ") + localizeError(e.what(), true));
     }
     r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
     return r;
@@ -1782,10 +1815,14 @@ Result solveWronskian(const std::vector<std::string>& functions, const std::stri
             r.steps.push_back({en ? "Basis functions" : "توابع پایه", fs[j], note});
         }
         r.steps.push_back({en ? "Wronskian determinant" : "دترمینان رونسکی", W, "W = det[ f_i^(j) ]."});
-        bool zero = W->isZero();
-        if (!zero) {
-            bool numZero = numericallyZero(W, {x}, 8, 1e-7);
-            zero = numZero;
+        // Only a symbolic zero proves linear dependence.  A numerically tiny
+        // W can come from small coefficients (e.g. 1e-9*x), so it is reported
+        // as a caveat rather than asserted as a proof.
+        const bool zero = W->isZero();
+        if (!zero && numericallyZero(W, {x}, 8, 1e-7)) {
+            r.warnings.push_back(en
+                ? "W is numerically zero at the sampled points but was not proven identically zero; the functions are treated as independent."
+                : "W در نقاط نمونه‌برداری‌شده به‌صورت عددی صفر است اما صفر بودن یکسان آن اثبات نشد؛ توابع مستقل در نظر گرفته می‌شوند.");
         }
         r.independent = !zero;
         r.steps.push_back({en ? "Conclusion" : "نتیجه", nullptr,
@@ -1801,7 +1838,8 @@ Result solveWronskian(const std::vector<std::string>& functions, const std::stri
         r.solution = W;
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = (en ? std::string("Wronskian computation error: ") : std::string("خطا در محاسبهٔ رونسکی: ")) + e.what();
+        r.error = (en ? std::string("Wronskian computation error: ") : std::string("خطا در محاسبهٔ رونسکی: ")) +
+                  localizeError(e.what(), en);
     }
     return r;
 }
@@ -1857,7 +1895,9 @@ Result solveEnvelope(const std::string& input, const std::string& c, bool orthog
             }
             Ex curve = simplify(substitute(F, c, cv));
             // degenerate point (e.g. c=0 in concentric circles) is not an envelope
-            if (curve->isZero() || !dependsOn(curve, x) || !dependsOn(curve, y)) {
+            // A curve that depends on at least one of x/y is a valid envelope;
+            // horizontal or vertical envelopes (e.g. y^2 - 1 = 0) are allowed.
+            if (curve->isZero() || (!dependsOn(curve, x) && !dependsOn(curve, y))) {
                 r.warnings.push_back(en
                     ? ("c = " + toPretty(cv) + " gives a degenerate curve, not an envelope.")
                     : ("مقدار c = " + toPretty(cv) + " منحنی تبهگن می‌دهد و پوش نیست."));
@@ -1926,7 +1966,8 @@ Result solveEnvelope(const std::string& input, const std::string& c, bool orthog
             }
         }
     } catch (const std::exception& e) {
-        r.error = std::string("خطا در تحلیل خانوادهٔ منحنیها: ") + e.what();
+        r.error = en ? std::string("Envelope analysis error: ") + localizeError(e.what(), true)
+                     : std::string("خطا در تحلیل خانوادهٔ منحنیها: ") + e.what();
     }
     return r;
 }

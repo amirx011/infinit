@@ -59,17 +59,28 @@ class _EnvelopePageState extends State<EnvelopePage> {
     super.dispose();
   }
 
-  void _solve() {
+  Future<void> _solve() async {
     final engine = widget.engine;
     final l = widget.l10n;
     if (engine == null) {
-      setState(() => _error = widget.engineError ??
-          l.t('The computation engine is unavailable.', 'موتور محاسبات در دسترس نیست.'));
+      setState(
+        () => _error =
+            widget.engineError ??
+            l.t(
+              'The computation engine is unavailable.',
+              'موتور محاسبات در دسترس نیست.',
+            ),
+      );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(() => _error = l.t('Enter a family of curves.', 'معادلهٔ خانواده را وارد کنید.'));
+      setState(
+        () => _error = l.t(
+          'Enter a family of curves.',
+          'معادلهٔ خانواده را وارد کنید.',
+        ),
+      );
       return;
     }
     setState(() {
@@ -77,7 +88,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
       _error = null;
     });
     try {
-      final r = engine.envelope(
+      final r = await engine.envelopeAsync(
         text,
         c: _cv.text.trim().isEmpty ? 'c' : _cv.text.trim(),
         orthogonal: _orthogonal,
@@ -112,8 +123,12 @@ class _EnvelopePageState extends State<EnvelopePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PageTitle(
+                tone: c.creative,
                 icon: Icons.join_inner_rounded,
-                title: l.t('Envelope & orthogonal trajectories', 'پوش و مسیرهای متعامد'),
+                title: l.t(
+                  'Envelope & orthogonal trajectories',
+                  'پوش و مسیرهای متعامد',
+                ),
                 subtitle: l.t(
                   'Eliminate the parameter to find the envelope, and optionally the orthogonal trajectories.',
                   'با حذف پارامتر، پوش خانواده و در صورت نیاز مسیرهای متعامد را بیابید.',
@@ -132,13 +147,19 @@ class _EnvelopePageState extends State<EnvelopePage> {
                 ),
                 decoration: InputDecoration(
                   hintText: l.t('e.g. y = c*x + c^2', 'مثلاً y = c*x + c^2'),
-                  prefixIcon: Icon(Icons.timeline_rounded, size: 20, color: c.muted),
+                  prefixIcon: Icon(
+                    Icons.timeline_rounded,
+                    size: 20,
+                    color: c.muted,
+                  ),
                 ),
                 onSubmitted: (_) => _solve(),
               ),
               const SizedBox(height: 14),
-              Text(l.t('Examples', 'نمونه‌ها'),
-                  style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                l.t('Examples', 'نمونه‌ها'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 7,
@@ -160,8 +181,10 @@ class _EnvelopePageState extends State<EnvelopePage> {
                 onChanged: (v) => setState(() => _orthogonal = v),
                 contentPadding: EdgeInsets.zero,
                 activeThumbColor: c.accent,
-                title: Text(l.t('Orthogonal trajectories', 'مسیرهای متعامد'),
-                    style: Theme.of(context).textTheme.bodyMedium),
+                title: Text(
+                  l.t('Orthogonal trajectories', 'مسیرهای متعامد'),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
                 subtitle: Text(
                   l.t(
                     'Curves that intersect the family at right angles.',
@@ -171,21 +194,42 @@ class _EnvelopePageState extends State<EnvelopePage> {
                 ),
               ),
               Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                data: Theme.of(context)
+                    .copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   tilePadding: EdgeInsets.zero,
                   childrenPadding: const EdgeInsets.only(top: 4, bottom: 4),
                   leading: Icon(Icons.tune_rounded, size: 20, color: c.muted),
-                  title: Text(l.t('Advanced options', 'تنظیمات پیشرفته'),
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  title: Text(
+                    l.t('Advanced options', 'تنظیمات پیشرفته'),
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                   children: [
                     Row(
                       children: [
-                        Expanded(child: _smallField(_cv, l.t('Parameter', 'پارامتر'), 'c')),
+                        Expanded(
+                          child: _smallField(
+                            _cv,
+                            l.t('Parameter', 'پارامتر'),
+                            'c',
+                          ),
+                        ),
                         const SizedBox(width: 10),
-                        Expanded(child: _smallField(_xv, l.t('Variable x', 'متغیر x'), 'x')),
+                        Expanded(
+                          child: _smallField(
+                            _xv,
+                            l.t('Variable x', 'متغیر x'),
+                            'x',
+                          ),
+                        ),
                         const SizedBox(width: 10),
-                        Expanded(child: _smallField(_yv, l.t('Variable y', 'متغیر y'), 'y')),
+                        Expanded(
+                          child: _smallField(
+                            _yv,
+                            l.t('Variable y', 'متغیر y'),
+                            'y',
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -198,14 +242,54 @@ class _EnvelopePageState extends State<EnvelopePage> {
                     ? const SizedBox(
                         width: 17,
                         height: 17,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.auto_fix_high_rounded, size: 19),
-                label: Text(_busy
-                    ? l.t('Analysing…', 'در حال تحلیل…')
-                    : l.t('Analyse family', 'تحلیل خانواده')),
+                label: Text(
+                  _busy
+                      ? l.t('Analysing…', 'در حال تحلیل…')
+                      : l.t('Analyse family', 'تحلیل خانواده'),
+                ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        LearningCard(
+          l10n: l,
+          title: l.t(
+            'Envelopes and orthogonal families',
+            'پوش‌ها و خانواده‌های متعامد',
+          ),
+          idea: l.t(
+            'An envelope is a curve tangent to every member of a family. Orthogonal trajectories are the family that crosses every member at a right angle.',
+            'پوش منحنی‌ای است که بر هر عضو یک خانواده مماس است. مسیرهای متعامد خانواده‌ای‌اند که هر عضو را با زاویهٔ قائمه قطع می‌کنند.',
+          ),
+          points: [
+            l.t(
+              'To find an envelope, eliminate the parameter between F(x, y, c) = 0 and ∂F/∂c = 0.',
+              'برای یافتن پوش، پارامتر را بین F(x, y, c) = 0 و ∂F/∂c = 0 حذف کنید.',
+            ),
+            l.t(
+              'For orthogonal trajectories, replace y′ by −1/y′ in the differential equation of the family.',
+              'برای مسیرهای متعامد، در معادلهٔ دیفرانسیل خانواده y′ را با −1/y′ جایگزین کنید.',
+            ),
+          ],
+          example: const ExView(
+            plain: 'y = c*x + c^2  =>  envelope y = -x^2/4',
+            pretty: 'y = cx + c²  ⇒  y = −x²/4',
+            latex: r'y = cx + c^{2} \quad\Longrightarrow\quad y = -\frac{x^{2}}{4}',
+          ),
+          exampleCaption: l.t(
+            'Differentiate with respect to c, solve for c = −x/2, and substitute back.',
+            'نسبت به c مشتق بگیرید، c = −x/2 را به دست آورید و جایگذاری کنید.',
+          ),
+          pitfall: l.t(
+            'Not every family has a real envelope; a formal elimination can return only a complex or degenerate curve.',
+            'هر خانواده پوش حقیقی ندارد؛ حذف صوری ممکن است فقط یک منحنی مختلط یا تبهگن بدهد.',
           ),
         ),
         if (_error != null) ...[
@@ -231,19 +315,30 @@ class _EnvelopePageState extends State<EnvelopePage> {
         ],
         if (_result != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: _result!, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: _result!, l10n: l),
+          ),
         ],
       ],
     );
   }
 
-  Widget _smallField(TextEditingController controller, String label, String hint) {
+  Widget _smallField(
+    TextEditingController controller,
+    String label,
+    String hint,
+  ) {
     return TextField(
       controller: controller,
       textDirection: TextDirection.ltr,
       textAlign: TextAlign.left,
       style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
-      decoration: InputDecoration(labelText: label, hintText: hint, isDense: true),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        isDense: true,
+      ),
     );
   }
 }

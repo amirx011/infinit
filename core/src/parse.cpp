@@ -34,10 +34,13 @@ struct Lexer {
             std::string num = s.substr(b, i - b);
             size_t dot = num.find('.');
             if (dot == std::string::npos) {
+                if (num.size() > 18) throw std::runtime_error("عدد بسیار بزرگ: " + num);
                 try { tk.num = Rational(std::stoll(num)); }
                 catch (...) { throw std::runtime_error("عدد بسیار بزرگ: " + num); }
             } else {
                 std::string ip = num.substr(0, dot), fp = num.substr(dot + 1);
+                if (ip.size() > 18 || fp.size() > 18)
+                    throw std::runtime_error("عدد بسیار بزرگ: " + num);
                 long long denom = 1;
                 for (size_t k = 0; k < fp.size(); ++k) denom *= 10;
                 long long intpart = ip.empty() ? 0 : std::stoll(ip);
@@ -45,6 +48,28 @@ struct Lexer {
                 long long sign = 1;
                 if (intpart < 0) sign = -1;
                 tk.num = Rational(sign * (std::llabs(intpart) * denom + frac), denom);
+            }
+            // Scientific notation: 1e-3, 2E5.  Only consume `e` when a valid
+            // exponent follows, so `2*e` and `2e` keep their symbolic meaning.
+            if (i < s.size() && (s[i] == 'e' || s[i] == 'E')) {
+                size_t j = i + 1;
+                int expSign = 1;
+                if (j < s.size() && (s[j] == '+' || s[j] == '-')) {
+                    if (s[j] == '-') expSign = -1;
+                    ++j;
+                }
+                if (j < s.size() && std::isdigit((unsigned char)s[j])) {
+                    long long exp = 0;
+                    while (j < s.size() && std::isdigit((unsigned char)s[j])) {
+                        exp = exp * 10 + (s[j] - '0');
+                        if (exp > 18) throw std::runtime_error("عدد بسیار بزرگ: " + num);
+                        ++j;
+                    }
+                    i = j;
+                    Rational scale(1);
+                    for (long long k = 0; k < exp; ++k) scale = scale * Rational(10);
+                    tk.num = expSign > 0 ? tk.num * scale : tk.num / scale;
+                }
             }
             tk.t = Tok::Num; tk.text = num; return tk;
         }
@@ -83,6 +108,7 @@ struct Parser {
     Token cur;
     std::string indep;
     int depth = 0;
+    int absDepth = 0; // tracks open `|...|` groups so a closing `|` is not multiplied
 
     Parser(const std::string& s, std::string indepVar) : lx(s), indep(std::move(indepVar)) { cur = lx.next(); }
 
@@ -122,7 +148,7 @@ struct Parser {
                 adv();
                 Ex r = unary();
                 e = div ? Mul(e, Pow(r, Num(-1))) : Mul(e, r);
-            } else if (startsAtom(cur.t) && !(cur.t == Tok::Pipe && false)) {
+            } else if (startsAtom(cur.t) && !(cur.t == Tok::Pipe && absDepth > 0)) {
                 // implicit multiplication: 2x, 3(x+1), (x+1)(x-1)
                 Ex r = unary();
                 e = Mul(e, r);
@@ -157,7 +183,9 @@ struct Parser {
             expect(Tok::RParen, "')'");
         } else if (cur.t == Tok::Pipe) {
             adv();
+            ++absDepth;
             Ex inner = sum();
+            --absDepth;
             expect(Tok::Pipe, "'|'");
             out = Fn("abs", {inner});
         } else if (cur.t == Tok::Ident) {
@@ -280,6 +308,9 @@ static std::string naturalizeImplicit(std::string s, const std::vector<std::stri
 
 Ex parseWith(const std::string& raw, const std::string& indep, std::string* depOut,
              const std::vector<std::string>& implicitVars = {}) {
+    // Bound the input: the regex preprocessor and the recursive parser should
+    // not be exposed to arbitrarily large or adversarial strings.
+    if (raw.size() > 1000) throw std::runtime_error("عبارت بسیار طولانی است");
     std::string s = preprocessDifferentials(normalizeInput(raw), indep);
     if (!implicitVars.empty()) s = naturalizeImplicit(s, implicitVars);
     s = replaceAll(s, "==", "=");

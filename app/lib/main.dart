@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
@@ -7,6 +9,7 @@ import 'src/l10n.dart';
 import 'src/native_engine.dart';
 import 'src/pages/continuity_page.dart';
 import 'src/pages/derivative_page.dart';
+import 'src/pages/domain_range_page.dart';
 import 'src/pages/envelope_page.dart';
 import 'src/pages/integral_page.dart';
 import 'src/pages/limit_page.dart';
@@ -142,6 +145,13 @@ class _HomeScreenState extends State<HomeScreen> {
           engineError: _engineError,
           l10n: l10n,
         );
+      case 9:
+        return DomainRangePage(
+          key: const ValueKey('domain-range'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
       default:
         return _HomePage(
           l10n: l10n,
@@ -167,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
           key: _scaffoldKey,
           drawer: _AppDrawer(
             l10n: l10n,
+            settings: widget.settings,
             selected: _index,
             onSelected: (i) {
               _open(i);
@@ -184,10 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _Header(
                         l10n: l10n,
-                        settings: widget.settings,
                         onMenu: () => _scaffoldKey.currentState?.openDrawer(),
                         onSettings: () => _openSettings(context),
-                        onHome: _index == 0 ? null : () => setState(() => _index = 0),
                       ),
                       const SizedBox(height: 26),
                       AnimatedSwitcher(
@@ -236,11 +245,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class _AppDrawer extends StatelessWidget {
   const _AppDrawer({
     required this.l10n,
+    required this.settings,
     required this.selected,
     required this.onSelected,
   });
 
   final L10n l10n;
+  final AppSettings settings;
   final int selected;
   final ValueChanged<int> onSelected;
 
@@ -272,7 +283,7 @@ class _AppDrawer extends StatelessWidget {
         index: 5,
         icon: Icons.drive_file_rename_outline_rounded,
         label: l10n.t('Derivative', 'مشتق'),
-        hint: l10n.t('1st–3rd order', 'مرتبهٔ ۱ تا ۳'),
+        hint: l10n.t('1st–10th order', 'مرتبهٔ ۱ تا ۱۰'),
       ),
       (
         index: 6,
@@ -292,6 +303,12 @@ class _AppDrawer extends StatelessWidget {
         label: l10n.t('Continuity', 'پیوستگی'),
         hint: null,
       ),
+      (
+        index: 9,
+        icon: Icons.explore_rounded,
+        label: l10n.t('Domain & range', 'دامنه و برد'),
+        hint: l10n.t('Plot', 'نمودار'),
+      ),
     ];
     return Drawer(
       backgroundColor: c.card,
@@ -303,23 +320,28 @@ class _AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
               child: Row(
                 children: [
-                  const InfinitMark(size: 44),
-                  const SizedBox(width: 11),
+                  const InfinitMark(size: 34),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Infinit Lab',
-                            maxLines: 1,
-                            softWrap: false,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontFamily: 'SpaceGrotesk',
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.2,
-                                )),
-                        Text(l10n.t('Modules', 'ماژول‌ها'),
-                            style: Theme.of(context).textTheme.bodySmall),
+                        Text(
+                          'Infinit Lab',
+                          maxLines: 1,
+                          softWrap: false,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontFamily: 'SpaceGrotesk',
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
+                              ),
+                        ),
+                        Text(
+                          l10n.t('Modules', 'ماژول‌ها'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ],
                     ),
                   ),
@@ -329,7 +351,10 @@ class _AppDrawer extends StatelessWidget {
             Divider(color: c.line, height: 1),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 12,
+                ),
                 children: [
                   _DrawerTile(
                     icon: Icons.home_rounded,
@@ -348,7 +373,10 @@ class _AppDrawer extends StatelessWidget {
                   _DrawerGroup(
                     l10n: l10n,
                     icon: Icons.functions_rounded,
-                    title: l10n.t('Differential equations', 'معادلات دیفرانسیل'),
+                    title: l10n.t(
+                      'Differential equations',
+                      'معادلات دیفرانسیل',
+                    ),
                     items: equations,
                     selected: selected,
                     onSelected: onSelected,
@@ -356,10 +384,48 @@ class _AppDrawer extends StatelessWidget {
                   _DrawerGroup(
                     l10n: l10n,
                     icon: Icons.calculate_rounded,
-                    title: l10n.t('Differential & integral', 'حساب دیفرانسیل و انتگرال'),
+                    title: l10n.t(
+                      'Differential & integral',
+                      'حساب دیفرانسیل و انتگرال',
+                    ),
                     items: calculus,
                     selected: selected,
                     onSelected: onSelected,
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: c.line, height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l10n.t('Appearance', 'ظاهر'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _OptionTile(
+                          icon: Icons.dark_mode_rounded,
+                          label: l10n.t('Dark', 'تاریک'),
+                          selected: settings.isDark,
+                          onTap: () => settings.setThemeMode(ThemeMode.dark),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _OptionTile(
+                          icon: Icons.light_mode_rounded,
+                          label: l10n.t('Light', 'روشن'),
+                          selected: !settings.isDark,
+                          onTap: () => settings.setThemeMode(ThemeMode.light),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -414,12 +480,17 @@ class _DrawerGroupState extends State<_DrawerGroup> {
               padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
               child: Row(
                 children: [
-                  Icon(widget.icon, size: 19, color: active ? c.accent : c.muted),
+                  Icon(
+                    widget.icon,
+                    size: 19,
+                    color: active ? c.accent : c.muted,
+                  ),
                   const SizedBox(width: 11),
                   Expanded(
                     child: Text(
                       widget.title,
                       style: TextStyle(
+                        fontFamily: 'Vazirmatn',
                         fontSize: 13,
                         fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                         color: active ? c.accent : c.text,
@@ -430,8 +501,11 @@ class _DrawerGroupState extends State<_DrawerGroup> {
                   AnimatedRotation(
                     turns: _open ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 180),
-                    child: Icon(Icons.keyboard_arrow_down_rounded,
-                        size: 21, color: active ? c.accent : c.muted),
+                    child: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 21,
+                      color: active ? c.accent : c.muted,
+                    ),
                   ),
                 ],
               ),
@@ -440,8 +514,9 @@ class _DrawerGroupState extends State<_DrawerGroup> {
         ),
         AnimatedCrossFade(
           duration: const Duration(milliseconds: 190),
-          crossFadeState:
-              _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          crossFadeState: _open
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
           sizeCurve: Curves.easeOutCubic,
           firstChild: const SizedBox(width: double.infinity, height: 0),
           secondChild: Padding(
@@ -502,6 +577,7 @@ class _DrawerTile extends StatelessWidget {
                   child: Text(
                     label,
                     style: TextStyle(
+                      fontFamily: 'Vazirmatn',
                       fontSize: 13,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       color: selected ? c.accent : c.text,
@@ -512,7 +588,10 @@ class _DrawerTile extends StatelessWidget {
                   Container(
                     width: 5,
                     height: 5,
-                    decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
+                    decoration: BoxDecoration(
+                      color: c.accent,
+                      shape: BoxShape.circle,
+                    ),
                   )
                 else if (hint != null && hint!.isNotEmpty)
                   Flexible(
@@ -523,7 +602,11 @@ class _DrawerTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.end,
-                        style: TextStyle(fontSize: 9.5, color: c.muted),
+                        style: TextStyle(
+                          fontFamily: 'Vazirmatn',
+                          fontSize: 12,
+                          color: c.muted,
+                        ),
                       ),
                     ),
                   ),
@@ -536,109 +619,138 @@ class _DrawerTile extends StatelessWidget {
   }
 }
 
-/// The Infinit Lab mark: a gradient tile with the infinity sign in front of
-/// faint calculus and linear-algebra glyphs (d/dx, ∫, matrix brackets, 0/1).
+/// The Infinit Lab logo: a slightly tilted infinity with 0 in the left loop and
+/// 1 in the right one, drawn with the same geometry as the packaged app icons.
 class InfinitMark extends StatelessWidget {
-  const InfinitMark({super.key, this.size = 52});
+  const InfinitMark({super.key, this.size = 42});
 
+  /// Height of the mark; the widget is a little wider than it is tall.
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final s = size;
-    final radius = BorderRadius.circular(s * 0.30);
-    return Container(
-      width: s,
-      height: s,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [c.accent, Color.lerp(c.accent, c.glow, 0.55)!],
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    // The 0/1 counters are only a few pixels tall on the header mark. Drawing
+    // them there just adds noise, so keep them for hero-sized marks.
+    final showDigits = size >= 56;
+    return SizedBox(
+      width: size * 1.55,
+      height: size,
+      child: CustomPaint(
+        painter: _InfinitMarkPainter(
+          glow: dark && showDigits ? 0.18 : 0,
+          showDigits: showDigits,
         ),
-        borderRadius: radius,
-        boxShadow: [
-          BoxShadow(
-            color: c.accent.withValues(alpha: 0.26),
-            blurRadius: s * 0.42,
-            offset: Offset(0, s * 0.17),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              top: s * 0.05,
-              left: s * 0.08,
-              child: _glyph('d/dx', s * 0.155, 0.52),
-            ),
-            Positioned(
-              top: s * 0.07,
-              right: s * 0.09,
-              child: _glyph('Aᵀ', s * 0.14, 0.45),
-            ),
-            Positioned(
-              bottom: s * 0.04,
-              left: s * 0.10,
-              child: _glyph('∫', s * 0.24, 0.42),
-            ),
-            Positioned(
-              bottom: s * 0.07,
-              right: s * 0.08,
-              child: _glyph('0 1', s * 0.13, 0.5),
-            ),
-            Container(
-              width: s * 0.78,
-              height: s * 0.46,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(s * 0.23),
-              ),
-            ),
-            Icon(
-              Icons.all_inclusive_rounded,
-              size: s * 0.56,
-              color: Colors.white.withValues(alpha: 0.96),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _glyph(String text, double fontSize, double alpha) {
-    return Text(
-      text,
-      textDirection: TextDirection.ltr,
-      style: TextStyle(
-        fontFamily: 'SpaceGrotesk',
-        fontSize: fontSize,
-        fontWeight: FontWeight.w700,
-        color: Colors.white.withValues(alpha: alpha),
-        height: 1,
       ),
     );
   }
 }
 
+class _InfinitMarkPainter extends CustomPainter {
+  const _InfinitMarkPainter({required this.glow, required this.showDigits});
+
+  final double glow;
+  final bool showDigits;
+
+  static const _gradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [Color(0xFF38BDF8), Color(0xFF3B82F6), Color(0xFF4F46E5)],
+  );
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final a = w * 0.395;
+    final stroke = w * 0.070;
+    const yScale = 1.30;
+    final tilt = -8 * math.pi / 180;
+    final center = Offset(w / 2, h / 2);
+
+    final path = Path();
+    const steps = 240;
+    for (var i = 0; i <= steps; i++) {
+      final t = 2 * math.pi * i / steps;
+      final d = 1 + math.pow(math.sin(t), 2).toDouble();
+      final x = a * math.cos(t) / d;
+      final y = a * math.sin(t) * math.cos(t) / d * yScale;
+      final px = center.dx + x * math.cos(tilt) - y * math.sin(tilt);
+      final py = center.dy + x * math.sin(tilt) + y * math.cos(tilt);
+      if (i == 0) {
+        path.moveTo(px, py);
+      } else {
+        path.lineTo(px, py);
+      }
+    }
+
+    final shader = _gradient.createShader(Rect.fromLTWH(0, 0, w, h));
+
+    if (glow > 0) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke * 1.7
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = const Color(0xFF3B82F6).withValues(alpha: glow)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, stroke * 0.8),
+      );
+    }
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..shader = shader,
+    );
+
+    if (showDigits) {
+      final fontSize = w * 0.140;
+      for (final entry in const [('0', -1.0), ('1', 1.0)]) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: entry.$1,
+            style: TextStyle(
+              fontFamily: 'SpaceGrotesk',
+              fontSize: fontSize,
+              fontWeight: FontWeight.w700,
+              height: 1,
+              foreground: Paint()..shader = shader,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        final dx = entry.$2 * 0.43 * a;
+        final px = center.dx + dx * math.cos(tilt);
+        final py = center.dy + dx * math.sin(tilt);
+        painter.paint(
+          canvas,
+          Offset(px - painter.width / 2, py - painter.height / 2),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _InfinitMarkPainter oldDelegate) =>
+      oldDelegate.glow != glow || oldDelegate.showDigits != showDigits;
+}
+
 class _Header extends StatelessWidget {
   const _Header({
     required this.l10n,
-    required this.settings,
     required this.onMenu,
     required this.onSettings,
-    this.onHome,
   });
 
   final L10n l10n;
-  final AppSettings settings;
   final VoidCallback onMenu;
   final VoidCallback onSettings;
-  final VoidCallback? onHome;
 
   @override
   Widget build(BuildContext context) {
@@ -649,12 +761,9 @@ class _Header extends StatelessWidget {
           icon: Icons.menu_rounded,
           onPressed: onMenu,
         ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: onHome,
-          child: const InfinitMark(size: 48),
-        ),
-        const SizedBox(width: 13),
+        const SizedBox(width: 12),
+        const InfinitMark(size: 40),
+        const SizedBox(width: 12),
         Expanded(
           child: Align(
             alignment: AlignmentDirectional.centerStart,
@@ -667,22 +776,14 @@ class _Header extends StatelessWidget {
                 softWrap: false,
                 textDirection: TextDirection.ltr,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontFamily: 'SpaceGrotesk',
-                      fontSize: 27,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.6,
-                    ),
+                  fontFamily: 'SpaceGrotesk',
+                  fontSize: 27,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.6,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        _RoundIconButton(
-          tooltip: settings.isDark
-              ? l10n.t('Switch to light mode', 'تغییر به حالت روشن')
-              : l10n.t('Switch to dark mode', 'تغییر به حالت تاریک'),
-          icon: settings.isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-          onPressed: settings.toggleTheme,
         ),
         const SizedBox(width: 4),
         _RoundIconButton(
@@ -779,7 +880,7 @@ const _forms = <_OdeForm>[
   _OdeForm(
     labelEn: 'Lagrange',
     labelFa: 'لاگرانژ',
-    standard: r"y = x\,f(y') + g(y')",
+    standard: r"y = x\,g(y') + f(y')",
     example: "y = 2*x*y' + (y')^2",
     order: 1,
   ),
@@ -861,10 +962,36 @@ class _HomePageState extends State<_HomePage> {
           const SizedBox(height: 14),
         ],
         _hero(context, l),
+        const SizedBox(height: 14),
+        LearningCard(
+          l10n: l,
+          title: l.t('How to read a solution', 'چگونه یک جواب را بخوانیم'),
+          idea: l.t(
+            'Every answer comes in three layers: the closed form, the solution path, and the validation. Read them together instead of stopping at the result.',
+            'هر جواب سه لایه دارد: شکل بسته، مسیر حل و اعتبارسنجی. این سه را با هم بخوانید، نه فقط نتیجه را.',
+          ),
+          expandLabel: l.t('Read the workflow', 'روند کار را ببینید'),
+          points: [
+            l.t(
+              'The answer card states what was solved and any assumptions.',
+              'کارت جواب می‌گوید چه چیزی حل شده و چه فرض‌هایی در کار بوده است.',
+            ),
+            l.t(
+              'The solution path names each rule, so you can reproduce it by hand.',
+              'مسیر حل نام هر قاعده را می‌آورد تا بتوانید آن را دستی بازتولید کنید.',
+            ),
+            l.t(
+              'Validation substitutes the answer back; a failed check means the form needs another look.',
+              'اعتبارسنجی جواب را جایگذاری می‌کند؛ اگر بررسی رد شود، فرم معادله را دوباره ببینید.',
+            ),
+          ],
+        ),
         const SizedBox(height: 26),
         LayoutBuilder(
           builder: (context, constraints) {
-            final label = SectionLabel(l.t('Forms we recognise', 'فرم‌هایی که می‌شناسیم'));
+            final label = SectionLabel(
+              l.t('Forms we recognise', 'فرم‌هایی که می‌شناسیم'),
+            );
             final switcher = SegmentedButton<int>(
               showSelectedIcon: false,
               style: const ButtonStyle(
@@ -940,15 +1067,19 @@ class _HomePageState extends State<_HomePage> {
               _WideCard(
                 icon: Icons.grid_on_rounded,
                 title: l.t('Wronskian', 'رونسکی'),
-                subtitle: l.t('Linear independence of a set of functions.',
-                    'استقلال خطی یک مجموعه تابع.'),
+                subtitle: l.t(
+                  'Linear independence of a set of functions.',
+                  'استقلال خطی یک مجموعه تابع.',
+                ),
                 onTap: () => widget.onOpen(3),
               ),
               _WideCard(
                 icon: Icons.join_inner_rounded,
                 title: l.t('Envelope & orthogonal', 'پوش و مسیرهای متعامد'),
-                subtitle: l.t('Envelopes of a family and orthogonal trajectories.',
-                    'پوش یک خانوادهٔ منحنی و مسیرهای متعامد.'),
+                subtitle: l.t(
+                  'Envelopes of a family and orthogonal trajectories.',
+                  'پوش یک خانوادهٔ منحنی و مسیرهای متعامد.',
+                ),
                 onTap: () => widget.onOpen(4),
               ),
             ];
@@ -979,13 +1110,13 @@ class _HomePageState extends State<_HomePage> {
         const SizedBox(height: 30),
         Center(
           child: Text(
-            l.t('See the steps, not just the answer.', 'هر قدم را ببین، نه فقط جواب را.'),
+            l.t(
+              'See the steps, not just the answer.',
+              'هر قدم را ببین، نه فقط جواب را.',
+            ),
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: 11.5,
-                  letterSpacing: 0.2,
-                  color: c.muted.withValues(alpha: 0.85),
-                ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(fontSize: 12, letterSpacing: 0.2, color: c.muted),
           ),
         ),
       ],
@@ -1009,8 +1140,11 @@ class _HomePageState extends State<_HomePage> {
           Expanded(
             child: Text(
               l.t(
-                'The native engine is not loaded, so computations will fail. Check libodecore.so next to the executable.',
-                'موتور بومی بارگذاری نشده است؛ محاسبات انجام نمی‌شوند. فایل libodecore.so را کنار فایل اجرایی بررسی کنید.',
+                'The native engine could not be loaded, so computations will fail. '
+                    'On Android the APK must contain libodecore.so; on desktop check that '
+                    'it sits next to the executable.',
+                'موتور بومی بارگذاری نشد؛ محاسبات انجام نمی‌شوند. در اندروید فایل '
+                    'libodecore.so باید داخل خود APK باشد؛ در دسکتاپ آن را کنار فایل اجرایی بررسی کنید.',
               ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -1028,11 +1162,7 @@ class _HomePageState extends State<_HomePage> {
         gradient: LinearGradient(
           begin: AlignmentDirectional.topStart,
           end: AlignmentDirectional.bottomEnd,
-          colors: [
-            c.accent.withValues(alpha: 0.16),
-            c.card,
-            c.card,
-          ],
+          colors: [c.accent.withValues(alpha: 0.16), c.card, c.card],
         ),
         borderRadius: BorderRadius.circular(26),
         border: Border.all(color: c.accent.withValues(alpha: 0.22)),
@@ -1059,11 +1189,11 @@ class _HomePageState extends State<_HomePage> {
               Text(
                 l.t('Every equation has a form.', 'هر معادله‌ای یک فرم دارد.'),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                      letterSpacing: -0.4,
-                    ),
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  height: 1.25,
+                  letterSpacing: -0.4,
+                ),
               ),
               const SizedBox(height: 8),
               ConstrainedBox(
@@ -1073,7 +1203,8 @@ class _HomePageState extends State<_HomePage> {
                     'Enter an ordinary differential equation; Infinit Lab recognises its form, shows the standard shape and solves it step by step.',
                     'یک معادلهٔ دیفرانسیل معمولی وارد کنید؛ Infinit Lab فرم آن را تشخیص می‌دهد، شکل استاندارد را نشان می‌دهد و قدم‌به‌قدم حل می‌کند.',
                   ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.6),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(height: 1.6),
                 ),
               ),
               const SizedBox(height: 18),
@@ -1094,10 +1225,27 @@ class _HomePageState extends State<_HomePage> {
   Widget _calculusRow(BuildContext context, L10n l) {
     final c = context.colors;
     final items = [
-      (icon: Icons.drive_file_rename_outline_rounded, label: l.t('Derivative', 'مشتق'), index: 5),
-      (icon: Icons.integration_instructions_rounded, label: l.t('Integral', 'انتگرال'), index: 6),
+      (
+        icon: Icons.drive_file_rename_outline_rounded,
+        label: l.t('Derivative', 'مشتق'),
+        index: 5,
+      ),
+      (
+        icon: Icons.integration_instructions_rounded,
+        label: l.t('Integral', 'انتگرال'),
+        index: 6,
+      ),
       (icon: Icons.linear_scale_rounded, label: l.t('Limit', 'حد'), index: 7),
-      (icon: Icons.timeline_rounded, label: l.t('Continuity', 'پیوستگی'), index: 8),
+      (
+        icon: Icons.timeline_rounded,
+        label: l.t('Continuity', 'پیوستگی'),
+        index: 8,
+      ),
+      (
+        icon: Icons.explore_rounded,
+        label: l.t('Domain & range', 'دامنه و برد'),
+        index: 9,
+      ),
     ];
     return Wrap(
       spacing: 8,
@@ -1106,7 +1254,7 @@ class _HomePageState extends State<_HomePage> {
       children: [
         Text(
           l.t('Calculus tools', 'ابزارهای حساب دیفرانسیل'),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 12),
         ),
         for (final item in items)
           TextButton.icon(
@@ -1115,7 +1263,11 @@ class _HomePageState extends State<_HomePage> {
               foregroundColor: c.text,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               minimumSize: const Size(0, 40),
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              textStyle: const TextStyle(
+                fontFamily: 'Vazirmatn',
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             icon: Icon(item.icon, size: 15, color: c.muted),
             label: Text(item.label),
@@ -1143,10 +1295,18 @@ class _HeroMath extends StatelessWidget {
           child: Math.tex(
             r"y' + P(x)\,y = Q(x) \quad\Longrightarrow\quad y = e^{-\int P\,dx}\left(\int Q\,e^{\int P\,dx}dx + C\right)",
             mathStyle: MathStyle.display,
-            textStyle: TextStyle(fontSize: 16, color: c.text.withValues(alpha: 0.92)),
+            textStyle: TextStyle(
+              fontFamily: 'Vazirmatn',
+              fontSize: 16,
+              color: c.text.withValues(alpha: 0.92),
+            ),
             onErrorFallback: (error) => Text(
               "y' + P(x)y = Q(x)",
-              style: TextStyle(fontFamily: 'DejaVu Sans Mono', fontSize: 15, color: c.text),
+              style: TextStyle(
+                fontFamily: 'DejaVu Sans Mono',
+                fontSize: 15,
+                color: c.text,
+              ),
             ),
           ),
         ),
@@ -1156,7 +1316,11 @@ class _HeroMath extends StatelessWidget {
 }
 
 class _FormCard extends StatelessWidget {
-  const _FormCard({required this.label, required this.latex, required this.onTap});
+  const _FormCard({
+    required this.label,
+    required this.latex,
+    required this.onTap,
+  });
 
   final String label;
   final String latex;
@@ -1189,6 +1353,7 @@ class _FormCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
+                        fontFamily: 'Vazirmatn',
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: c.text,
@@ -1212,9 +1377,14 @@ class _FormCard extends StatelessWidget {
                   child: Math.tex(
                     latex,
                     textStyle: TextStyle(fontSize: 13.5, color: c.muted),
-                    onErrorFallback: (error) => Text(latex,
-                        style: TextStyle(
-                            fontFamily: 'DejaVu Sans Mono', fontSize: 12, color: c.muted)),
+                    onErrorFallback: (error) => Text(
+                      latex,
+                      style: TextStyle(
+                        fontFamily: 'DejaVu Sans Mono',
+                        fontSize: 12,
+                        color: c.muted,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1272,16 +1442,21 @@ class _WideCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(title,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontSize: 14.5, fontWeight: FontWeight.w700)),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text(subtitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11.5)),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(fontSize: 12),
+                    ),
                   ],
                 ),
               ),
@@ -1295,8 +1470,8 @@ class _WideCard extends StatelessWidget {
 
 TextDirection l10nDirection(BuildContext context) =>
     Localizations.localeOf(context).languageCode == 'fa'
-        ? TextDirection.rtl
-        : TextDirection.ltr;
+    ? TextDirection.rtl
+    : TextDirection.ltr;
 
 class _SettingsSheet extends StatelessWidget {
   const _SettingsSheet({
@@ -1324,11 +1499,15 @@ class _SettingsSheet extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l10n.t('Settings', 'تنظیمات'),
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  l10n.t('Settings', 'تنظیمات'),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 18),
-                Text(l10n.t('Appearance', 'ظاهر'),
-                    style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  l10n.t('Appearance', 'ظاهر'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -1352,8 +1531,10 @@ class _SettingsSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 18),
-                Text(l10n.t('Language', 'زبان'),
-                    style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  l10n.t('Language', 'زبان'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -1382,7 +1563,9 @@ class _SettingsSheet extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      engineReady ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                      engineReady
+                          ? Icons.check_circle_rounded
+                          : Icons.error_outline_rounded,
                       size: 17,
                       color: engineReady ? c.success : c.warning,
                     ),
@@ -1390,9 +1573,14 @@ class _SettingsSheet extends StatelessWidget {
                     Expanded(
                       child: Text(
                         engineReady
-                            ? l10n.t('Native engine ${version.isEmpty ? '' : 'v$version'} — exact rational arithmetic',
-                                'موتور بومی ${version.isEmpty ? '' : 'نسخهٔ $version'} — حساب گویای دقیق')
-                            : l10n.t('Native engine unavailable', 'موتور بومی در دسترس نیست'),
+                            ? l10n.t(
+                                'Native engine ${version.isEmpty ? '' : 'v$version'} — exact rational arithmetic',
+                                'موتور بومی ${version.isEmpty ? '' : 'نسخهٔ $version'} — حساب گویای دقیق',
+                              )
+                            : l10n.t(
+                                'Native engine unavailable',
+                                'موتور بومی در دسترس نیست',
+                              ),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -1446,6 +1634,7 @@ class _OptionTile extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
+                  fontFamily: 'Vazirmatn',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: selected ? c.accent : c.text,

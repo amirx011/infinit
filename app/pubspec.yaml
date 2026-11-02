@@ -24,10 +24,20 @@ flutter:
   uses-material-design: true
   assets:
     - assets/fonts/
+    - assets/branding/
   fonts:
     - family: Vazirmatn
       fonts:
-        - asset: assets/fonts/Vazirmatn.ttf
+        - asset: assets/fonts/Vazirmatn-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Vazirmatn-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Vazirmatn-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Vazirmatn-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Vazirmatn-Bold.ttf
+          weight: 700
     - family: SpaceGrotesk
       fonts:
         - asset: assets/fonts/SpaceGrotesk.ttf

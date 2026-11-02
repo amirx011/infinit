@@ -17,6 +17,7 @@ set(ODE_SOURCES
     src/ode.cpp
     src/numeric.cpp
     src/numeric.c
+    src/graph.cpp
     src/api.cpp
     src/calculus_api.cpp
     src/limits.cpp
@@ -61,8 +62,16 @@ if(ODE_BUILD_TESTS)
   add_executable(odetest_regression test/test_regression.cpp)
   target_link_libraries(odetest_regression PRIVATE odecore)
 
+  add_executable(odetest_calculus test/test_calculus.cpp)
+  target_link_libraries(odetest_calculus PRIVATE odecore)
+
+  add_executable(odetest_limits test/test_limits.cpp)
+  target_link_libraries(odetest_limits PRIVATE odecore)
+
   enable_testing()
   add_test(NAME algebra COMMAND odetest)
   add_test(NAME ode COMMAND odetest_ode)
   add_test(NAME regression COMMAND odetest_regression)
+  add_test(NAME calculus COMMAND odetest_calculus)
+  add_test(NAME limits COMMAND odetest_limits)
 endif()

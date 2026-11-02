@@ -14,6 +14,44 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+// Loads the brand icons that ship inside the bundle.  A list of sizes lets
+// GTK/X11 pick a crisp icon for the title bar, taskbar and app switcher
+// instead of downscaling one large bitmap.
+static void my_application_set_brand_icon(GtkWindow* window) {
+  g_autofree gchar* exe_path = g_file_read_link("/proc/self/exe", nullptr);
+  if (exe_path == nullptr) {
+    return;
+  }
+  g_autofree gchar* exe_dir = g_path_get_dirname(exe_path);
+  const gchar* names[] = {
+      "infinit-icon-16.png",  "infinit-icon-24.png",
+      "infinit-icon-32.png",  "infinit-icon-48.png",
+      "infinit-icon-64.png",  "infinit-icon-96.png",
+      "infinit-icon-128.png", "infinit-icon-192.png",
+      "infinit-icon-256.png",
+  };
+  GList* icons = nullptr;
+  for (gsize i = 0; i < G_N_ELEMENTS(names); i++) {
+    g_autofree gchar* path = g_build_filename(
+        exe_dir, "data/flutter_assets/assets/branding", names[i], nullptr);
+    if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+      continue;
+    }
+    GError* error = nullptr;
+    GdkPixbuf* pixbuf = gdk_pixbuf_new_from_file(path, &error);
+    if (pixbuf != nullptr) {
+      icons = g_list_append(icons, pixbuf);
+    } else if (error != nullptr) {
+      g_error_free(error);
+    }
+  }
+  if (icons != nullptr) {
+    gtk_window_set_icon_list(window, icons);
+    gtk_window_set_default_icon_list(icons);
+    g_list_free_full(icons, g_object_unref);
+  }
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -53,6 +91,7 @@ static void my_application_activate(GApplication* application) {
   }
 
   gtk_window_set_default_size(window, 1280, 720);
+  my_application_set_brand_icon(window);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
