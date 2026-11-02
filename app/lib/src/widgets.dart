@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import 'calc_widgets.dart';
 import 'l10n.dart';
 import 'models.dart';
 import 'theme.dart';
@@ -599,7 +600,7 @@ class ResultView extends StatelessWidget {
   }
 
   String _formatNumber(double v) {
-    if (v.isNaN) return '—';
+    if (v.isNaN) return '?';
     if (!v.isFinite) return v.sign < 0 ? '−∞' : '∞';
     if (v.abs() < 1e-12) return '0';
     var s = v.toStringAsPrecision(10);
@@ -1064,6 +1065,18 @@ class ResultView extends StatelessWidget {
           ),
         );
       }
+    } else if (result.mode == 'behaviour') {
+      children.addAll(_behaviourAnswer(context));
+    } else if (result.mode == 'tangent') {
+      children.addAll(_tangentAnswer(context));
+    } else if (result.mode == 'optimize') {
+      children.addAll(_optimiseAnswer(context));
+    } else if (result.mode == 'related_rates') {
+      children.addAll(_relatedRatesAnswer(context));
+    } else if (result.mode == 'mvt' ||
+        result.mode == 'cauchy' ||
+        result.mode == 'lhopital') {
+      children.addAll(_theoremAnswer(context));
     } else if (result.mode == 'envelope') {
       children.add(
         SectionLabel(l10n.t('Envelope of the family', 'پوش خانواده')),
@@ -1221,6 +1234,310 @@ class ResultView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
       ),
+    );
+  }
+
+  /// Behaviour analysis: the two derivatives plus the point tables.
+  List<Widget> _behaviourAnswer(BuildContext context) {
+    final out = <Widget>[];
+    if (result.derivative != null) {
+      out.add(SectionLabel(l10n.t("First derivative f'", 'مشتق اول f′')));
+      out.add(const SizedBox(height: 10));
+      out.add(
+        MathBlock(
+          math: result.derivative!,
+          accent: true,
+          size: 20,
+          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
+          onCopyLatex: () => _copyLatex(context, result.derivative),
+        ),
+      );
+      out.add(const SizedBox(height: 14));
+    }
+    if (result.secondDerivative != null) {
+      out.add(SectionLabel(l10n.t("Second derivative f''", 'مشتق دوم f″')));
+      out.add(const SizedBox(height: 10));
+      out.add(
+        MathBlock(
+          math: result.secondDerivative!,
+          size: 18,
+          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
+          onCopyLatex: () => _copyLatex(context, result.secondDerivative),
+        ),
+      );
+      out.add(const SizedBox(height: 14));
+    }
+    if (result.critical.isNotEmpty) {
+      out.add(SectionLabel(l10n.t('Critical points', 'نقطه‌های بحرانی')));
+      out.add(const SizedBox(height: 10));
+      out.add(
+        PointTable(
+          points: result.critical,
+          l10n: l10n,
+          kindLabels: {
+            'maximum': l10n.t('maximum', 'بیشینه'),
+            'minimum': l10n.t('minimum', 'کمینه'),
+            'inflection': l10n.t('flat point', 'نقطهٔ تخت'),
+            'undecided': l10n.t('undecided', 'نامشخص'),
+          },
+        ),
+      );
+      out.add(const SizedBox(height: 14));
+    }
+    if (result.inflections.isNotEmpty) {
+      out.add(SectionLabel(l10n.t('Inflection points', 'نقطه‌های عطف')));
+      out.add(const SizedBox(height: 10));
+      out.add(
+        PointTable(
+          points: result.inflections,
+          l10n: l10n,
+          kindLabels: {'inflection': l10n.t('inflection', 'عطف')},
+        ),
+      );
+      out.add(const SizedBox(height: 14));
+    }
+    if (result.pieces.isNotEmpty) {
+      out.add(SectionLabel(l10n.t('Monotonicity', 'یکنوایی')));
+      out.add(const SizedBox(height: 10));
+      out.add(MonotoneStrip(pieces: result.pieces, l10n: l10n));
+    }
+    return out;
+  }
+
+  /// Tangent and normal: both line equations, side by side with the slopes.
+  List<Widget> _tangentAnswer(BuildContext context) {
+    final out = <Widget>[];
+    if (result.value != null) {
+      out.add(
+        _valueLine(
+          context,
+          l10n.t('Value at the point f(a)', 'مقدار در نقطه f(a)'),
+          result.value!.pretty,
+        ),
+      );
+      out.add(const SizedBox(height: 8));
+    }
+    if (result.slope != null) {
+      out.add(
+        _valueLine(
+          context,
+          l10n.t("Tangent slope f'(a)", 'شیب مماس f′(a)'),
+          result.slope!.pretty,
+        ),
+      );
+      out.add(const SizedBox(height: 14));
+    }
+    if (result.tangent != null) {
+      out.add(SectionLabel(l10n.t('Tangent line', 'خط مماس')));
+      out.add(const SizedBox(height: 10));
+      out.add(
+        MathBlock(
+          math: ExView(
+            plain: 'y = ${result.tangent!.plain}',
+            pretty: 'y = ${result.tangent!.pretty}',
+            latex: 'y = ${result.tangent!.latex}',
+          ),
+          accent: true,
+          size: 21,
+          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
+          onCopyLatex: () => _copyLatex(context, result.tangent),
+        ),
+      );
+      out.add(const SizedBox(height: 14));
+    }
+    if (result.normal != null) {
+      out.add(SectionLabel(l10n.t('Normal line', 'خط عمود')));
+      out.add(const SizedBox(height: 10));
+      final vertical = result.normalSlope == null;
+      final latex = vertical
+          ? 'x = ${result.normal!.latex}'
+          : 'y = ${result.normal!.latex}';
+      final pretty = vertical
+          ? 'x = ${result.normal!.pretty}'
+          : 'y = ${result.normal!.pretty}';
+      out.add(
+        MathBlock(
+          math: ExView(plain: pretty, pretty: pretty, latex: latex),
+          accent: true,
+          size: 21,
+          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
+          onCopyLatex: () => _copyLatex(context, result.normal),
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Optimisation: the extreme values and where they occur.
+  List<Widget> _optimiseAnswer(BuildContext context) {
+    final out = <Widget>[];
+    out.add(SectionLabel(l10n.t('Extreme values', 'مقادیر اکسترمم')));
+    out.add(const SizedBox(height: 12));
+    if (result.maximum != null && result.maximumAt != null) {
+      out.add(
+        _labelledMath(
+          l10n.t('Maximum', 'بیشینه'),
+          ExView(
+            plain: 'f(${result.maximumAt!.plain}) = ${result.maximum!.plain}',
+            pretty: 'f(${result.maximumAt!.pretty}) = ${result.maximum!.pretty}',
+            latex: 'f(${result.maximumAt!.latex}) = ${result.maximum!.latex}',
+          ),
+          context,
+        ),
+      );
+      out.add(const SizedBox(height: 8));
+    }
+    if (result.minimum != null && result.minimumAt != null) {
+      out.add(
+        _labelledMath(
+          l10n.t('Minimum', 'کمینه'),
+          ExView(
+            plain: 'f(${result.minimumAt!.plain}) = ${result.minimum!.plain}',
+            pretty: 'f(${result.minimumAt!.pretty}) = ${result.minimum!.pretty}',
+            latex: 'f(${result.minimumAt!.latex}) = ${result.minimum!.latex}',
+          ),
+          context,
+        ),
+      );
+      out.add(const SizedBox(height: 8));
+    }
+    if (result.candidates.isNotEmpty) {
+      out.add(const SizedBox(height: 8));
+      out.add(SectionLabel(l10n.t('Candidates compared', 'کاندیدهای مقایسه‌شده')));
+      out.add(const SizedBox(height: 10));
+      out.add(
+        PointTable(
+          points: result.candidates,
+          l10n: l10n,
+          kindLabels: {
+            'stationary': l10n.t('stationary', 'سکون'),
+            'endpoint': l10n.t('endpoint', 'سر بازه'),
+          },
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Related rates: the isolated rate and, when known, its numeric value.
+  List<Widget> _relatedRatesAnswer(BuildContext context) {
+    final out = <Widget>[];
+    if (result.solution != null) {
+      out.add(SectionLabel(l10n.t('Isolated rate', 'نرخ جداشده')));
+      out.add(const SizedBox(height: 10));
+      out.add(
+        MathBlock(
+          math: result.solution!,
+          accent: true,
+          size: 21,
+          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
+          onCopyLatex: () => _copyLatex(context, result.solution),
+        ),
+      );
+      out.add(const SizedBox(height: 14));
+    }
+    if (result.hasNumeric) {
+      out.add(
+        _valueLine(
+          context,
+          l10n.t('At this instant', 'در این لحظه'),
+          _formatNumber(result.numericValue),
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Mean value and L'Hôpital: the promised point or the limit.
+  List<Widget> _theoremAnswer(BuildContext context) {
+    final out = <Widget>[];
+    if (result.mode == 'lhopital') {
+      out.add(SectionLabel(l10n.t('Limit', 'حد')));
+      out.add(const SizedBox(height: 10));
+      String latex;
+      String pretty;
+      if (result.solution != null) {
+        latex = result.solution!.latex;
+        pretty = result.solution!.pretty;
+      } else if (result.limitInfinite) {
+        latex = result.limitSign < 0 ? '-\\infty' : '\\infty';
+        pretty = result.limitSign < 0 ? '−∞' : '∞';
+      } else {
+        latex = '\\text{does not exist}';
+        pretty = l10n.t('does not exist', 'وجود ندارد');
+      }
+      out.add(
+        MathBlock(
+          math: ExView(plain: pretty, pretty: pretty, latex: latex),
+          accent: true,
+          size: 22,
+        ),
+      );
+      return out;
+    }
+    if (result.slope != null) {
+      out.add(
+        _valueLine(
+          context,
+          l10n.t('Secant slope', 'شیب خط قاطع'),
+          result.slope!.pretty,
+        ),
+      );
+      out.add(const SizedBox(height: 10));
+    }
+    if (result.points.isNotEmpty) {
+      out.add(SectionLabel(l10n.t('Point guaranteed by the theorem', 'نقطهٔ تضمین‌شدهٔ قضیه')));
+      out.add(const SizedBox(height: 10));
+      for (var i = 0; i < result.points.length; i++) {
+        final point = result.points[i];
+        final value = i < result.pointValues.length
+            ? result.pointValues[i]
+            : null;
+        final pretty = value == null
+            ? 'c = ${point.pretty}'
+            : 'c = ${point.pretty},  f(c) = ${value.pretty}';
+        final latex = value == null
+            ? 'c = ${point.latex}'
+            : 'c = ${point.latex}, \\quad f(c) = ${value.latex}';
+        out.add(
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: i == result.points.length - 1 ? 0 : 8,
+            ),
+            child: MathBlock(
+              math: ExView(plain: pretty, pretty: pretty, latex: latex),
+              accent: true,
+              size: 20,
+            ),
+          ),
+        );
+      }
+    }
+    return out;
+  }
+
+  Widget _valueLine(BuildContext context, String label, String value) {
+    final c = context.colors;
+    return Row(
+      children: [
+        SizedBox(
+          width: 160,
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.left,
+            style: TextStyle(
+              fontFamily: 'DejaVu Sans Mono',
+              fontFamilyFallback: const ['monospace', 'Vazirmatn'],
+              fontSize: 14,
+              color: c.text,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

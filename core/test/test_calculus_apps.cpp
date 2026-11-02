@@ -1,0 +1,212 @@
+// Regression tests for the applications of the derivative and the direction
+// field slope extraction (differential forms, Clairaut/Lagrange branches).
+#include "calculus_apps.hpp"
+#include "graph.hpp"
+#include "odecore.h"
+#include "solver.hpp"
+
+#include <cmath>
+#include <limits>
+#include <iostream>
+#include <string>
+#include <vector>
+
+using namespace ode;
+
+static int failures = 0;
+
+static void expect(bool condition, const std::string& what) {
+    if (!condition) {
+        ++failures;
+        std::cout << "FAIL: " << what << "\n";
+    }
+}
+
+static std::string plain(const Ex& e) { return e ? toPlain(e) : std::string("<null>"); }
+
+// The JSON API is what the Flutter UI actually calls, so the field tests go
+// through ode_solve exactly like the app does.
+static std::string api(const std::string& request) {
+    char* raw = ode_solve(request.c_str());
+    std::string out = raw ? raw : "";
+    ode_free(raw);
+    return out;
+}
+
+static bool apiOk(const std::string& request) {
+    const std::string s = api(request);
+    return s.find("\"ok\":true") != std::string::npos;
+}
+
+static void fieldCases() {
+    // Every first-order form the UI offers must produce a direction field.
+    const std::vector<std::string> equations = {
+        "y' = y",
+        "(2x+y) + (x+2y)y' = 0",
+        "(x+y)dx + (x+2y)dy = 0",
+        "cos(y)dy + sin(x)dx = 0",
+        "(3*x^2 + 2*y)dx + (2*x - 3*y^2)dy = 0",
+        "x*dx + y*dy = 0",
+        "y = x*y' + (y')^2",
+        "y = 2*x*y' + (y')^2",
+        "dy/dx = -x/y",
+    };
+    for (const auto& eq : equations) {
+        const std::string req =
+            "{\"mode\":\"field\",\"input\":\"" + eq +
+            "\",\"x\":\"x\",\"y\":\"y\",\"xmin\":-4,\"xmax\":4,\"ymin\":-4,\"ymax\":4,"
+            "\"cols\":5,\"rows\":5,\"curves\":3}";
+        expect(apiOk(req), "field plots: " + eq);
+    }
+
+    // A second-order equation is honestly rejected, not silently plotted.
+    expect(!apiOk("{\"mode\":\"field\",\"input\":\"y'' + y = 0\",\"x\":\"x\",\"y\":\"y\"}"),
+           "field rejects second-order equations");
+
+    // The exact form must report the differential reading y' = -M/N.
+    const std::string s = api(
+        "{\"mode\":\"field\",\"input\":\"(x+y)dx + (x+2y)dy = 0\",\"x\":\"x\",\"y\":\"y\","
+        "\"xmin\":-4,\"xmax\":4,\"ymin\":-4,\"ymax\":4,\"cols\":5,\"rows\":5,\"curves\":2}");
+    expect(s.find("x + 2") != std::string::npos, "exact form reports y' = -M/N");
+    // Trajectories are real curves, so both the slope grid and the curves exist.
+    expect(s.find("\"curves\":[{\"ic_x\"") != std::string::npos,
+           "exact form produces trajectory curves");
+}
+
+static void behaviourCase() {
+    Result r = analyseFunction("x^3 - 3*x", "x", -3, 3, "en");
+    expect(r.ok, "behaviour: x^3-3x solved");
+    expect(r.critical.size() == 2, "behaviour: two critical points");
+    bool hasMax = false, hasMin = false;
+    for (const auto& c : r.critical) {
+        if (c.kind == "maximum") hasMax = true;
+        if (c.kind == "minimum") hasMin = true;
+    }
+    expect(hasMax && hasMin, "behaviour: maximum at -1 and minimum at 1");
+    expect(r.inflections.size() == 1, "behaviour: one inflection point");
+    if (r.inflections.size() == 1) {
+        expect(plain(r.inflections[0].x) == "0", "behaviour: inflection at x = 0");
+    }
+    expect(r.pieces.size() == 3, "behaviour: three monotonicity pieces");
+    bool rising = false, falling = false;
+    for (const auto& p : r.pieces) {
+        if (p.sign > 0) rising = true;
+        if (p.sign < 0) falling = true;
+    }
+    expect(rising && falling, "behaviour: both trends detected");
+    expect(!r.steps.empty(), "behaviour: solution path is populated");
+}
+
+static void tangentCase() {
+    Result r = tangentAndNormal("x^2", "x", "1", "en");
+    expect(r.ok, "tangent: x^2 at 1");
+    // y - 1 = 2(x - 1)  =>  y = 2x - 1
+    expect(plain(r.tangent) == "2*x - 1" || plain(r.tangent) == "-1 + 2*x",
+           "tangent line is 2x - 1, got " + plain(r.tangent));
+    // Normal slope is -1/2 and it passes through (1, 1): y = 3/2 - x/2.
+    expect(r.normalSlope && plain(r.normalSlope) == "-1/2", "normal slope is -1/2");
+    expect(r.slope && plain(r.slope) == "2", "tangent slope is 2");
+
+    // A horizontal tangent has a vertical normal, which has no finite slope.
+    Result flat = tangentAndNormal("x^2", "x", "0", "en");
+    expect(flat.ok, "tangent: horizontal case solved");
+    expect(flat.normalSlope == nullptr, "vertical normal has no slope");
+    expect(plain(flat.tangent) == "0", "horizontal tangent is y = 0");
+}
+
+static void optimisationCase() {
+    Result r = optimiseFunction("x^3 - 3*x", "x", -2, 2, "en");
+    expect(r.ok, "optimise: x^3-3x on [-2,2]");
+    // Values: f(-2) = -2, f(-1) = 2, f(1) = -2, f(2) = 2.
+    expect(r.maximum && plain(r.maximum) == "2", "optimise: maximum value 2");
+    expect(r.minimum && plain(r.minimum) == "-2", "optimise: minimum value -2");
+    // All four candidates are compared, including both endpoints.
+    expect(r.candidates.size() == 4, "optimise: compares two critical and two endpoint values");
+}
+
+static void meanValueCase() {
+    Result r = meanValueTheorems("x^2", "x", 0, 2, "en");
+    expect(r.ok, "mvt: x^2 on [0,2]");
+    // The secant slope is 2 and f'(c) = 2c = 2 gives c = 1.
+    expect(r.slope && plain(r.slope) == "2", "mvt: secant slope is 2");
+    expect(r.points.size() == 1, "mvt: exactly one interior point");
+    if (r.points.size() == 1) {
+        expect(plain(r.points[0]) == "1", "mvt: c = 1, got " + plain(r.points[0]));
+    }
+    expect(r.hypothesesContinuous, "mvt: continuity hypothesis checked");
+    expect(r.hypothesesDifferentiable, "mvt: differentiability hypothesis checked");
+    expect(!r.rolleApplies, "mvt: Rolle does not apply when f(a) != f(b)");
+
+    // Rolle: x^2 - 4x + 3 has f(1) = f(3) = 0, so c = 2.
+    Result rolle = meanValueTheorems("x^2 - 4*x + 3", "x", 1, 3, "en");
+    expect(rolle.ok, "mvt: Rolle case solved");
+    expect(rolle.rolleApplies, "mvt: Rolle detected f(a) = f(b)");
+    expect(rolle.points.size() == 1 && plain(rolle.points[0]) == "2",
+           "mvt: Rolle point is 2, got " +
+               (rolle.points.empty() ? std::string("<none>") : plain(rolle.points[0])));
+}
+
+static void cauchyCase() {
+    Result r = cauchyMeanValue("x^2", "x^3", "x", 0, 1, "en");
+    expect(r.ok, "cauchy: x^2 and x^3 on [0,1]");
+    // f' = 2x, g' = 3x^2; ratio (1-0)/(1-0) = 1 gives 2c/(3c^2) = 1, so c = 2/3.
+    expect(r.points.size() == 1, "cauchy: one interior point");
+    if (r.points.size() == 1) {
+        expect(plain(r.points[0]) == "2/3", "cauchy: c = 2/3, got " + plain(r.points[0]));
+    }
+    // g(a) = g(b) must be reported as a failed hypothesis, not solved.
+    Result bad = cauchyMeanValue("x", "x^2", "x", -1, 1, "en");
+    expect(!bad.ok, "cauchy: rejects g(a) = g(b)");
+}
+
+static void lhopitalCase() {
+    Result r = lhopitalLimit("sin(x)", "x", "x", "0", "en");
+    expect(r.ok, "lhopital: sin(x)/x at 0");
+    expect(r.solution && plain(r.solution) == "1", "lhopital: limit is 1");
+    expect(r.limitExists, "lhopital: limit exists");
+
+    // A quotient that is not indeterminate must not be treated as L'Hopital.
+    Result direct = lhopitalLimit("x^2", "x", "x", "3", "en");
+    expect(direct.ok, "lhopital: direct substitution case solved");
+    expect(direct.solution && plain(direct.solution) == "3", "lhopital: limit is 3");
+
+    // 1/x at 0 has different one-sided limits, so the two-sided limit does not
+    // exist; that must be reported as a failure of existence, not as an answer.
+    Result inf = lhopitalLimit("1", "x", "x", "0", "en");
+    expect(inf.ok, "lhopital: 1/x at 0 analysed");
+    expect(!inf.limitExists, "lhopital: two-sided limit of 1/x at 0 does not exist");
+}
+
+static void relatedRatesCase() {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    Result r = relatedRates("x^2 + y^2 = 25", "x", "y", "t", nan, nan, nan, "en");
+    expect(r.ok, "related rates: circle relation solved");
+    // Differentiating gives 2x x' + 2y y' = 0, so the isolated rate is -y/x.
+    expect(r.derivative != nullptr, "related rates: differentiated relation shown");
+    expect(!r.steps.empty(), "related rates: solution path is populated");
+
+    // At x = 3, y = 4 with y' = 2: q' = -(y/x) w' = -(4/3)(2) = -8/3.
+    Result numeric = relatedRates("x^2 + y^2 = 25", "x", "y", "t", 3.0, 4.0, 2.0, "en");
+    expect(numeric.ok, "related rates: numeric instant solved");
+    expect(numeric.hasNumeric, "related rates: numeric answer available");
+    expect(std::fabs(numeric.numericValue + 8.0 / 3.0) < 1e-9,
+           "related rates: rate is -8/3, got " + std::to_string(numeric.numericValue));
+}
+
+int main() {
+    fieldCases();
+    behaviourCase();
+    tangentCase();
+    optimisationCase();
+    meanValueCase();
+    cauchyCase();
+    lhopitalCase();
+    relatedRatesCase();
+
+    if (failures == 0) {
+        std::cout << "All calculus-application tests passed.\n";
+        return 0;
+    }
+    std::cout << failures << " test(s) failed.\n";
+    return 1;
+}

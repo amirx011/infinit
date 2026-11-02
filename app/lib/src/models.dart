@@ -50,6 +50,51 @@ class CheckView {
   );
 }
 
+/// A point reported by the behaviour or optimisation analysis.
+class PointView {
+  const PointView({this.x, this.value, required this.kind});
+
+  final ExView? x;
+  final ExView? value;
+
+  /// maximum / minimum / inflection / stationary / endpoint / undecided
+  final String kind;
+
+  static PointView? fromJson(dynamic v) {
+    if (v is! Map) return null;
+    return PointView(
+      x: ExView.fromJson(v['x']),
+      value: ExView.fromJson(v['value']),
+      kind: (v['kind'] ?? '').toString(),
+    );
+  }
+}
+
+/// One monotonicity interval of f, with the sign of f' on it.
+class MonotonePieceView {
+  const MonotonePieceView({
+    required this.lo,
+    required this.hi,
+    required this.sign,
+    required this.trend,
+  });
+
+  final double lo;
+  final double hi;
+  final int sign;
+  final String trend;
+
+  static MonotonePieceView? fromJson(dynamic v) {
+    if (v is! Map) return null;
+    return MonotonePieceView(
+      lo: (v['lo'] as num?)?.toDouble() ?? 0,
+      hi: (v['hi'] as num?)?.toDouble() ?? 0,
+      sign: (v['sign'] as num?)?.toInt() ?? 0,
+      trend: (v['trend'] ?? '').toString(),
+    );
+  }
+}
+
 class SolveResult {
   const SolveResult({
     required this.ok,
@@ -113,6 +158,33 @@ class SolveResult {
     required this.continuous,
     required this.discontinuity,
     required this.laws,
+    this.derivative,
+    this.secondDerivative,
+    this.value,
+    this.slope,
+    this.tangent,
+    this.normal,
+    this.tangentSlope,
+    this.normalSlope,
+    this.valueA,
+    this.valueB,
+    this.maximum,
+    this.minimum,
+    this.maximumAt,
+    this.minimumAt,
+    this.functionF,
+    this.functionG,
+    this.critical = const [],
+    this.candidates = const [],
+    this.inflections = const [],
+    this.pieces = const [],
+    this.points = const [],
+    this.pointValues = const [],
+    this.functionValueA,
+    this.functionValueB,
+    this.hypothesesContinuous = false,
+    this.hypothesesDifferentiable = false,
+    this.rolleApplies = false,
   });
 
   final bool ok;
@@ -180,6 +252,40 @@ class SolveResult {
   final bool continuous;
   final String discontinuity;
   final List<String> laws;
+
+  /// Applications of the derivative. The behaviour, tangent, optimisation,
+  /// related-rates and mean-value modes fill these in.
+  final ExView? derivative;
+  final ExView? secondDerivative;
+  final ExView? value;
+  final ExView? slope;
+  final ExView? tangent;
+  final ExView? normal;
+  final ExView? tangentSlope;
+  final ExView? normalSlope;
+  final ExView? valueA;
+  final ExView? valueB;
+  final ExView? maximum;
+  final ExView? minimum;
+  final ExView? maximumAt;
+  final ExView? minimumAt;
+  final ExView? functionF;
+  final ExView? functionG;
+  final List<PointView> critical;
+  final List<PointView> candidates;
+  final List<PointView> inflections;
+  final List<MonotonePieceView> pieces;
+  final List<ExView> points;
+
+  /// f(c) for each entry of [points], in the same order.
+  final List<ExView> pointValues;
+
+  /// Cauchy: the values g(a) and g(b).
+  final ExView? functionValueA;
+  final ExView? functionValueB;
+  final bool hypothesesContinuous;
+  final bool hypothesesDifferentiable;
+  final bool rolleApplies;
 
   static List<ExView> _exList(dynamic value) {
     if (value is! List) return const [];
@@ -263,7 +369,47 @@ class SolveResult {
     continuous: j['continuous'] == true,
     discontinuity: (j['discontinuity'] ?? '').toString(),
     laws: _strList(j['laws']),
+    derivative: ExView.fromJson(j['derivative']),
+    secondDerivative: ExView.fromJson(j['second_derivative']),
+    value: ExView.fromJson(j['value']),
+    slope: ExView.fromJson(j['slope']),
+    tangent: ExView.fromJson(j['tangent']),
+    normal: ExView.fromJson(j['normal']),
+    tangentSlope: ExView.fromJson(j['tangent_slope']),
+    normalSlope: ExView.fromJson(j['normal_slope']),
+    valueA: ExView.fromJson(j['value_a']),
+    valueB: ExView.fromJson(j['value_b']),
+    maximum: ExView.fromJson(j['maximum']),
+    minimum: ExView.fromJson(j['minimum']),
+    maximumAt: ExView.fromJson(j['maximum_at']),
+    minimumAt: ExView.fromJson(j['minimum_at']),
+    functionF: ExView.fromJson(j['function_f']),
+    functionG: ExView.fromJson(j['function_g']),
+    critical: _pointList(j['critical']),
+    candidates: _pointList(j['candidates']),
+    inflections: _pointList(j['inflections']),
+    pieces: j['pieces'] is List
+        ? (j['pieces'] as List)
+              .map(MonotonePieceView.fromJson)
+              .whereType<MonotonePieceView>()
+              .toList(growable: false)
+        : const [],
+    points: _exList(j['points']),
+    pointValues: _exList(j['point_values']),
+    functionValueA: ExView.fromJson(j['function_value_a']),
+    functionValueB: ExView.fromJson(j['function_value_b']),
+    hypothesesContinuous: j['hypotheses_continuous'] == true,
+    hypothesesDifferentiable: j['hypotheses_differentiable'] == true,
+    rolleApplies: j['rolle_applies'] == true,
   );
+
+  static List<PointView> _pointList(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .map(PointView.fromJson)
+        .whereType<PointView>()
+        .toList(growable: false);
+  }
 
   factory SolveResult.fromRaw(String raw) {
     final dynamic decoded = jsonDecode(raw);

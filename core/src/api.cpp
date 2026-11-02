@@ -1,6 +1,7 @@
 // Infinit Lab — JSON API on top of the native solver.
 // SPDX-License-Identifier: Apache-2.0
 #include "graph.hpp"
+#include "calculus_apps.hpp"
 #include "localize.hpp"
 #include "odecore.h"
 #include "solver.hpp"
@@ -11,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iomanip>
+#include <limits>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -441,6 +443,58 @@ std::string resultJson(const ode::Result& r) {
 
     o << ",\"warnings\":" << strArrayJson(r.warnings);
     o << ",\"assumptions\":" << strArrayJson(r.assumptions);
+
+    // applications of the derivative
+    o << ",\"derivative\":" << exJson(r.derivative);
+    o << ",\"second_derivative\":" << exJson(r.secondDerivative);
+    o << ",\"value\":" << exJson(r.value);
+    o << ",\"slope\":" << exJson(r.slope);
+    o << ",\"tangent\":" << exJson(r.tangent);
+    o << ",\"normal\":" << exJson(r.normal);
+    o << ",\"tangent_slope\":" << exJson(r.tangentSlope);
+    o << ",\"normal_slope\":" << exJson(r.normalSlope);
+    o << ",\"value_a\":" << exJson(r.valueA);
+    o << ",\"value_b\":" << exJson(r.valueB);
+    o << ",\"maximum\":" << exJson(r.maximum);
+    o << ",\"minimum\":" << exJson(r.minimum);
+    o << ",\"maximum_at\":" << exJson(r.maximumAt);
+    o << ",\"minimum_at\":" << exJson(r.minimumAt);
+    o << ",\"function_f\":" << exJson(r.functionF);
+    o << ",\"function_g\":" << exJson(r.functionG);
+    o << ",\"hypotheses_continuous\":" << (r.hypothesesContinuous ? "true" : "false");
+    o << ",\"hypotheses_differentiable\":"
+      << (r.hypothesesDifferentiable ? "true" : "false");
+    o << ",\"rolle_applies\":" << (r.rolleApplies ? "true" : "false");
+    o << ",\"points\":" << exArrayJson(r.points);
+    o << ",\"point_values\":" << exArrayJson(r.pointValues);
+    o << ",\"function_value_a\":" << exJson(r.functionValueA);
+    o << ",\"function_value_b\":" << exJson(r.functionValueB);
+
+    auto pointsJson = [](const std::vector<ode::CriticalPointView>& pts) {
+        std::string out = "[";
+        for (size_t i = 0; i < pts.size(); ++i) {
+            if (i) out += ",";
+            out += "{\"x\":" + exJson(pts[i].x) + ",\"value\":" + exJson(pts[i].value) +
+                   ",\"kind\":" + q(pts[i].kind) + "}";
+        }
+        out += "]";
+        return out;
+    };
+    o << ",\"critical\":" << pointsJson(r.critical);
+    o << ",\"candidates\":" << pointsJson(r.candidates);
+    o << ",\"inflections\":" << pointsJson(r.inflections);
+
+    o << ",\"pieces\":[";
+    for (size_t i = 0; i < r.pieces.size(); ++i) {
+        if (i) o << ",";
+        const auto& p = r.pieces[i];
+        o << "{\"lo\":" << numJson(p.lo) << ",\"hi\":" << numJson(p.hi)
+          << ",\"lo_inf\":" << (p.loInfinite ? "true" : "false")
+          << ",\"hi_inf\":" << (p.hiInfinite ? "true" : "false") << ",\"sign\":" << p.sign
+          << ",\"trend\":" << q(p.trend) << "}";
+    }
+    o << "]";
+
     o << "}";
     return o.str();
 }
@@ -508,6 +562,48 @@ ode::Result handle(const JVal& req) {
                                   req.boolean("orthogonal", mode == "orthogonal"),
                                   req.str("x", "x"), req.str("y", "y"),
                                   req.str("lang", "en"));
+    }
+    // ------------------------------------------- applications of the derivative
+    if (mode == "behaviour" || mode == "optimize") {
+        const double lo = numberArg(req, "xmin", mode == "optimize" ? -5.0 : -10.0);
+        const double hi = numberArg(req, "xmax", mode == "optimize" ? 5.0 : 10.0);
+        if (mode == "optimize") {
+            return ode::optimiseFunction(req.str("input"), req.str("x", "x"), lo, hi,
+                                         req.str("lang", "en"));
+        }
+        return ode::analyseFunction(req.str("input"), req.str("x", "x"), lo, hi,
+                                    req.str("lang", "en"));
+    }
+    if (mode == "tangent") {
+        return ode::tangentAndNormal(req.str("input"), req.str("x", "x"), req.str("at", "1"),
+                                     req.str("lang", "en"));
+    }
+    if (mode == "related_rates") {
+        // A missing numeric field stays NaN, which keeps the answer symbolic.
+        auto optionalNumber = [&](const char* key) -> double {
+            if (const JVal* v = req.get(key)) {
+                if (v->kind == JVal::Num && std::isfinite(v->n)) return v->n;
+            }
+            return std::numeric_limits<double>::quiet_NaN();
+        };
+        return ode::relatedRates(req.str("input"), req.str("var", "x"), req.str("rate_var", "y"),
+                                 req.str("t", "t"), optionalNumber("q_value"),
+                                 optionalNumber("w_value"), optionalNumber("given_rate"),
+                                 req.str("lang", "en"));
+    }
+    if (mode == "mvt") {
+        return ode::meanValueTheorems(req.str("input"), req.str("x", "x"),
+                                      numberArg(req, "a", 0.0), numberArg(req, "b", 1.0),
+                                      req.str("lang", "en"));
+    }
+    if (mode == "cauchy") {
+        return ode::cauchyMeanValue(req.str("input"), req.str("g", "x^2"), req.str("x", "x"),
+                                    numberArg(req, "a", 0.0), numberArg(req, "b", 1.0),
+                                    req.str("lang", "en"));
+    }
+    if (mode == "lhopital") {
+        return ode::lhopitalLimit(req.str("input"), req.str("g", "x"), req.str("x", "x"),
+                                  req.str("point", "0"), req.str("lang", "en"));
     }
     ode::OdeOptions opt;
     opt.x = req.str("x", "x");

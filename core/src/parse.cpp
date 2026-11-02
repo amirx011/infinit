@@ -306,6 +306,12 @@ static std::string naturalizeImplicit(std::string s, const std::vector<std::stri
     return s;
 }
 
+namespace {
+// The differential symbols are bookkeeping, not variables: a direction field
+// must never treat `dx` or `dy` as the dependent variable.
+bool isDifferentialSymbol(const std::string& name) { return name == "dx" || name == "dy"; }
+} // namespace
+
 Ex parseWith(const std::string& raw, const std::string& indep, std::string* depOut,
              const std::vector<std::string>& implicitVars = {}) {
     // Bound the input: the regex preprocessor and the recursive parser should
@@ -326,7 +332,12 @@ Ex parseWith(const std::string& raw, const std::string& indep, std::string* depO
         Ex e = p.parse();
         if (depOut) {
             std::vector<std::string> syms; collectSymbols(e, syms);
-            for (auto& x : syms) if (x != indep && x.rfind("C", 0) != 0) { *depOut = x; break; }
+            for (auto& x : syms) {
+                if (x == indep || isDifferentialSymbol(x)) continue;
+                if (x.rfind("C", 0) == 0) continue;
+                *depOut = x;
+                break;
+            }
         }
         return e;
     }
@@ -337,7 +348,7 @@ Ex parseWith(const std::string& raw, const std::string& indep, std::string* depO
     if (depOut) {
         std::vector<std::string> syms; collectSymbols(L, syms); collectSymbols(R, syms);
         for (auto& x : syms) {
-            if (x == indep) continue;
+            if (x == indep || isDifferentialSymbol(x)) continue;
             if (dependsOn(L, x) || dependsOn(R, x)) { *depOut = x; break; }
         }
     }

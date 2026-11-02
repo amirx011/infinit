@@ -677,26 +677,126 @@ bool hasDerivative(const Ex& e) {
     return false;
 }
 
-bool extractSlope(const Ex& F, const std::string& x, const std::string& y, Ex& slope,
-                  std::string& error) {
-    Ex p = Deriv(Sym(y), x, 1);
-    Ex marker = Sym("__p");
-    Ex G = substituteSubexpr(F, p, marker);
+// A slope extractor either succeeds, does not apply to this equation, or
+// applies and fails with an explanation worth showing the user.
+enum class SlopeResult { Ok, NotApplicable, Failed };
+
+// A differential form writes the equation as M(x,y) dx + N(x,y) dy = 0. The
+// parser keeps dx and dy as ordinary symbols, so the slope is recovered as
+// y' = -M/N. Only a first-degree form is accepted: anything quadratic in dx or
+// dy is not a direction field in this window.
+SlopeResult slopeFromDifferentialForm(const Ex& F, const std::string& x, const std::string& y,
+                                      Ex& slope, std::string& error) {
+    std::vector<std::string> syms;
+    collectSymbols(F, syms);
+    bool hasDx = false;
+    bool hasDy = false;
+    for (const auto& s : syms) {
+        if (s == "dx") hasDx = true;
+        if (s == "dy") hasDy = true;
+    }
+    if (!hasDx && !hasDy) return SlopeResult::NotApplicable;
+
+    Ex marker = Sym("__q");
+    Ex G = substituteSubexpr(F, Sym("dx"), marker);
     std::vector<Ex> cs;
-    if (!polyCoeffs(expand(G), "__p", cs) || cs.size() < 2) {
-        error = "The equation is not linear in y'.";
-        return false;
+    if (!polyCoeffs(expand(G), "__q", cs) || cs.size() > 2) {
+        error = "The differential form is not linear in dx and dy.";
+        return SlopeResult::Failed;
     }
-    if (cs.size() != 2 || cs[1]->isZero()) {
-        error = "This direction field needs a first-order equation solved for y'.";
-        return false;
+    Ex M = cs.size() == 2 ? cs[1] : Num(0);
+    Ex rest = cs[0];
+    if (dependsOn(rest, "dx")) {
+        error = "The differential form is not linear in dx and dy.";
+        return SlopeResult::Failed;
     }
-    slope = simplify(Mul(Num(-1), cs[0], Pow(cs[1], Num(-1))));
+    std::vector<Ex> cs2;
+    if (!polyCoeffs(expand(rest), "dy", cs2) || cs2.size() > 2) {
+        error = "The differential form is not linear in dx and dy.";
+        return SlopeResult::Failed;
+    }
+    Ex N = cs2.size() == 2 ? cs2[1] : Num(0);
+    if (cs2.size() == 2 && !cs2[0]->isZero()) {
+        error = "The differential form has terms independent of dx and dy.";
+        return SlopeResult::Failed;
+    }
+    if (dependsOn(M, "dx") || dependsOn(M, "dy") || dependsOn(N, "dx") || dependsOn(N, "dy")) {
+        error = "The differential form is not linear in dx and dy.";
+        return SlopeResult::Failed;
+    }
+    if (N->isZero()) {
+        // N = 0 turns the form into M(x,y) dx = 0, a curve rather than a field.
+        error = "N(x,y) = 0, so the form cannot be solved for dy/dx.";
+        return SlopeResult::Failed;
+    }
+    slope = simplify(Mul(Num(-1), M, Pow(N, Num(-1))));
     if (hasDerivative(slope)) {
         error = "The equation is not first order.";
-        return false;
+        return SlopeResult::Failed;
     }
-    return true;
+    return SlopeResult::Ok;
+}
+
+// y = x*y' + f(y') and similar implicit first-order forms are quadratic in y'.
+// The two roots are the branches of the Clairaut/Lagrange family; when the
+// coefficients are symbolic they cannot be reduced to rational roots, so the
+// quadratic formula is kept symbolically and the numeric branch test in
+// analyseField decides which sheet a trajectory sits on.
+SlopeResult slopeFromQuadratic(const Ex& F, const std::string& x, const std::string& y, Ex& slope,
+                               std::string& error) {
+    Ex marker = Sym("__p");
+    Ex G = substituteSubexpr(F, Deriv(Sym(y), x, 1), marker);
+    std::vector<Ex> cs;
+    if (!polyCoeffs(expand(G), "__p", cs) || cs.size() != 3) return SlopeResult::NotApplicable;
+    if (cs[2]->isZero()) return SlopeResult::NotApplicable;
+    Ex disc = simplify(Add({Mul(cs[1], cs[1]), Mul(Num(-4), cs[2], cs[0])}));
+    std::vector<Ex> rational = solvePoly(
+        Add({Mul(cs[2], Pow(marker, Num(2))), Mul(cs[1], marker), cs[0]}), "__p");
+    if (!rational.empty()) {
+        slope = rational.front();
+    } else {
+        slope = simplify(
+            Mul(Add({Mul(Num(-1), cs[1]), Fn("sqrt", {disc})}), Pow(Mul(Num(2), cs[2]), Num(-1))));
+    }
+    if (hasDerivative(slope)) {
+        error = "The equation is not first order.";
+        return SlopeResult::Failed;
+    }
+    return SlopeResult::Ok;
+}
+
+SlopeResult extractSlope(const Ex& F, const std::string& x, const std::string& y, Ex& slope,
+                         std::string& error) {
+    Ex marker = Sym("__p");
+    Ex G = substituteSubexpr(F, Deriv(Sym(y), x, 1), marker);
+    std::vector<Ex> cs;
+    if (!polyCoeffs(expand(G), "__p", cs)) {
+        // Not polynomial in y'; a differential form might still describe it.
+        return slopeFromDifferentialForm(F, x, y, slope, error);
+    }
+    if (cs.size() == 2 && !cs[1]->isZero()) {
+        slope = simplify(Mul(Num(-1), cs[0], Pow(cs[1], Num(-1))));
+        if (hasDerivative(slope)) {
+            error = "The equation is not first order.";
+            return SlopeResult::Failed;
+        }
+        return SlopeResult::Ok;
+    }
+
+    // No usable linear coefficient: try the quadratic branches, then the
+    // differential-form reading, before giving up.
+    std::string quadraticError;
+    const SlopeResult quadratic = slopeFromQuadratic(F, x, y, slope, quadraticError);
+    if (quadratic == SlopeResult::Ok) return quadratic;
+
+    std::string formError;
+    const SlopeResult form = slopeFromDifferentialForm(F, x, y, slope, formError);
+    if (form == SlopeResult::Ok) return form;
+
+    if (form == SlopeResult::Failed && !formError.empty()) error = formError;
+    else if (quadratic == SlopeResult::Failed && !quadraticError.empty()) error = quadraticError;
+    else error = "This direction field needs a first-order equation solved for y'.";
+    return SlopeResult::Failed;
 }
 
 double slopeAt(const Ex& f, const std::string& x, const std::string& y, double xv, double yv,
@@ -704,25 +804,85 @@ double slopeAt(const Ex& f, const std::string& x, const std::string& y, double x
     return at2(f, x, xv, y, yv, okp);
 }
 
-void integrateTrajectory(const Ex& f, const std::string& x, const std::string& y, double x0,
-                         double y0, double xEnd, FieldCurve& curve, double yLimit) {
+// When y' cannot be isolated in closed form, the equation may still be
+// quadratic in y'. That is exactly the Clairaut/Lagrange shape, so the field
+// picks the branch whose value is closest to the slope already carried by the
+// trajectory. Choosing the nearest branch keeps a trajectory on one sheet
+// instead of jumping between them.
+class SlopeFunction {
+public:
+    SlopeFunction(Ex closed, Ex quadA, Ex quadB, Ex quadC, std::string x, std::string y)
+        : closed_(std::move(closed)), a_(std::move(quadA)), b_(std::move(quadB)),
+          c_(std::move(quadC)), x_(std::move(x)), y_(std::move(y)) {}
+
+    bool isQuadratic() const { return a_ != nullptr; }
+
+    double at(double xv, double yv, double hint, bool* okp) const {
+        if (!a_) return at2(closed_, x_, xv, y_, yv, okp);
+        bool oka = false, okb = false, okc = false;
+        const double A = at2(a_, x_, xv, y_, yv, &oka);
+        const double B = at2(b_, x_, xv, y_, yv, &okb);
+        const double C = at2(c_, x_, xv, y_, yv, &okc);
+        if (!oka || !okb || !okc || !std::isfinite(A) || !std::isfinite(B) || !std::isfinite(C)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        std::vector<double> roots;
+        if (std::fabs(A) < 1e-12) {
+            if (std::fabs(B) > 1e-12) roots.push_back(-C / B);
+        } else {
+            const double disc = B * B - 4 * A * C;
+            if (disc >= 0) {
+                const double s = std::sqrt(disc);
+                roots.push_back((-B + s) / (2 * A));
+                roots.push_back((-B - s) / (2 * A));
+            }
+        }
+        if (roots.empty()) return std::numeric_limits<double>::quiet_NaN();
+        double best = roots.front();
+        double bestGap = std::numeric_limits<double>::infinity();
+        for (double r : roots) {
+            const double gap = std::fabs(r - hint);
+            if (gap < bestGap) {
+                bestGap = gap;
+                best = r;
+            }
+        }
+        if (okp) *okp = true;
+        return best;
+    }
+
+    const Ex& closed() const { return closed_; }
+
+private:
+    Ex closed_;
+    Ex a_;
+    Ex b_;
+    Ex c_;
+    std::string x_;
+    std::string y_;
+};
+
+void integrateTrajectory(const SlopeFunction& f, double x0, double y0, double xEnd,
+                         FieldCurve& curve, double yLimit) {
     const int steps = 260;
     const double h = (xEnd - x0) / (double)steps;
     if (!std::isfinite(h) || h == 0) return;
     double xv = x0;
     double yv = y0;
+    double hint = 0;
     curve.xs.push_back(xv);
     curve.ys.push_back(yv);
     for (int i = 0; i < steps; ++i) {
         bool ok1 = false, ok2 = false, ok3 = false, ok4 = false;
-        const double k1 = slopeAt(f, x, y, xv, yv, &ok1);
-        const double k2 = slopeAt(f, x, y, xv + h / 2, yv + h * k1 / 2, &ok2);
-        const double k3 = slopeAt(f, x, y, xv + h / 2, yv + h * k2 / 2, &ok3);
-        const double k4 = slopeAt(f, x, y, xv + h, yv + h * k3, &ok4);
+        const double k1 = f.at(xv, yv, hint, &ok1);
+        const double k2 = f.at(xv + h / 2, yv + h * k1 / 2, k1, &ok2);
+        const double k3 = f.at(xv + h / 2, yv + h * k2 / 2, k2, &ok3);
+        const double k4 = f.at(xv + h, yv + h * k3, k3, &ok4);
         if (!ok1 || !ok2 || !ok3 || !ok4) break;
         const double nextY = yv + h * (k1 + 2 * k2 + 2 * k3 + k4) / 6;
         xv += h;
         yv = nextY;
+        hint = k4;
         if (!std::isfinite(xv) || !std::isfinite(yv) || std::fabs(yv) > yLimit) break;
         curve.xs.push_back(xv);
         curve.ys.push_back(yv);
@@ -744,13 +904,29 @@ FieldOutput analyseField(const std::string& input, const std::string& x, const s
         }
         std::string dep;
         Ex F = parseODEExpr(input, x, &dep, {x, y, "c"});
+        const std::string depVar = dep.empty() ? y : dep;
         Ex slope;
         std::string why;
-        if (!extractSlope(F, x, dep.empty() ? y : dep, slope, why)) {
+        if (extractSlope(F, x, depVar, slope, why) != SlopeResult::Ok) {
             out.error = why;
             return out;
         }
-        out.rhs = toPretty(slope);
+        // A quadratic in y' has two solution branches (Clairaut and Lagrange
+        // belong here). Keeping both branches numerically and following the
+        // nearest one stops a trajectory from jumping between sheets.
+        SlopeFunction field(slope, nullptr, nullptr, nullptr, x, depVar);
+        Ex marker = Sym("__p");
+        Ex G = substituteSubexpr(F, Deriv(Sym(depVar), x, 1), marker);
+        std::vector<Ex> cs;
+        const bool quadratic = polyCoeffs(expand(G), "__p", cs) && cs.size() == 3 &&
+                               !cs[2]->isZero();
+        if (quadratic) {
+            field = SlopeFunction(nullptr, cs[2], cs[1], cs[0], x, depVar);
+            out.rhs = "(" + toPretty(cs[2]) + ")(y′)² + (" + toPretty(cs[1]) + ")y′ + (" +
+                      toPretty(cs[0]) + ") = 0";
+        } else {
+            out.rhs = toPretty(slope);
+        }
         out.xmin = xmin;
         out.xmax = xmax;
         out.ymin = ymin;
@@ -766,7 +942,7 @@ FieldOutput analyseField(const std::string& input, const std::string& x, const s
             for (int c = 0; c < cols; ++c) {
                 const double xv = xmin + (xmax - xmin) * (double)c / (double)(cols - 1);
                 bool ok = false;
-                const double m = slopeAt(slope, x, dep.empty() ? y : dep, xv, yv, &ok);
+                const double m = field.at(xv, yv, 0, &ok);
                 out.slopes.push_back(ok && std::isfinite(m) ? m : kNaN);
             }
         }
@@ -785,12 +961,10 @@ FieldOutput analyseField(const std::string& input, const std::string& x, const s
             FieldCurve curve;
             curve.icX = seed.first;
             curve.icY = seed.second;
-            integrateTrajectory(slope, x, dep.empty() ? y : dep, seed.first, seed.second, xmax,
-                                curve, yLimit);
+            integrateTrajectory(field, seed.first, seed.second, xmax, curve, yLimit);
             if (curve.ok) {
                 FieldCurve back;
-                integrateTrajectory(slope, x, dep.empty() ? y : dep, seed.first, seed.second,
-                                    xmin, back, yLimit);
+                integrateTrajectory(field, seed.first, seed.second, xmin, back, yLimit);
                 if (back.ok) {
                     for (size_t i = 1; i < back.xs.size(); ++i) {
                         curve.xs.push_back(back.xs[i]);

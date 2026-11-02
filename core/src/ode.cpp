@@ -807,12 +807,18 @@ static bool tryClairautLagrange(Builder& b, const Ex& F, const Ex& p) {
     const size_t stepMark = b.r.steps.size();
     const size_t warnMark = b.r.warnings.size();
     b.r.order = 1;
-    b.step("شناسایی نوع", nullptr,
-           clairaut ? "معادله به شکل کلرو است: y = x·y′ + f(y′)."
-                    : "معادله به شکل لاگرانژ است: y = x·g(y′) + f(y′).",
+    b.step("شناسایی نوع", Add({Mul(Sym(b.x), g), f}),
+           clairaut
+               ? "طرف راست به شکل x·y′ به‌علاوهٔ تابعی از y′ است، یعنی معادله از نوع کلرو است."
+               : "طرف راست به شکل x·g(y′) به‌علاوهٔ f(y′) است، یعنی معادله از نوع لاگرانژ است.",
            "Type identification",
-           clairaut ? "Clairaut form: y = x·y′ + f(y′)."
-                    : "Lagrange form: y = x·g(y′) + f(y′).");
+           clairaut
+               ? "The right side is x·y′ plus a function of y′, which is the Clairaut shape."
+               : "The right side is x·g(y′) plus f(y′), which is the Lagrange shape.");
+    b.step("تابع f(p)", substituteSubexpr(f, p, Sym("p")),
+           "این تابع تنها به مشتق y′ (که آن را p می‌نامیم) بستگی دارد.",
+           "The function f(p)",
+           "This function depends only on the derivative y′ (called p here).");
     Ex tp = Sym("p");
     Ex gg = substituteSubexpr(g, p, tp);
     Ex ff = substituteSubexpr(f, p, tp);
@@ -867,14 +873,22 @@ static bool tryClairautLagrange(Builder& b, const Ex& F, const Ex& p) {
         Ex Qc = simplify(Mul(fp, Pow(den, Num(-1))));
         Ex xp = solveLinearODE("p", Pc, Qc);
         Ex yp = simplify(Add(Mul(xp, gg), ff));
-        b.step("معادلهٔ خطی بر حسب x(p)", nullptr,
-               "با مشتقگیری نسبت به x و قرار دادن p = y′: dx/dp − g′(p)/(p−g(p))·x = f′(p)/(p−g(p)).",
+        b.step("معادلهٔ خطی بر حسب x(p)",
+               Add({Deriv(Sym("x"), "p", 1), Mul(Pc, Sym("x")), Mul(Num(-1), Qc)}),
+               "با مشتق‌گیری نسبت به x و قرار دادن p = y′، معادله به یک معادلهٔ خطی بر حسب "
+               "x(p) تبدیل می‌شود: dx/dp − g′(p)/(p−g(p))·x = f′(p)/(p−g(p)).",
                "Linear equation in x(p)",
-               "Differentiate with respect to x and set p = y′: dx/dp − g′(p)/(p−g(p))·x = f′(p)/(p−g(p)).");
-        b.step("حل معادلهٔ خطی", xp, "x بر حسب پارامتر p به دست آمد.",
-               "Solve the linear equation", "x is obtained as a function of the parameter p.");
-        b.step("حذف p از y = x·g(p)+f(p)", yp, "جواب عمومی به شکل پارامتری است.",
-               "Eliminate p from y = x·g(p)+f(p)", "The general solution is parametric.");
+               "Differentiating with respect to x and setting p = y′ turns the problem into a "
+               "linear equation for x(p): dx/dp − g′(p)/(p−g(p))·x = f′(p)/(p−g(p)).");
+        b.step("حل معادلهٔ خطی", xp,
+               "با عامل انتگرال‌ساز، x به‌صورت تابعی از پارامتر p به دست می‌آید.",
+               "Solve the linear equation",
+               "An integrating factor gives x as a function of the parameter p.");
+        b.step("حذف p از y = x·g(p)+f(p)", yp,
+               "با جایگذاری x(p) در رابطهٔ اصلی، جواب عمومی به شکل پارامتری نوشته می‌شود.",
+               "Eliminate p from y = x·g(p)+f(p)",
+               "Substituting x(p) into the original relation writes the general solution in "
+               "parametric form.");
         b.r.paramX = xp;
         b.r.paramY = yp;
         b.r.paramName = "p";
@@ -910,9 +924,18 @@ static bool tryRiccati(Builder& b, const Ex& yp, const std::vector<TermPow>& ts)
         if (n < 0 || n > 2) return false;
     }
     b.r.order = 1;
-    b.step("شناسایی نوع", nullptr, "معادلهٔ ریکاتی است: y′ = P(x)y² + Q(x)y + R(x).");
-    b.step("ضرایب", nullptr,
-           "P = " + toPretty(Pc) + " ، Q = " + toPretty(Q) + " ، R = " + toPretty(R));
+    b.step("شناسایی نوع", Add({Mul(Pc, Pow(b.Y, Num(2))), Mul(Q, b.Y), R}),
+           "طرف راست یک چندجمله‌ای درجهٔ دوم در y است، پس معادله ریکاتی است: "
+           "y′ = P(x)·y² + Q(x)·y + R(x).",
+           "Type identification",
+           "The right side is a quadratic in y, so the equation is Riccati: "
+           "y′ = P(x)y² + Q(x)y + R(x).");
+    b.step("ضریب y²", Pc, "P(x) ضریب جملهٔ درجهٔ دوم است.", "Coefficient of y²",
+           "P(x) is the coefficient of the quadratic term.");
+    b.step("ضریب y", Q, "Q(x) ضریب جملهٔ خطی است.", "Coefficient of y",
+           "Q(x) is the coefficient of the linear term.");
+    b.step("جملهٔ مستقل", R, "R(x) جملهٔ مستقل از y است.", "The constant term",
+           "R(x) is the term that does not involve y.");
     Ex y1;
     if (!b.opt.particular.empty()) {
         std::string dep;
@@ -926,8 +949,13 @@ static bool tryRiccati(Builder& b, const Ex& yp, const std::vector<TermPow>& ts)
         Ex B = simplify(Mul(Num(-1), Pc));
         Ex z = solveLinearODE(b.x, A, B);
         Ex ysol = simplify(Add(y1, Pow(z, Num(-1))));
-        b.step("جایگذاری y = y₁ + 1/z", nullptr,
-               "معادله به خطی z′ + (2P y₁ + Q)z = −P تبدیل میشود.");
+        b.step("جایگذاری y = y₁ + 1/z",
+               Add({Deriv(Sym("z"), b.x, 1), Mul(A, Sym("z")), Mul(Num(-1), B)}),
+               "با y = y₁ + 1/z و داشتن یک جواب خصوصی، معادلهٔ غیرخطی به معادلهٔ خطی "
+               "z′ + (2P·y₁ + Q)·z = −P تبدیل می‌شود.",
+               "Substitute y = y₁ + 1/z",
+               "With y = y₁ + 1/z and one known particular solution, the nonlinear equation "
+               "becomes the linear equation z′ + (2P·y₁ + Q)z = −P.");
         b.step("حل خطی برای z", z);
         b.step("جواب عمومی", ysol);
         b.r.normalized = yp;
@@ -1010,18 +1038,36 @@ static bool tryBernoulli(Builder& b, const Ex& yp, const std::vector<TermPow>& t
     Ex Pc = pcoef;
     Ex Q = qcoef;
     b.r.order = 1;
-    b.step("شناسایی نوع", nullptr,
-           "معادلهٔ برنولی است: y′ + P(x)y = Q(x)y^n با n = " + rationalToString(n) + ".");
-    b.step("ضرایب", nullptr, "y′ = " + toPretty(Pc) + "·y + " + toPretty(Q) + "·y^n (معادل برنولی).");
+    b.step("شناسایی نوع", Add({Mul(Pc, b.Y), Mul(Q, Pow(b.Y, nEx))}),
+           "در طرف راست یک جملهٔ خطی در y و یک جملهٔ توانی y^n دیده می‌شود؛ این شکل برنولی است "
+           "با n = " + rationalToString(n) + ".",
+           "Type identification",
+           "The right side holds one linear term in y and one power term y^n, which is the "
+           "Bernoulli shape with n = " + rationalToString(n) + ".");
+    b.step("ضریب P(x)", Pc, "ضریب جملهٔ خطی در y.", "Coefficient P(x)",
+           "The coefficient of the linear term in y.");
+    b.step("ضریب Q(x)", Q, "ضریب جملهٔ توانی y^n.", "Coefficient Q(x)",
+           "The coefficient of the power term y^n.");
     // v = y^(1-n)
     Ex oneMinusN = Num(Rational(1) - n);
     Ex A = simplify(Mul(Num(n - Rational(1)), Pc));   // (1-n)*(-P)
     Ex B = simplify(Mul(oneMinusN, Q));
     Ex vz = solveLinearODE(b.x, A, B);
     Ex ysol = simplify(Pow(vz, Pow(oneMinusN, Num(-1))));
-    b.step("تغییر متغیر", nullptr, "با v = y^(1−n)، معادله به v′ + (1−n)P v = (1−n)Q تبدیل می‌شود.");
-    b.step("حل خطی برای v", vz);
-    b.step("بازگشت به y", ysol);
+    b.step("تغییر متغیر v = y^(1−n)", Pow(b.Y, oneMinusN),
+           "با v = y^(1−n) جملهٔ توانی حذف می‌شود و معادله به شکل خطی "
+           "v′ + (1−n)P·v = (1−n)Q درمی‌آید.",
+           "Substitute v = y^(1−n)",
+           "With v = y^(1−n) the power term disappears and the equation becomes the linear "
+           "problem v′ + (1−n)P v = (1−n)Q.");
+    b.step("حل خطی برای v", vz,
+           "این معادلهٔ خطی با عامل انتگرال‌ساز حل می‌شود و v(x) به دست می‌آید.",
+           "Solve the linear equation for v",
+           "The linear equation is solved with an integrating factor to obtain v(x).");
+    b.step("بازگشت به y", ysol,
+           "با y = v^(1/(1−n)) به متغیر اصلی برمی‌گردیم.",
+           "Return to y",
+           "The substitution y = v^(1/(1−n)) returns to the original variable.");
     b.r.singular.push_back(Num(0));
     setSolution(b.r, "bernoulli", "برنولی", ysol, true, ysol);
     if (b.r.closedForm)
@@ -1042,13 +1088,35 @@ static bool tryLinear(Builder& b, const Ex& yp, const std::vector<TermPow>& ts) 
     Ex q = coeffOf(ts, 0);
     Ex P = simplify(Mul(Num(-1), pcoef));
     b.r.order = 1;
-    b.step("شناسایی نوع", nullptr, "معادلهٔ خطی مرتبهٔ اول است: y′ + P(x)y = Q(x).");
-    b.step("ضرایب", nullptr, "P = " + toPretty(P) + " ، Q = " + toPretty(q));
+    b.step("شناسایی نوع", Add({b.P, Mul(P, b.Y), Mul(Num(-1), q)}),
+           "پس از مرتب کردن، معادله به شکل y′ + P(x)·y = Q(x) درمی‌آید: جملهٔ y′ تنها، y با "
+           "ضریب P و طرف راست تنها تابعی از x است.",
+           "Type identification",
+           "After rearrangement the equation has the first-order linear shape "
+           "y′ + P(x)y = Q(x): a single y′, y with coefficient P, and a right side that "
+           "depends on x alone.");
+    b.step("ضریب P(x)", P, "ضریب y در سمت چپ، تابع P(x) است.",
+           "Coefficient P(x)", "The coefficient of y on the left is P(x).");
+    b.step("جملهٔ Q(x)", q, "تمام جمله‌های بدون y به سمت راست منتقل می‌شوند و Q(x) را می‌سازند.",
+           "The forcing term Q(x)",
+           "Every term without y moves to the right side and forms Q(x).");
     Ex mu, intRhs;
     Ex ysol = solveLinearODE(b.x, P, q, &mu, &intRhs);
-    b.step("عامل انتگرالساز", mu, "μ(x) = exp(∫P dx).");
-    b.step("انتگرالگیری", intRhs, "y = μ⁻¹(∫μQ dx + C).");
-    b.step("جواب عمومی", ysol);
+    b.step("عامل انتگرال‌ساز", mu,
+           "ضرب در μ معادله را به مشتق یک حاصل‌ضرب تبدیل می‌کند: (μ·y)′ = μ·Q. به همین دلیل "
+           "μ = exp(∫P dx) انتخاب می‌شود.",
+           "Integrating factor",
+           "Multiplying by μ turns the left side into a single derivative, (μy)′ = μQ. That is "
+           "exactly why μ = exp(∫P dx) is chosen.");
+    b.step("انتگرال دو طرف", intRhs,
+           "از دو طرف نسبت به x انتگرال می‌گیریم؛ نتیجه ∫μQ dx به‌همراه ثابت انتگرال است.",
+           "Integrate both sides",
+           "Integrate both sides with respect to x; the result is ∫μQ dx plus a constant of "
+           "integration.");
+    b.step("جواب عمومی", ysol,
+           "با تقسیم بر μ، y جدا می‌شود و ثابت C آزاد می‌ماند تا شرط اولیه آن را تعیین کند.",
+           "General solution",
+           "Dividing by μ isolates y; the constant C stays free until an initial condition fixes it.");
     setSolution(b.r, "linear", "خطی", ysol, true, ysol);
     if (b.r.closedForm)
         verifyExplicit(b.r, Add(b.P, Mul(Num(-1), Add(Mul(pcoef, Sym(b.y)), q))), ysol, b.x, b.y, b.en);
@@ -1079,8 +1147,17 @@ static bool tryHomogeneous(Builder& b, const Ex& yp) {
     sub = expand(simplify(sub));
     if (dependsOn(sub, b.x)) return false;
     b.r.order = 1;
-    b.step("شناسایی نوع", nullptr, "معادلهٔ همگن است: y′ = F(y/x).");
-    b.step("تغییر متغیر", nullptr, "با y = vx داریم y′ = v + x·v′ پس x·v′ = F(v) − v.");
+    b.step("شناسایی نوع", sub,
+           "اگر در طرف راست y = v·x گذاشته شود، عبارت تنها به v بستگی پیدا می‌کند؛ پس معادله "
+           "همگن است و به نسبت y/x وابسته است.",
+           "Type identification",
+           "Replacing y by v·x leaves an expression that depends on v alone, so the equation is "
+           "homogeneous: it depends only on the ratio y/x.");
+    b.step("تغییر متغیر y = v·x", Add({v, Mul(Sym(b.x), Deriv(v, b.x, 1))}),
+           "با y = v·x قاعدهٔ ضرب می‌دهد y′ = v + x·v′، پس معادله به x·v′ = F(v) − v تبدیل می‌شود.",
+           "Substitute y = v·x",
+           "With y = v·x the product rule gives y′ = v + x·v′, so the equation becomes "
+           "x·v′ = F(v) − v.");
     Ex Fv = sub;
     Ex num = simplify(Add(Fv, Mul(Num(-1), v)));
     if (num->isZero()) {
@@ -1091,8 +1168,18 @@ static bool tryHomogeneous(Builder& b, const Ex& yp) {
     }
     Ex integral = integrate(Pow(num, Num(-1)), "v");
     Ex sol = Add(integral, Mul(Num(-1), lnAbs(Sym(b.x))));
-    b.step("جداسازی متغیرها", nullptr, "dv/(F(v) − v) = dx/x.");
-    b.step("انتگرالگیری", sol, "با v = y/x جواب ضمنی به دست میآید.");
+    b.step("جداسازی متغیرها", num,
+           "معادلهٔ به‌دست‌آمده جداشدنی است: dv/(F(v) − v) = dx/x.",
+           "Separate the variables",
+           "The transformed equation is separable: dv/(F(v) − v) = dx/x.");
+    b.step("انتگرال‌گیری", sol,
+           "دو طرف انتگرال می‌شوند و یک ثابت مشترک می‌گیرند.",
+           "Integrate",
+           "Both sides are integrated and share a single constant.");
+    b.step("بازگشت به y", substituteSubexpr(sol, v, Mul(Sym(b.y), Pow(Sym(b.x), Num(-1)))),
+           "با جایگذاری v = y/x دوباره به متغیر اصلی برمی‌گردیم و جواب ضمنی حاصل می‌شود.",
+           "Return to y",
+           "Substituting v = y/x returns to the original variable and gives the implicit solution.");
     // constant/singular solutions from F(v)-v=0
     auto roots = solvePoly(num, "v");
     for (auto& rr : roots) {
@@ -1147,13 +1234,31 @@ static bool trySeparable(Builder& b, const Ex& yp) {
         }
     }
     b.r.order = 1;
-    b.step("شناسایی نوع", nullptr, "معادلهٔ جداشدنی است: y′ = f(x)·g(y).");
-    b.step("تجزیه", nullptr, "f(x) = " + toPretty(f) + " ، g(y) = " + toPretty(g));
+    b.step("شناسایی نوع", Mul(f, g),
+           "طرف راست را می‌توان به حاصل‌ضرب دو عامل تجزیه کرد که یکی فقط به x و دیگری فقط به y "
+           "بستگی دارد؛ همین ویژگی معادله را جداشدنی می‌کند.",
+           "Type identification",
+           "The right side factors into one piece that depends only on x and one that depends "
+           "only on y, and that separation is what makes the equation separable.");
+    b.step("عامل f(x)", f, "عامل وابسته به x در طرف راست.",
+           "The x factor", "The factor of the right side that depends on x.");
+    b.step("عامل g(y)", g, "عامل وابسته به y در طرف راست.",
+           "The y factor", "The factor of the right side that depends on y.");
     Ex Ig = integrate(Pow(g, Num(-1)), b.y);
     Ex If = integrate(f, b.x);
     Ex sol = Add(Ig, Mul(Num(-1), If));
-    b.step("جداسازی", nullptr, "dy/g(y) = f(x) dx.");
-    b.step("انتگرال دو طرف", sol, "جواب ضمنی: " + toPretty(sol) + " = C.");
+    b.step("جداسازی متغیرها", Add({Mul(Pow(g, Num(-1)), b.P), Mul(Num(-1), f)}),
+           "با تقسیم بر g(y)، هر دو متغیر از هم جدا می‌شوند: dy/g(y) = f(x) dx. از این نقطه "
+           "هر طرف تنها یک متغیر دارد.",
+           "Separate the variables",
+           "Dividing by g(y) separates the variables: dy/g(y) = f(x) dx. From here each side "
+           "depends on one variable only.");
+    b.step("انتگرال دو طرف", sol,
+           "هر طرف را نسبت به متغیر خودش انتگرال می‌گیریم؛ دو انتگرال با یک ثابت مشترک C به "
+           "هم مربوط می‌شوند و جواب ضمنی به دست می‌آید.",
+           "Integrate both sides",
+           "Integrate each side with respect to its own variable; the two antiderivatives are "
+           "tied together by a single constant C, which gives the implicit solution.");
     // singular constant solutions
     auto roots = solvePoly(g, b.y);
     for (auto& rr : roots) {
@@ -1189,9 +1294,26 @@ static bool tryLinearSub(Builder& b, const Ex& yp0) {
     Ex solU = Add(Ig, Mul(Num(-1), Sym(b.x)));
     Ex sol = substituteSubexpr(solU, Sym("u"), u);
     b.r.order = 1;
-    b.step("شناسایی نوع", nullptr, "معادله به شکل y′ = f(ax + by) است.");
-    b.step("تغییر متغیر", nullptr, "با u = ax + y، معادله به u′ = a + f(u) (جداشدنی) تبدیل میشود.");
-    b.step("جواب ضمنی", sol);
+    b.step("شناسایی نوع", rhs,
+           "طرف راست تنها از ترکیب خطی ax + by ساخته شده است، پس با یک تغییر متغیر ساده "
+           "جداشدنی می‌شود.",
+           "Type identification",
+           "The right side is built from the linear combination ax + by alone, so a single "
+           "substitution turns it separable.");
+    b.step("تغییر متغیر u = a·x + y", u,
+           "با u = a·x + y داریم u′ = a + y′، پس معادله به u′ = a + f(u) تبدیل می‌شود که "
+           "جداشدنی است.",
+           "Substitute u = a·x + y",
+           "With u = a·x + y we get u′ = a + y′, so the equation becomes u′ = a + f(u), which "
+           "is separable.");
+    b.step("انتگرال‌گیری", solU,
+           "دو طرف را انتگرال می‌گیریم و ثابت مشترک را نگه می‌داریم.",
+           "Integrate both sides",
+           "Both sides are integrated, keeping a single shared constant.");
+    b.step("جواب ضمنی", sol,
+           "با برگرداندن u = a·x + y جواب اصلی به دست می‌آید.",
+           "Implicit solution",
+           "Restoring u = a·x + y gives the solution of the original equation.");
     Ex ex = tryExplicit(Add(sol, Mul(Num(-1), Cst(1))), b.x, b.y);
     setSolution(b.r, "linear_sub", "جایگذاری خطی", sol, ex != nullptr, ex);
     b.r.normalized = yp;
@@ -1225,8 +1347,47 @@ static bool tryExact(Builder& b, const Ex& F, const Ex& M, const Ex& N, bool fro
         Ex phiP = simplify(Add(N, Mul(Num(-1), diff(u0, b.y))));
         Ex phi = integrate(phiP, b.y);
         Ex u = simplify(Add(u0, phi));
-        b.step("آزمون کامل بودن", nullptr, "∂M/∂y = ∂N/∂x، پس معادله کامل (دقیق) است.");
-        b.step("تابع پتانسیل", u, "u(x,y) = ∫M dx + φ(y) و φ′(y) = N − ∂/∂y∫M dx.");
+
+        // Show the two partial derivatives separately: the test is only
+        // believable when the reader can see both values.
+        b.step("∂M/∂y", My,
+               "M را نسبت به y مشتق می‌گیریم.",
+               "∂M/∂y", "Differentiate M with respect to y.");
+        b.step("∂N/∂x", Nx,
+               "N را نسبت به x مشتق می‌گیریم.",
+               "∂N/∂x", "Differentiate N with respect to x.");
+        b.step("آزمون کامل بودن", d,
+               "این دو مشتق جزئی برابرند، پس معادله کامل (دقیق) است و تابع پتانسیلی مانند "
+               "u وجود دارد که ∂u/∂x = M و ∂u/∂y = N.",
+               "Exactness test",
+               "The two partial derivatives agree, so the equation is exact: there is a "
+               "potential u with ∂u/∂x = M and ∂u/∂y = N.");
+        b.step("انتگرال M نسبت به x", u0,
+               "از M نسبت به x انتگرال می‌گیریم. ثابت انتگرال می‌تواند تابعی از y باشد، "
+               "پس آن را φ(y) می‌نامیم.",
+               "Integrate M with respect to x",
+               "Integrate M with respect to x. The constant of integration may depend on y, "
+               "so it is written as φ(y).");
+        b.step("تعیین φ′(y)", phiP,
+               "از u نسبت به y مشتق می‌گیریم و با N مقایسه می‌کنیم: φ′(y) = N − ∂/∂y∫M dx. "
+               "این کار باقی‌ماندهٔ وابسته به y را جدا می‌کند.",
+               "Determine φ′(y)",
+               "Differentiate the partial result with respect to y and compare it with N: "
+               "φ′(y) = N − ∂/∂y∫M dx. This isolates the part that still depends on y.");
+        b.step("انتگرال‌گیری برای φ(y)", phi,
+               "φ تنها به y بستگی دارد، پس با انتگرال‌گیری نسبت به y به دست می‌آید.",
+               "Integrate to obtain φ(y)",
+               "φ depends on y alone, so integrating with respect to y recovers it.");
+        b.step("تابع پتانسیل", u,
+               "با کنار هم گذاشتن دو بخش، تابع پتانسیل u(x,y) کامل می‌شود.",
+               "Potential function",
+               "Putting the two pieces together completes the potential u(x,y).");
+        b.step("جواب عمومی", u,
+               "منحنی‌های تراز این تابع همان جواب‌ها هستند، پس خانوادهٔ جواب‌ها به شکل "
+               "u(x,y) = C نوشته می‌شود.",
+               "General solution",
+               "The level curves of this potential are the solutions, so the solution family "
+               "is written u(x,y) = C.");
         Ex ex = tryExplicit(Add(u, Mul(Num(-1), Cst(1))), b.x, b.y);
         setSolution(b.r, "exact", "کامل", u, ex != nullptr, ex);
         b.r.normalized = F;
@@ -1281,11 +1442,40 @@ static bool tryExact(Builder& b, const Ex& F, const Ex& M, const Ex& N, bool fro
         Ex phiP = simplify(Add(N2, Mul(Num(-1), diff(u0, b.y))));
         Ex phi = integrate(phiP, b.y);
         Ex u = simplify(Add(u0, phi));
-        b.step("عامل انتگرالساز", tr.mu, tr.kind);
-        b.step("معادلهٔ کامل جدید", nullptr, "با ضرب در μ، معادله کامل میشود.");
-        b.step("تابع پتانسیل", u, "u(x,y) = C جواب عمومی است.");
+        b.step("آزمون کامل بودن", d,
+               "چون ∂M/∂y با ∂N/∂x برابر نیست، معادلهٔ اولیه کامل نیست و باید در یک عامل "
+               "انتگرال‌ساز ضرب شود.",
+               "Exactness test",
+               "Since ∂M/∂y differs from ∂N/∂x, the original equation is not exact and needs "
+               "an integrating factor.");
+        b.step("عامل انتگرال‌ساز", tr.mu, tr.kind, "Integrating factor", tr.kind);
+        b.step("معادلهٔ کامل جدید", Add(M2, Mul(N2, Sym("dy"))),
+               "با ضرب هر دو جمله در μ، معادلهٔ تازه در هر دو طرف کامل می‌شود.",
+               "New exact equation",
+               "Multiplying both terms by μ makes the new equation exact on both sides.");
+        b.step("انتگرال M نسبت به x", u0,
+               "از جملهٔ نخست نسبت به x انتگرال می‌گیریم؛ ثابت انتگرال تابعی از y است.",
+               "Integrate M with respect to x",
+               "Integrate the first term with respect to x; the constant of integration is a "
+               "function of y.");
+        b.step("تعیین φ′(y)", phiP,
+               "با مقایسهٔ مشتق نسبت به y با جملهٔ دوم، φ′(y) به دست می‌آید.",
+               "Determine φ′(y)",
+               "Comparing the derivative with respect to y against the second term gives φ′(y).");
+        b.step("انتگرال‌گیری برای φ(y)", phi,
+               "φ فقط به y بستگی دارد، پس با انتگرال‌گیری نسبت به y به دست می‌آید.",
+               "Integrate to obtain φ(y)",
+               "φ depends on y alone, so integrating with respect to y recovers it.");
+        b.step("تابع پتانسیل", u,
+               "جمع دو بخش، تابع پتانسیل معادلهٔ کامل‌شده را می‌سازد.",
+               "Potential function",
+               "Adding the two pieces gives the potential of the exact equation.");
+        b.step("جواب عمومی", u,
+               "خانوادهٔ جواب‌ها همان منحنی‌های تراز این تابع است: u(x,y) = C.",
+               "General solution",
+               "The solution family is the level curves of this potential: u(x,y) = C.");
         Ex ex = tryExplicit(Add(u, Mul(Num(-1), Cst(1))), b.x, b.y);
-        setSolution(b.r, "integrating_factor", "کاملشدنی با عامل انتگرالساز", u, ex != nullptr, ex);
+        setSolution(b.r, "integrating_factor", "کامل‌شدنی با عامل انتگرال‌ساز", u, ex != nullptr, ex);
         b.r.normalized = F;
         verifyImplicit(b.r, u, M2, N2, b.x, b.y, b.en);
         return true;
@@ -1344,7 +1534,12 @@ static Ex constCoeffSolution(const std::vector<Ex>& a, const std::string& x, Bui
     for (auto& c : a) ch.c.push_back(c->num);
     // characteristic polynomial in r
     Ex charExpr = polyToExpr(ch, "r");
-    b.step("معادلهٔ مشخصه", charExpr, "با فرض y = e^(rx)، معادلهٔ مشخصه به دست میآید.");
+    b.step("معادلهٔ مشخصه", charExpr,
+           "با فرض جواب نمایی y = e^(r·x)، هر مشتق یک ضریب r اضافه می‌کند و معادله به یک "
+           "چندجمله‌ای جبری در r تبدیل می‌شود.",
+           "Characteristic equation",
+           "Assuming an exponential solution y = e^(r·x), each derivative contributes a factor "
+           "r and the equation becomes an algebraic polynomial in r.");
     std::vector<Factor> facs;
     if (!factorPolynomial(ch, facs)) {
         // fall back: rational roots only
@@ -1394,7 +1589,26 @@ static Ex constCoeffSolution(const std::vector<Ex>& a, const std::string& x, Bui
     }
     if (terms.empty()) return nullptr;
     Ex sol = Add(terms);
-    b.step("ریشههای مشخصه", nullptr, "ریشههای حقیقی/مختلط با تکراپذیری در جواب لحاظ شدهاند.");
+    for (auto& rt : roots) {
+        Ex term = rt.cplx ? Add({rt.re, Mul(rt.im, Sym("i"))}) : rt.re;
+        std::string noteFa, noteEn;
+        if (rt.cplx) {
+            noteFa = "این جفت مختلط جواب‌های e^(ax)·cos(bx) و e^(ax)·sin(bx) را می‌دهد.";
+            noteEn = "This complex pair yields the solutions e^(ax)cos(bx) and e^(ax)sin(bx).";
+        } else if (rt.mult > 1) {
+            noteFa = "این ریشه تکراری است، پس جواب متناظر یک عامل x به توان تکرار می‌گیرد.";
+            noteEn = "This root is repeated, so its solution picks up a factor x to the power of "
+                     "the multiplicity.";
+        } else {
+            noteFa = "این ریشهٔ حقیقی ساده، جواب پایهٔ e^(rx) را می‌دهد.";
+            noteEn = "This simple real root supplies the basis solution e^(rx).";
+        }
+        if (rt.mult > 1) {
+            noteFa += " (تکرار: " + std::to_string(rt.mult) + ")";
+            noteEn += " (multiplicity " + std::to_string(rt.mult) + ")";
+        }
+        b.step("ریشهٔ مشخصه", term, noteFa, "Characteristic root", noteEn);
+    }
     b.step("جواب عمومی", sol, "ترکیب خطی توابع پایه با ثابتهای دلخواه.");
     return sol;
 }
@@ -1420,8 +1634,20 @@ static bool solveHigherOrder(Builder& b, const Ex& F) {
         Ex f = simplify(Mul(rhs, Pow(a[2], Num(-1))));
         Ex y1 = integrate(f, b.x);
         Ex y = Add(integrate(y1, b.x), Mul(Cst(1), Sym(b.x)), Cst(2));
-        b.step("شناسایی نوع", nullptr, "معادله از نوع y″ = f(x) است (متغیر y و y′ غایب‌اند).");
-        b.step("انتگرال‌گیری دوباره", y);
+        b.step("شناسایی نوع", F,
+               "در معادله هیچ جمله‌ای شامل y یا y′ نیست و تنها y″ و تابعی از x مانده‌اند؛ پس "
+               "می‌توان دو بار مستقیماً انتگرال گرفت.",
+               "Type identification",
+               "No term contains y or y′, only y″ and a function of x, so the equation can be "
+               "integrated twice directly.");
+        b.step("انتگرال اول", y1,
+               "یک بار انتگرال می‌گیریم تا y′ به دست آید؛ این انتگرال یک ثابت C۱ می‌آورد.",
+               "First integration",
+               "One integration gives y′; it introduces a first constant C1.");
+        b.step("انتگرال دوم", y,
+               "بار دوم انتگرال می‌گیریم تا خود y به دست آید؛ این بار یک ثابت دوم اضافه می‌شود.",
+               "Second integration",
+               "A second integration gives y itself and introduces a second constant.");
         setSolution(b.r, "direct_integration", "انتگرال‌گیری مستقیم مرتبهٔ دوم", simplify(y), true, simplify(y));
         verifyExplicit(b.r, F, simplify(y), b.x, b.y, b.en);
         return true;

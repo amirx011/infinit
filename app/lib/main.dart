@@ -7,7 +7,13 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'src/app_state.dart';
 import 'src/l10n.dart';
 import 'src/native_engine.dart';
+import 'src/pages/behaviour_page.dart';
 import 'src/pages/continuity_page.dart';
+import 'src/pages/educational_page.dart';
+import 'src/pages/optimize_page.dart';
+import 'src/pages/related_rates_page.dart';
+import 'src/pages/tangent_page.dart';
+import 'src/pages/theorems_page.dart';
 import 'src/pages/derivative_page.dart';
 import 'src/pages/domain_range_page.dart';
 import 'src/pages/envelope_page.dart';
@@ -152,6 +158,76 @@ class _HomeScreenState extends State<HomeScreen> {
           engineError: _engineError,
           l10n: l10n,
         );
+      case 10:
+        return BehaviourPage(
+          key: const ValueKey('behaviour'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 11:
+        return TangentPage(
+          key: const ValueKey('tangent'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 12:
+        return OptimizePage(
+          key: const ValueKey('optimize'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 13:
+        return RelatedRatesPage(
+          key: const ValueKey('related-rates'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 14:
+        return TheoremsPage(
+          key: const ValueKey('lhopital'),
+          mode: TheoremMode.lhopital,
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 15:
+        return TheoremsPage(
+          key: const ValueKey('mvt'),
+          mode: TheoremMode.mvt,
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 16:
+        return TheoremsPage(
+          key: const ValueKey('rolle'),
+          mode: TheoremMode.rolle,
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 17:
+        return TheoremsPage(
+          key: const ValueKey('cauchy'),
+          mode: TheoremMode.cauchy,
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 18:
+        return TheoremsPage(
+          key: const ValueKey('theorem-catalogue'),
+          mode: TheoremMode.catalogue,
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 19:
+        return EducationalPage(key: const ValueKey('educational'), l10n: l10n);
       default:
         return _HomePage(
           l10n: l10n,
@@ -242,6 +318,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // ---------------------------------------------------------------- navigation
 
+/// One row of the drawer: either a link to a page or a collapsible group.
+class _DrawerEntry {
+  const _DrawerEntry.link({
+    required this.index,
+    required this.icon,
+    required this.label,
+    this.hint,
+  }) : children = const [];
+
+  const _DrawerEntry.group({
+    required this.icon,
+    required this.label,
+    required this.children,
+  }) : index = null,
+       hint = null;
+
+  /// Destination page, null for a group.
+  final int? index;
+  final IconData icon;
+  final String label;
+  final String? hint;
+  final List<_DrawerEntry> children;
+
+  bool get isGroup => index == null;
+}
+
 class _AppDrawer extends StatelessWidget {
   const _AppDrawer({
     required this.l10n,
@@ -258,58 +360,146 @@ class _AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final equations = [
-      (
-        index: 2,
+    final sections = <_DrawerEntry>[
+      _DrawerEntry.link(
+        index: 0,
+        icon: Icons.home_rounded,
+        label: l10n.t('Home', 'خانه'),
+      ),
+      _DrawerEntry.link(
+        index: 1,
+        icon: Icons.view_in_ar_rounded,
+        label: l10n.t('Linear algebra', 'جبر خطی'),
+        hint: l10n.t('Soon', 'به‌زودی'),
+      ),
+      
+      _DrawerEntry.group(
         icon: Icons.functions_rounded,
-        label: l10n.t('Solve an equation', 'حل معادله'),
-        hint: l10n.t('Forms', 'فرم‌ها'),
+        label: l10n.t('Differential equations', 'معادلات دیفرانسیل'),
+        children: [
+          _DrawerEntry.link(
+            index: 2,
+            icon: Icons.functions_rounded,
+            label: l10n.t('Solve an equation', 'حل معادله'),
+            hint: l10n.t('Forms', 'فرم‌ها'),
+          ),
+          _DrawerEntry.link(
+            index: 3,
+            icon: Icons.grid_on_rounded,
+            label: l10n.t('Wronskian', 'رونسکی'),
+          ),
+          _DrawerEntry.link(
+            index: 4,
+            icon: Icons.join_inner_rounded,
+            label: l10n.t('Envelope & orthogonal', 'پوش و مسیرهای متعامد'),
+          ),
+        ],
       ),
-      (
-        index: 3,
-        icon: Icons.grid_on_rounded,
-        label: l10n.t('Wronskian', 'رونسکی'),
-        hint: null,
+      _DrawerEntry.group(
+        icon: Icons.calculate_rounded,
+        label: l10n.t(
+          'Differential & integral',
+          'حساب دیفرانسیل و انتگرال',
+        ),
+        children: [
+          _DrawerEntry.link(
+            index: 5,
+            icon: Icons.drive_file_rename_outline_rounded,
+            label: l10n.t('Derivative', 'مشتق'),
+            hint: l10n.t('1st–10th order', 'مرتبهٔ ۱ تا ۱۰'),
+          ),
+          _DrawerEntry.link(
+            index: 6,
+            icon: Icons.integration_instructions_rounded,
+            label: l10n.t('Integral', 'انتگرال'),
+            hint: l10n.t('1D / 2D / 3D', 'یگانه / دوگانه / سه‌گانه'),
+          ),
+          _DrawerEntry.link(
+            index: 7,
+            icon: Icons.linear_scale_rounded,
+            label: l10n.t('Limit', 'حد'),
+            hint: l10n.t('Both sides', 'دوطرفه'),
+          ),
+          _DrawerEntry.link(
+            index: 8,
+            icon: Icons.timeline_rounded,
+            label: l10n.t('Continuity', 'پیوستگی'),
+          ),
+          _DrawerEntry.link(
+            index: 9,
+            icon: Icons.explore_rounded,
+            label: l10n.t('Domain & range', 'دامنه و برد'),
+            hint: l10n.t('Plot', 'نمودار'),
+          ),
+        _DrawerEntry.group(
+          icon: Icons.insights_rounded,
+          label: l10n.t('Applications of the derivative', 'کاربردهای مشتق'),
+          children: [
+            _DrawerEntry.link(
+              index: 10,
+              icon: Icons.insights_rounded,
+              label: l10n.t('Function behaviour', 'تحلیل رفتار تابع'),
+            ),
+            _DrawerEntry.link(
+              index: 11,
+              icon: Icons.show_chart_rounded,
+              label: l10n.t('Tangent & normal', 'مماس و خط عمود'),
+            ),
+            _DrawerEntry.link(
+              index: 12,
+              icon: Icons.vertical_align_bottom_rounded,
+              label: l10n.t('Optimisation', 'مسایل بهینه‌سازی'),
+            ),
+            _DrawerEntry.link(
+              index: 13,
+              icon: Icons.speed_rounded,
+              label: l10n.t('Related rates', 'نرخ‌های مرتبط'),
+            ),
+            _DrawerEntry.group(
+              icon: Icons.rule_rounded,
+              label: l10n.t('Important theorems', 'قضایای مهم'),
+              children: [
+                _DrawerEntry.link(
+                  index: 14,
+                  icon: Icons.compare_arrows_rounded,
+                  label: l10n.t("L'Hôpital's rule", 'قاعدهٔ هوپیتال'),
+                ),
+                _DrawerEntry.link(
+                  index: 15,
+                  icon: Icons.rule_rounded,
+                  label: l10n.t('Mean value theorem', 'قضیهٔ مقدار میانگین'),
+                ),
+                _DrawerEntry.link(
+                  index: 16,
+                  icon: Icons.horizontal_rule_rounded,
+                  label: l10n.t("Rolle's theorem", 'قضیهٔ رول'),
+                ),
+                _DrawerEntry.link(
+                  index: 17,
+                  icon: Icons.swap_horiz_rounded,
+                  label: l10n.t("Cauchy's theorem", 'قضیهٔ کوشی'),
+                ),
+                _DrawerEntry.link(
+                  index: 18,
+                  icon: Icons.menu_book_rounded,
+                  label: l10n.t(
+                    'Derivative theorems, complete',
+                    'قضایای مشتق، کامل',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        ],
       ),
-      (
-        index: 4,
-        icon: Icons.join_inner_rounded,
-        label: l10n.t('Envelope & orthogonal', 'پوش و مسیرهای متعامد'),
-        hint: null,
+      _DrawerEntry.group(
+        icon: Icons.auto_stories_rounded,
+        label: l10n.t('Educational explanations', 'توضیحات آموزشی'),
+        children: const [],
       ),
     ];
-    final calculus = [
-      (
-        index: 5,
-        icon: Icons.drive_file_rename_outline_rounded,
-        label: l10n.t('Derivative', 'مشتق'),
-        hint: l10n.t('1st–10th order', 'مرتبهٔ ۱ تا ۱۰'),
-      ),
-      (
-        index: 6,
-        icon: Icons.integration_instructions_rounded,
-        label: l10n.t('Integral', 'انتگرال'),
-        hint: l10n.t('1D / 2D / 3D', 'یگانه / دوگانه / سه‌گانه'),
-      ),
-      (
-        index: 7,
-        icon: Icons.linear_scale_rounded,
-        label: l10n.t('Limit', 'حد'),
-        hint: l10n.t('Both sides', 'دوطرفه'),
-      ),
-      (
-        index: 8,
-        icon: Icons.timeline_rounded,
-        label: l10n.t('Continuity', 'پیوستگی'),
-        hint: null,
-      ),
-      (
-        index: 9,
-        icon: Icons.explore_rounded,
-        label: l10n.t('Domain & range', 'دامنه و برد'),
-        hint: l10n.t('Plot', 'نمودار'),
-      ),
-    ];
+
     return Drawer(
       backgroundColor: c.card,
       child: SafeArea(
@@ -356,42 +546,16 @@ class _AppDrawer extends StatelessWidget {
                   vertical: 12,
                 ),
                 children: [
-                  _DrawerTile(
-                    icon: Icons.home_rounded,
-                    label: l10n.t('Home', 'خانه'),
-                    selected: selected == 0,
-                    onTap: () => onSelected(0),
-                  ),
-                  _DrawerTile(
-                    icon: Icons.view_in_ar_rounded,
-                    label: l10n.t('Linear algebra', 'جبر خطی'),
-                    hint: l10n.t('Soon', 'به‌زودی'),
-                    selected: selected == 1,
-                    onTap: () => onSelected(1),
-                  ),
-                  const SizedBox(height: 8),
-                  _DrawerGroup(
-                    l10n: l10n,
-                    icon: Icons.functions_rounded,
-                    title: l10n.t(
-                      'Differential equations',
-                      'معادلات دیفرانسیل',
+                  for (var i = 0; i < sections.length; i++) ...[
+                    if (i > 0 && sections[i].isGroup) const SizedBox(height: 4),
+                    _DrawerNode(
+                      entry: sections[i],
+                      l10n: l10n,
+                      selected: selected,
+                      onSelected: onSelected,
+                      depth: 0,
                     ),
-                    items: equations,
-                    selected: selected,
-                    onSelected: onSelected,
-                  ),
-                  _DrawerGroup(
-                    l10n: l10n,
-                    icon: Icons.calculate_rounded,
-                    title: l10n.t(
-                      'Differential & integral',
-                      'حساب دیفرانسیل و انتگرال',
-                    ),
-                    items: calculus,
-                    selected: selected,
-                    onSelected: onSelected,
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -437,63 +601,117 @@ class _AppDrawer extends StatelessWidget {
   }
 }
 
-/// Collapsible drawer section: tapping the header row (or its chevron) reveals
-/// the modules inside the same hamburger menu.
-class _DrawerGroup extends StatefulWidget {
-  const _DrawerGroup({
+/// Renders either a single drawer row or a collapsible group, at any depth.
+class _DrawerNode extends StatelessWidget {
+  const _DrawerNode({
+    required this.entry,
     required this.l10n,
-    required this.icon,
-    required this.title,
-    required this.items,
     required this.selected,
     required this.onSelected,
+    required this.depth,
   });
 
+  final _DrawerEntry entry;
   final L10n l10n;
-  final IconData icon;
-  final String title;
-  final List<({int index, IconData icon, String label, String? hint})> items;
   final int selected;
   final ValueChanged<int> onSelected;
+  final int depth;
 
   @override
-  State<_DrawerGroup> createState() => _DrawerGroupState();
+  Widget build(BuildContext context) {
+    if (!entry.isGroup) {
+      return _DrawerTile(
+        icon: entry.icon,
+        label: entry.label,
+        hint: entry.hint,
+        selected: selected == entry.index,
+        onTap: () => onSelected(entry.index!),
+      );
+    }
+    return _DrawerGroupNode(
+      entry: entry,
+      l10n: l10n,
+      selected: selected,
+      onSelected: onSelected,
+      depth: depth,
+    );
+  }
 }
 
-class _DrawerGroupState extends State<_DrawerGroup> {
-  late bool _open = widget.items.any((i) => i.index == widget.selected);
+/// Collapsible drawer section. A group with no children expands to a short
+/// honest note instead of a dead link, which is what the empty educational
+/// section needs.
+class _DrawerGroupNode extends StatefulWidget {
+  const _DrawerGroupNode({
+    required this.entry,
+    required this.l10n,
+    required this.selected,
+    required this.onSelected,
+    required this.depth,
+  });
+
+  final _DrawerEntry entry;
+  final L10n l10n;
+  final int selected;
+  final ValueChanged<int> onSelected;
+  final int depth;
+
+  @override
+  State<_DrawerGroupNode> createState() => _DrawerGroupNodeState();
+}
+
+class _DrawerGroupNodeState extends State<_DrawerGroupNode> {
+  late bool _open = _containsSelected();
+
+  bool _containsSelected() {
+    bool search(List<_DrawerEntry> items) {
+      for (final item in items) {
+        if (item.index == widget.selected) return true;
+        if (item.children.isNotEmpty && search(item.children)) return true;
+      }
+      return false;
+    }
+
+    return search(widget.entry.children);
+  }
+
+  bool get _active => _containsSelected();
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final active = widget.items.any((i) => i.index == widget.selected);
+    final empty = widget.entry.children.isEmpty;
+    final titleSize = widget.depth == 0 ? 13.0 : 12.5;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
-          color: active && !_open ? c.accentSoft : Colors.transparent,
+          color: _active && !_open ? c.accentSoft : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () => setState(() => _open = !_open),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: 13,
+                vertical: widget.depth == 0 ? 12 : 10,
+              ),
               child: Row(
                 children: [
                   Icon(
-                    widget.icon,
-                    size: 19,
-                    color: active ? c.accent : c.muted,
+                    widget.entry.icon,
+                    size: widget.depth == 0 ? 19 : 17,
+                    color: _active ? c.accent : c.muted,
                   ),
                   const SizedBox(width: 11),
                   Expanded(
                     child: Text(
-                      widget.title,
+                      widget.entry.label,
                       style: TextStyle(
                         fontFamily: 'Vazirmatn',
-                        fontSize: 13,
-                        fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                        color: active ? c.accent : c.text,
+                        fontSize: titleSize,
+                        fontWeight: _active ? FontWeight.w700 : FontWeight.w600,
+                        color: _active ? c.accent : c.text,
                       ),
                     ),
                   ),
@@ -504,7 +722,7 @@ class _DrawerGroupState extends State<_DrawerGroup> {
                     child: Icon(
                       Icons.keyboard_arrow_down_rounded,
                       size: 21,
-                      color: active ? c.accent : c.muted,
+                      color: _active ? c.accent : c.muted,
                     ),
                   ),
                 ],
@@ -520,17 +738,36 @@ class _DrawerGroupState extends State<_DrawerGroup> {
           sizeCurve: Curves.easeOutCubic,
           firstChild: const SizedBox(width: double.infinity, height: 0),
           secondChild: Padding(
-            padding: const EdgeInsetsDirectional.only(start: 16, top: 2),
+            padding: EdgeInsetsDirectional.only(
+              start: widget.depth == 0 ? 16 : 12,
+              top: 2,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final item in widget.items)
-                  _DrawerTile(
-                    icon: item.icon,
-                    label: item.label,
-                    hint: item.hint,
-                    selected: widget.selected == item.index,
-                    onTap: () => widget.onSelected(item.index),
+                if (empty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(13, 6, 13, 10),
+                    child: Text(
+                      widget.l10n.t(
+                        'Nothing has been added to this section yet.',
+                        'هنوز مطلبی به این بخش اضافه نشده است.',
+                      ),
+                      style: TextStyle(
+                        fontFamily: 'Vazirmatn',
+                        fontSize: 12,
+                        height: 1.7,
+                        color: c.muted,
+                      ),
+                    ),
+                  ),
+                for (final child in widget.entry.children)
+                  _DrawerNode(
+                    entry: child,
+                    l10n: widget.l10n,
+                    selected: widget.selected,
+                    onSelected: widget.onSelected,
+                    depth: widget.depth + 1,
                   ),
               ],
             ),
@@ -618,6 +855,7 @@ class _DrawerTile extends StatelessWidget {
     );
   }
 }
+
 
 /// The Infinit Lab logo: a slightly tilted infinity with 0 in the left loop and
 /// 1 in the right one, drawn with the same geometry as the packaged app icons.
@@ -1574,8 +1812,8 @@ class _SettingsSheet extends StatelessWidget {
                       child: Text(
                         engineReady
                             ? l10n.t(
-                                'Native engine ${version.isEmpty ? '' : 'v$version'} — exact rational arithmetic',
-                                'موتور بومی ${version.isEmpty ? '' : 'نسخهٔ $version'} — حساب گویای دقیق',
+                                'Native engine ${version.isEmpty ? '' : 'v$version'}, exact rational arithmetic',
+                                'موتور بومی ${version.isEmpty ? '' : 'نسخهٔ $version'}، حساب گویای دقیق',
                               )
                             : l10n.t(
                                 'Native engine unavailable',

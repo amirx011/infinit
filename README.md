@@ -2,7 +2,7 @@
 
 Exact symbolic calculus and differential equations for **Linux** and **Android**, with a bilingual English/Persian UI and step-by-step solutions.
 
-- Five modules: **Derivative**, **Integral**, **Differential Equations**, **Wronskian**, and **Envelope & Orthogonal Trajectories**
+- Modules: **Derivative**, **Integral**, **Differential Equations**, **Wronskian**, **Envelope & Orthogonal Trajectories**, and **Applications of the Derivative** (function behaviour, tangent & normal, optimisation, related rates, and the mean value theorems)
 - Dark/light theme and English/Persian language, saved between runs
 - Exact rational arithmetic in a native C++17 core; no numerical approximation is used to generate answers
 - SymPy is used only as an external test oracle
@@ -11,8 +11,10 @@ Exact symbolic calculus and differential equations for **Linux** and **Android**
 
 ## What it solves
 
-- **ODEs:** separable, homogeneous, exact, integrating factor, first-order linear, Bernoulli, Clairaut, Lagrange, Riccati, linear substitution, constant-coefficient second/higher order, and direct integration
+- **ODEs:** separable, homogeneous, exact, integrating factor, first-order linear, Bernoulli, Clairaut, Lagrange, Riccati, linear substitution, constant-coefficient second/higher order, and direct integration. Every path reports the derivation stage by stage, including the intermediate partial derivatives, the potential function, and the substitution that was applied.
 - **Calculus:** first and second derivatives; indefinite integrals using standard tables, substitution, integration by parts, rational functions, and trigonometric powers
+- **Applications of the derivative:** monotonicity, concavity and inflection points; tangent and normal lines; extrema on a closed interval; related rates; and the mean value theorems (Rolle, Lagrange, Cauchy) plus L'Hôpital's rule
+- **Plots:** direction fields for first-order equations in either `y' = f(x, y)` or `M dx + N dy = 0` form, solved curves, and the tangent, secant and normal lines that illustrate each theorem
 - **Linear algebra:** Wronskian determinant and linear independence
 - **Geometry:** family envelopes and orthogonal trajectories
 
@@ -87,6 +89,14 @@ All operations use the same JSON contract:
 {"mode":"derivative","input":"x^3*sin(x)","x":"x","order":1}
 {"mode":"wronskian","functions":["sin(x)","cos(x)"]}
 {"mode":"envelope","input":"y = c*x + c^2","c":"c"}
+{"mode":"behaviour","input":"x^3 - 3*x","x":"x","xmin":-3,"xmax":3}
+{"mode":"tangent","input":"x^2","x":"x","at":"1"}
+{"mode":"optimize","input":"x^3 - 3*x","x":"x","xmin":-2,"xmax":2}
+{"mode":"related_rates","input":"x^2 + y^2 = 25","var":"x","rate_var":"y","q_value":3,"w_value":4,"given_rate":2}
+{"mode":"mvt","input":"x^2","x":"x","a":0,"b":2}
+{"mode":"cauchy","input":"x^2","g":"x^3","x":"x","a":0,"b":1}
+{"mode":"lhopital","input":"sin(x)","g":"x","x":"x","point":"0"}
+{"mode":"field","input":"(x+y)dx + (x+2y)dy = 0","x":"x","y":"y"}
 ```
 
 Use `"lang":"en"` or `"lang":"fa"` for step text. Full reference: [`docs/api.md`](docs/api.md).

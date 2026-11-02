@@ -17,6 +17,23 @@ struct Check {
     std::string detail;
 };
 
+// A point reported by the behaviour / optimisation analyses.
+struct CriticalPointView {
+    Ex x;                    // location
+    Ex value;                // f(x)
+    std::string kind;        // maximum / minimum / inflection / candidate
+};
+
+// One monotonicity interval of f, with the sign of f' on it.
+struct MonotonePiece {
+    double lo = 0;
+    double hi = 0;
+    bool loInfinite = false;
+    bool hiInfinite = false;
+    int sign = 0;            // -1, 0 or +1
+    std::string trend;       // increasing / decreasing / constant
+};
+
 struct Result {
     bool ok = false;
     std::string mode;          // ode / envelope / wronskian
@@ -79,6 +96,36 @@ struct Result {
     std::vector<std::string> assumptions;
     std::vector<std::string> warnings;
     std::vector<Check> checks;
+
+    // ------------------------------------------- applications of the derivative
+    Ex derivative;                // f'
+    Ex secondDerivative;          // f''
+    Ex value;                     // f(a)
+    Ex slope;                     // slope at a point, or the secant slope
+    Ex tangent;                   // tangent line (solved for y)
+    Ex normal;                    // normal line (solved for y), or x = a
+    Ex tangentSlope;              // f'(a)
+    Ex normalSlope;               // -1/f'(a); null when the tangent is horizontal
+    Ex valueA;                    // f(a)
+    Ex valueB;                    // f(b)
+    Ex maximum;                   // largest value on the closed interval
+    Ex minimum;                   // smallest value on the closed interval
+    Ex maximumAt;                 // point where the maximum occurs
+    Ex minimumAt;                 // point where the minimum occurs
+    Ex functionF;                 // Cauchy MVT: first function
+    Ex functionG;                 // Cauchy MVT: second function
+    std::vector<CriticalPointView> critical;     // behaviour: critical points
+    std::vector<CriticalPointView> candidates;   // optimisation: compared points
+    std::vector<CriticalPointView> inflections;  // behaviour: inflection points
+    std::vector<MonotonePiece> pieces;           // behaviour: monotonicity pieces
+    std::vector<Ex> points;                      // MVT / Cauchy: the points c
+    std::vector<Ex> pointValues;                 // f(c) for each point in `points`
+    Ex functionValueA;                           // Cauchy: g(a)
+    Ex functionValueB;                           // Cauchy: g(b)
+    bool hypothesesContinuous = false;
+    bool hypothesesDifferentiable = false;
+    bool rolleApplies = false;
+
     bool closedForm = true;
     // True when every reported check passed.  `ok` says the solver produced an
     // answer; `verified` says the answer survived independent verification.

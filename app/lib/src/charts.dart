@@ -1307,3 +1307,251 @@ class _FieldPlotState extends State<FieldPlot> {
     );
   }
 }
+
+/// One curve in a [MultiCurvePlot].
+class PlotCurveSpec {
+  const PlotCurveSpec({
+    required this.expression,
+    required this.color,
+    required this.label,
+    this.dashed = false,
+    this.width = 2.2,
+  });
+
+  final String expression;
+  final Color color;
+  final String label;
+  final bool dashed;
+  final double width;
+}
+
+/// Draws several sampled curves in one coordinate system. The Cauchy mean value
+/// theorem needs f and g side by side, and comparing them is far clearer when
+/// they share axes.
+class MultiCurvePlot extends StatefulWidget {
+  const MultiCurvePlot({
+    super.key,
+    required this.engine,
+    required this.l10n,
+    required this.curves,
+    required this.xmin,
+    required this.xmax,
+    this.variable = 'x',
+    this.samples = 600,
+    this.height = 320,
+    this.title,
+    this.caption,
+    this.markers = const [],
+    this.guides = const [],
+    this.asymptotes = const [],
+    this.extraSeries = const [],
+  });
+
+  final NativeEngine? engine;
+  final L10n l10n;
+  final List<PlotCurveSpec> curves;
+
+  /// Ready-made series drawn on top, for example a tangent computed from the
+  /// exact slope rather than sampled from an expression.
+  final List<PlotSeries> extraSeries;
+  final double xmin;
+  final double xmax;
+  final String variable;
+  final int samples;
+  final double height;
+  final String? title;
+  final String? caption;
+  final List<PlotMarker> markers;
+  final List<double> guides;
+  final List<double> asymptotes;
+
+  @override
+  State<MultiCurvePlot> createState() => _MultiCurvePlotState();
+}
+
+class _MultiCurvePlotState extends State<MultiCurvePlot> {
+  List<SampleResult?> _samples = const [];
+  String? _error;
+  bool _busy = false;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant MultiCurvePlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final changed =
+        oldWidget.xmin != widget.xmin ||
+        oldWidget.xmax != widget.xmax ||
+        oldWidget.variable != widget.variable ||
+        oldWidget.engine != widget.engine ||
+        oldWidget.curves.length != widget.curves.length;
+    var expressionChanged = false;
+    if (!changed) {
+      for (var i = 0; i < widget.curves.length; i++) {
+        if (oldWidget.curves[i].expression != widget.curves[i].expression) {
+          expressionChanged = true;
+          break;
+        }
+      }
+    }
+    if (changed || expressionChanged) _load();
+  }
+
+  Future<void> _load() async {
+    final engine = widget.engine;
+    final generation = ++_generation;
+    if (engine == null) {
+      setState(() {
+        _samples = const [];
+        _busy = false;
+        _error = null;
+      });
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final out = <SampleResult?>[];
+    String? failure;
+    for (final curve in widget.curves) {
+      try {
+        final r = await engine.sampleAsync(
+          curve.expression,
+          x: widget.variable,
+          xmin: widget.xmin,
+          xmax: widget.xmax,
+          samples: widget.samples,
+        );
+        if (!mounted || generation != _generation) return;
+        if (!r.ok) {
+          failure ??= r.error.isEmpty
+              ? widget.l10n.t(
+                  'Could not sample the function.',
+                  'نمونه‌گیری تابع انجام نشد.',
+                )
+              : r.error;
+          out.add(null);
+        } else {
+          out.add(r);
+        }
+      } catch (e) {
+        if (!mounted || generation != _generation) return;
+        failure ??= widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
+        out.add(null);
+      }
+    }
+    if (!mounted || generation != _generation) return;
+    setState(() {
+      _busy = false;
+      _samples = out;
+      _error = failure;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Container(
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: c.line),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.title != null) ...[
+            Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: c.accent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    widget.title!,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_busy)
+            SizedBox(
+              height: widget.height,
+              child: Center(
+                child: SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: c.accent,
+                  ),
+                ),
+              ),
+            )
+          else if (_error != null)
+            SizedBox(
+              height: widget.height,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Vazirmatn',
+                      color: c.warning,
+                      fontSize: 13,
+                      height: 1.7,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else
+            MathPlot(
+              key: const ValueKey('multi-curve-ready'),
+              height: widget.height,
+              spec: PlotSpec(
+                series: [
+                  for (var i = 0; i < widget.curves.length; i++)
+                    if (i < _samples.length && _samples[i] != null)
+                      PlotSeries(
+                        xs: _samples[i]!.xs,
+                        ys: _samples[i]!.ys,
+                        color: widget.curves[i].color,
+                        label: widget.curves[i].label,
+                        dashed: widget.curves[i].dashed,
+                        width: widget.curves[i].width,
+                      ),
+                  ...widget.extraSeries,
+                ],
+                markers: widget.markers,
+                guides: widget.guides,
+                asymptotes: widget.asymptotes,
+                xMin: widget.xmin,
+                xMax: widget.xmax,
+              ),
+              caption: widget.caption,
+            ),
+        ],
+      ),
+    );
+  }
+}

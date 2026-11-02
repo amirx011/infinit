@@ -284,6 +284,113 @@ class NativeEngine {
     'lang': lang,
   };
 
+  // ------------------------------------------- applications of the derivative
+  Map<String, dynamic> _behaviourRequest(
+    String input, {
+    required String x,
+    required double xmin,
+    required double xmax,
+    required String lang,
+  }) => {
+    'mode': 'behaviour',
+    'input': input,
+    'x': x,
+    'xmin': xmin,
+    'xmax': xmax,
+    'lang': lang,
+  };
+
+  Map<String, dynamic> _tangentRequest(
+    String input, {
+    required String x,
+    required String at,
+    required String lang,
+  }) => {'mode': 'tangent', 'input': input, 'x': x, 'at': at, 'lang': lang};
+
+  Map<String, dynamic> _optimizeRequest(
+    String input, {
+    required String x,
+    required double xmin,
+    required double xmax,
+    required String lang,
+  }) => {
+    'mode': 'optimize',
+    'input': input,
+    'x': x,
+    'xmin': xmin,
+    'xmax': xmax,
+    'lang': lang,
+  };
+
+  Map<String, dynamic> _relatedRatesRequest(
+    String input, {
+    required String variable,
+    required String rateVariable,
+    required String time,
+    required String lang,
+    double? qValue,
+    double? wValue,
+    double? givenRate,
+  }) => {
+    'mode': 'related_rates',
+    'input': input,
+    'var': variable,
+    'rate_var': rateVariable,
+    't': time,
+    'lang': lang,
+    // Omitted numbers let the engine keep the answer symbolic.
+    'q_value': ?qValue,
+    'w_value': ?wValue,
+    'given_rate': ?givenRate,
+  };
+
+  Map<String, dynamic> _mvtRequest(
+    String input, {
+    required String x,
+    required double a,
+    required double b,
+    required String lang,
+  }) => {
+    'mode': 'mvt',
+    'input': input,
+    'x': x,
+    'a': a,
+    'b': b,
+    'lang': lang,
+  };
+
+  Map<String, dynamic> _cauchyRequest(
+    String f,
+    String g, {
+    required String x,
+    required double a,
+    required double b,
+    required String lang,
+  }) => {
+    'mode': 'cauchy',
+    'input': f,
+    'g': g,
+    'x': x,
+    'a': a,
+    'b': b,
+    'lang': lang,
+  };
+
+  Map<String, dynamic> _lhopitalRequest(
+    String f,
+    String g, {
+    required String x,
+    required String point,
+    required String lang,
+  }) => {
+    'mode': 'lhopital',
+    'input': f,
+    'g': g,
+    'x': x,
+    'point': point,
+    'lang': lang,
+  };
+
   // ------------------------------------------------------------------- ODE
   SolveResult solveOde(
     String input, {
@@ -453,6 +560,81 @@ class NativeEngine {
       lang: lang,
     ),
   );
+
+  // ------------------------------------------- applications of the derivative
+  Future<SolveResult> behaviourAsync(
+    String input, {
+    String x = 'x',
+    double xmin = -10,
+    double xmax = 10,
+    String lang = 'en',
+  }) => solveAsync(
+    _behaviourRequest(input, x: x, xmin: xmin, xmax: xmax, lang: lang),
+  );
+
+  Future<SolveResult> tangentAsync(
+    String input, {
+    String x = 'x',
+    String at = '1',
+    String lang = 'en',
+  }) => solveAsync(_tangentRequest(input, x: x, at: at, lang: lang));
+
+  Future<SolveResult> optimizeAsync(
+    String input, {
+    String x = 'x',
+    double xmin = -5,
+    double xmax = 5,
+    String lang = 'en',
+  }) => solveAsync(
+    _optimizeRequest(input, x: x, xmin: xmin, xmax: xmax, lang: lang),
+  );
+
+  Future<SolveResult> relatedRatesAsync(
+    String input, {
+    String variable = 'x',
+    String rateVariable = 'y',
+    String time = 't',
+    String lang = 'en',
+    double? qValue,
+    double? wValue,
+    double? givenRate,
+  }) => solveAsync(
+    _relatedRatesRequest(
+      input,
+      variable: variable,
+      rateVariable: rateVariable,
+      time: time,
+      lang: lang,
+      qValue: qValue,
+      wValue: wValue,
+      givenRate: givenRate,
+    ),
+  );
+
+  Future<SolveResult> meanValueAsync(
+    String input, {
+    String x = 'x',
+    double a = 0,
+    double b = 1,
+    String lang = 'en',
+  }) => solveAsync(_mvtRequest(input, x: x, a: a, b: b, lang: lang));
+
+  Future<SolveResult> cauchyAsync(
+    String f,
+    String g, {
+    String x = 'x',
+    double a = 0,
+    double b = 1,
+    String lang = 'en',
+  }) => solveAsync(_cauchyRequest(f, g, x: x, a: a, b: b, lang: lang));
+
+  Future<SolveResult> lhopitalAsync(
+    String f,
+    String g, {
+    String x = 'x',
+    String point = '0',
+    String lang = 'en',
+  }) => solveAsync(_lhopitalRequest(f, g, x: x, point: point, lang: lang));
 
   // ----------------------------------------------------------------- graphs
   Future<Map<String, dynamic>> _graphAsync(Map<String, dynamic> request) async {
