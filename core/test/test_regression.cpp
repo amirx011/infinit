@@ -32,6 +32,48 @@ int main() {
         expect(r.typeId == "separable", "y'=y^2 separable");
         expect(r.closedForm, "y'=y^2 closed form");
     }
+    // Second-order non-homogeneous equations: undetermined coefficients.
+    {
+        Result r = solve("y'' - 3*y' + 2*y = exp(x)");
+        expect(r.ok, "non-homogeneous exp forcing solved");
+        expect(r.typeId == "linear_cc", "non-homogeneous exp forcing classified");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "non-homogeneous exp forcing verified");
+        expect(r.solution && toPlain(r.solution).find("exp(x)") != std::string::npos,
+               "non-homogeneous exp forcing keeps the exponential");
+    }
+    {
+        Result r = solve("y'' - 3*y' + 2*y = x^2");
+        expect(r.ok, "non-homogeneous polynomial forcing solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "non-homogeneous polynomial forcing verified");
+    }
+    {
+        Result r = solve("y'' + y = cos(x)");
+        expect(r.ok, "resonant cosine forcing solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "resonant cosine forcing verified");
+        expect(r.solution && toPlain(r.solution).find("x") != std::string::npos,
+               "resonant cosine forcing gains a factor x");
+    }
+    {
+        Result r = solve("y'' - y = exp(2*x) + x");
+        expect(r.ok, "sum of forcing terms solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "sum of forcing terms verified");
+    }
+    {
+        Result r = solve("y'' + 2*y' + y = exp(-x)");
+        expect(r.ok, "repeated-root exponential forcing solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "repeated-root exponential forcing verified");
+    }
+    {
+        Result r = solve("y'' + y = x*cos(x)");
+        expect(r.ok, "polynomial-times-cosine forcing solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "polynomial-times-cosine forcing verified");
+    }
     {
         Result r = solve("y' = 1 + y^2");
         expect(r.ok, "y'=1+y^2 solved");
@@ -210,6 +252,125 @@ int main() {
         expect(r.ok, "line family with orthogonal trajectories");
         expect(r.orthogonal != nullptr, "orthogonal circles computed for line family");
     }
+    {
+        Result r = solveOrthogonal("x^2 + y^2 = c^2");
+        expect(r.ok, "dedicated orthogonal solver: circles");
+        expect(r.typeId == "orthogonal", "dedicated orthogonal solver reports its own type");
+        expect(r.orthogonal != nullptr, "circles produce orthogonal lines");
+        expect(r.orthogonal && toPlain(r.orthogonal) == "C*x",
+               "orthogonal trajectories of circles are y = Cx, got " +
+                   (r.orthogonal ? toPlain(r.orthogonal) : std::string("<null>")));
+        expect(r.closedForm, "orthogonal lines are a closed form");
+        expect(!r.steps.empty(), "orthogonal solver emits derivation steps");
+        expect(r.orthogonalSlope != nullptr,
+               "orthogonal solver exposes the solved slope for plotting");
+        expect(!r.familyBranches.empty(),
+               "orthogonal solver exposes the original family for plotting");
+        bool hasElimination = false, hasFamilyOde = false, hasOrthogonalOde = false;
+        for (const auto& step : r.steps) {
+            if (step.title.find("Eliminate") != std::string::npos) hasElimination = true;
+            if (step.title.find("family ODE") != std::string::npos)
+                hasFamilyOde = true;
+            if (step.title.find("Orthogonal-trajectory equation") != std::string::npos)
+                hasOrthogonalOde = true;
+        }
+        expect(hasElimination, "orthogonal steps show the c-elimination");
+        expect(hasFamilyOde, "orthogonal steps show the family ODE");
+        expect(hasOrthogonalOde, "orthogonal steps show the orthogonal ODE");
+        expect(!r.steps.empty() && r.steps.back().title == "Orthogonal family",
+               "orthogonal derivation ends with exactly one family answer step");
+        for (const auto& step : r.steps)
+            expect(step.title != "General solution",
+                   "orthogonal steps do not duplicate the final answer");
+    }
+    {
+        Result r = solveOrthogonal("y = c*x");
+        expect(r.ok, "dedicated orthogonal solver: lines");
+        expect(r.orthogonal != nullptr, "lines produce orthogonal circles");
+        expect(r.orthogonal &&
+                   toPlain(r.orthogonal) == "1/2*x^2 + 1/2*y^2",
+               "orthogonal trajectories of lines are circles, got " +
+                   (r.orthogonal ? toPlain(r.orthogonal) : std::string("<null>")));
+        expect(!r.orthogonalExplicit, "orthogonal circles are implicit");
+    }
+    {
+        Result r = solveOrthogonal("y = c/x");
+        expect(r.ok, "dedicated orthogonal solver: hyperbolas");
+        expect(r.orthogonal != nullptr, "hyperbolas produce orthogonal hyperbolas");
+        expect(r.orthogonal &&
+                   toPlain(r.orthogonal) == "-1/2*x^2 + 1/2*y^2",
+               "orthogonal trajectories of y = c/x, got " +
+                   (r.orthogonal ? toPlain(r.orthogonal) : std::string("<null>")));
+    }
+    {
+        Result r = solveOrthogonal("x = c");
+        expect(r.ok, "dedicated orthogonal solver: vertical family");
+        expect(r.orthogonal && toPlain(r.orthogonal) == "y",
+               "vertical family produces horizontal trajectories");
+        expect(r.orthogonalSlope && r.orthogonalSlope->isZero(),
+               "horizontal trajectories expose slope 0 for the plot");
+    }
+    {
+        Result r = solveOrthogonal("y = c");
+        expect(r.ok, "dedicated orthogonal solver: horizontal family");
+        expect(r.orthogonal && toPlain(r.orthogonal) == "x",
+               "horizontal family produces vertical trajectories");
+    }
+    {
+        // The family is quadratic in c, so the numeric root solver cannot be
+        // used; the symbolic branch substitution has to eliminate c instead.
+        Result r = solveOrthogonal("(y-c)^2 = x");
+        expect(r.ok, "dedicated orthogonal solver: nonlinear parameter");
+        expect(r.orthogonal != nullptr, "nonlinear-in-c family produces trajectories");
+        expect(!r.warnings.empty(), "nonlinear-in-c family warns about the branch choice");
+    }
+    {
+        Result r = solveOblique("y = c", "c", 45.0);
+        expect(r.ok, "dedicated oblique solver: horizontal family");
+        expect(r.typeId == "oblique", "oblique solver reports its own type");
+        expect(r.trajectory != nullptr, "horizontal family produces oblique lines");
+        expect(r.trajectory && toPlain(r.trajectory) == "C + x",
+               "45-degree oblique trajectories of y = c are y = x + C, got " +
+                   (r.trajectory ? toPlain(r.trajectory) : std::string("<null>")));
+        expect(r.trajectoryExplicit, "oblique lines are explicit");
+        expect(r.trajectorySlope && toPlain(r.trajectorySlope) == "1",
+               "oblique slope is tan(45) = 1");
+        expect(!r.steps.empty() && r.steps.back().title == "Oblique family",
+               "oblique derivation ends with exactly one family answer step");
+    }
+    {
+        Result r = solveOblique("x = c", "c", 45.0);
+        expect(r.ok, "dedicated oblique solver: vertical family");
+        expect(r.trajectory && toPlain(r.trajectory) == "C + x",
+               "45-degree oblique trajectories of x = c are y = x + C");
+        expect(r.trajectorySlope && toPlain(r.trajectorySlope) == "1",
+               "vertical family exposes the cotangent slope");
+    }
+    {
+        Result r = solveOblique("x^2 + y^2 = c^2", "c", 45.0);
+        expect(r.ok, "dedicated oblique solver: circles at 45 degrees");
+        expect(r.trajectory != nullptr, "circles produce oblique spirals");
+        expect(r.closedForm, "oblique spirals have an implicit closed form");
+        bool hasObliqueOde = false;
+        for (const auto& step : r.steps)
+            if (step.title.find("Oblique-trajectory equation") != std::string::npos)
+                hasObliqueOde = true;
+        expect(hasObliqueOde, "oblique steps show the oblique ODE");
+        expect(!r.steps.empty() && r.steps.back().title == "Oblique family",
+               "oblique circle derivation has one final answer");
+        for (const auto& step : r.steps)
+            expect(step.title != "General solution",
+                   "oblique steps do not duplicate the final answer");
+    }
+    {
+        Result r = solveOblique("x^2 + y^2 = c^2", "c", 90.0);
+        expect(r.ok, "oblique solver at 90 degrees");
+        expect(r.trajectory && toPlain(r.trajectory) == "C*x",
+               "90-degree oblique trajectories reduce to the orthogonal family");
+        expect(r.trajectoryAngle == 90.0, "right-angle request is normalised to 90");
+        expect(r.orthogonal != nullptr,
+               "right-angle oblique request also fills the orthogonal fields");
+    }
 
     {
         Result r = solve("x*y*y' - y^2 + x^2*e^(y/x) = 0");
@@ -331,6 +492,44 @@ int main() {
         Result r = solve("(y')^2 = 1");
         expect(r.ok, "quadratic-in-y' equation solved");
         expect(!r.warnings.empty(), "a single returned branch is disclosed");
+    }
+
+    // Step-by-step contract: one real mathematical action per step. These
+    // counts are documented in INFINIT_TECHNICAL_AUDIT.md and guard against
+    // reintroducing padded or duplicated setup steps.
+    {
+        Result r = solve("y' + y = x");
+        expect(r.ok && r.steps.size() == 3, "linear equation emits 3 steps");
+        for (const auto& step : r.steps)
+            expect(step.title.find("Solve for y") == std::string::npos,
+                   "linear steps do not include a separate solve-for-y' step");
+    }
+    {
+        Result r = solve("(2*x+y) + (x+2*y)*y' = 0");
+        expect(r.ok && r.steps.size() == 3, "exact equation emits 3 steps");
+        expect(r.steps.size() >= 1 && r.steps[0].title == "Exactness test" &&
+                   r.steps[0].math && toPlain(r.steps[0].math) == "1",
+               "exactness step shows the shared partial derivative");
+    }
+    {
+        Result r = solve("(2*y^2+3*x)dx + 2*x*y dy = 0");
+        expect(r.ok && r.steps.size() == 5, "integrating-factor equation emits 5 steps");
+    }
+    {
+        Result r = solve("y'' - 3*y' + 2*y = 0");
+        expect(r.ok && r.steps.size() == 3, "homogeneous second-order equation emits 3 steps");
+    }
+    {
+        Result r = solve("y'' + y = cos(x)");
+        expect(r.ok && r.steps.size() == 6, "non-homogeneous second-order equation emits 6 steps");
+    }
+    {
+        Result r = solveWronskian({"x", "x^2", "x^3"}, "x", "en");
+        expect(r.ok && r.steps.size() == 4, "Wronskian emits 4 steps");
+    }
+    {
+        Result r = solveEnvelope("y = c*x + c^2", "c", false, "x", "y", "en");
+        expect(r.ok && r.steps.size() == 3, "envelope emits 3 steps");
     }
 
     // C ABI smoke test

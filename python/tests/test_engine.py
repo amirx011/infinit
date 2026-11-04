@@ -3,6 +3,7 @@ import sympy as sp
 
 from infinit_engine import (
     envelope,
+    oblique,
     parse_expression,
     solve_ode,
     verify_candidate,
@@ -158,3 +159,20 @@ def test_orthogonal_circles_are_lines():
     assert result["ok"]
     assert result["orthogonal"]
     assert result["orthogonal_verified"]
+
+def test_oblique_slopes():
+    horizontal = oblique("y = c", angle=45)
+    assert sp.simplify(sp.sympify(horizontal["trajectory_slope"]) - 1) == 0
+
+    vertical = oblique("x = c", angle=45)
+    assert sp.simplify(sp.sympify(vertical["trajectory_slope"]) - 1) == 0
+
+    circles = oblique("x^2 + y^2 = c^2", angle=90)
+    x, y = sp.symbols("x y", real=True)
+    slope = sp.sympify(circles["trajectory_slope"], locals={"x": x, "y": y})
+    assert sp.simplify(slope - y / x) == 0
+
+
+def test_oblique_60_degrees_uses_sqrt_three():
+    result = oblique("y = c*x", angle=60)
+    assert "sqrt(3)" in result["trajectory_slope"]

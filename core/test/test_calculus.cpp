@@ -44,6 +44,7 @@ int main() {
         expect(r.ok, "5th derivative of x^6 succeeds");
         expect(r.order == 5, "order is not clamped to 3");
         expect(closeAt(r.solution, 2.0, 1440.0), "5th derivative of x^6 is 720x");
+        expect(r.steps.size() == 6, "5th derivative emits rules + five derivative steps");
     }
     {
         Result r = derivativeExpression("x^10", "x", 10, "en");

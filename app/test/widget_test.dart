@@ -106,6 +106,57 @@ void main() {
     expect(find.textContaining('With u = x², du = 2x dx'), findsOneWidget);
   });
 
+  testWidgets('opens the dedicated orthogonal-trajectories page', (
+    tester,
+  ) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations'));
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Orthogonal trajectories');
+
+    expect(find.text('Orthogonal trajectories'), findsOneWidget);
+    expect(find.text('Find orthogonal trajectories'), findsOneWidget);
+    expect(find.byType(SwitchListTile), findsNothing);
+    expect(find.textContaining('replace y′ by −1/y′'), findsOneWidget);
+
+    await tester.tap(find.text('Find orthogonal trajectories'));
+    await _awaitEngine(tester, find.text('Orthogonal family'));
+    expect(find.text('Orthogonal trajectories'), findsWidgets);
+    await _awaitEngine(tester, find.byKey(const ValueKey('field-ready')));
+    expect(find.textContaining('direction field'), findsOneWidget);
+  });
+
+  testWidgets('opens the dedicated oblique-trajectories page', (
+    tester,
+  ) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations'));
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Oblique trajectories');
+
+    expect(find.text('Oblique trajectories'), findsOneWidget);
+    expect(find.text('Find oblique trajectories'), findsOneWidget);
+    expect(find.text('Crossing angle α (degrees)'), findsOneWidget);
+    expect(find.byType(SwitchListTile), findsNothing);
+    expect(find.textContaining('constant angle'), findsWidgets);
+
+    await tester.tap(find.text('Find oblique trajectories'));
+    await _awaitEngine(tester, find.text('Oblique family'));
+    expect(find.text('Oblique trajectories'), findsWidgets);
+    await _awaitEngine(tester, find.byKey(const ValueKey('field-ready')));
+    expect(find.textContaining('direction field'), findsOneWidget);
+  });
+
   testWidgets('nests applications of the derivative inside the drawer', (
     tester,
   ) async {
@@ -338,12 +389,17 @@ void main() {
     await tester.tap(find.byIcon(Icons.tune_rounded).first);
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Theme'), findsOneWidget);
     expect(find.text('Language'), findsOneWidget);
+    expect(find.text('System'), findsOneWidget);
 
     await tester.tap(find.text('Light'));
     await tester.pumpAndSettle();
     expect(settings.themeMode, ThemeMode.light);
+
+    await tester.tap(find.text('System'));
+    await tester.pumpAndSettle();
+    expect(settings.themeMode, ThemeMode.system);
 
     await tester.tap(find.text('فارسی'));
     await tester.pumpAndSettle();

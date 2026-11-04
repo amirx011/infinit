@@ -122,6 +122,13 @@ class SolveResult {
     required this.envelope,
     required this.orthogonal,
     required this.orthogonalExplicit,
+    required this.orthogonalSlope,
+    required this.trajectory,
+    required this.trajectoryExplicit,
+    required this.trajectorySlope,
+    required this.trajectoryAngle,
+    required this.trajectoryMode,
+    required this.familyBranches,
     required this.functions,
     required this.family,
     required this.steps,
@@ -212,6 +219,23 @@ class SolveResult {
   final List<ExView> envelope;
   final ExView? orthogonal;
   final bool orthogonalExplicit;
+
+  /// Right side of y' = f(x, y) for the orthogonal family after c is removed.
+  final ExView? orthogonalSlope;
+
+  /// Oblique/orthogonal trajectory family.  The dedicated oblique mode fills
+  /// these fields; the orthogonal mode keeps the legacy [orthogonal] fields.
+  final ExView? trajectory;
+  final bool trajectoryExplicit;
+  final ExView? trajectorySlope;
+
+  /// Requested crossing angle in degrees (90 for orthogonal trajectories).
+  final double trajectoryAngle;
+  final String trajectoryMode;
+
+  /// Explicit y(x, c) branches of the original family, used to overlay it on
+  /// the trajectory direction field.
+  final List<ExView> familyBranches;
   final List<String> functions;
   final String family;
   final List<StepView> steps;
@@ -326,6 +350,13 @@ class SolveResult {
     envelope: _exList(j['envelope']),
     orthogonal: ExView.fromJson(j['orthogonal']),
     orthogonalExplicit: j['orthogonal_explicit'] == true,
+    orthogonalSlope: ExView.fromJson(j['orthogonal_slope']),
+    trajectory: ExView.fromJson(j['trajectory']),
+    trajectoryExplicit: j['trajectory_explicit'] == true,
+    trajectorySlope: ExView.fromJson(j['trajectory_slope']),
+    trajectoryAngle: (j['trajectory_angle'] as num?)?.toDouble() ?? 90,
+    trajectoryMode: (j['trajectory_mode'] ?? '').toString(),
+    familyBranches: _exList(j['family_branches']),
     functions: _strList(j['functions']),
     family: (j['family'] ?? '').toString(),
     steps: (j['steps'] is List)
@@ -423,9 +454,15 @@ class SolveResult {
   ExView? get primary {
     if (mode == 'wronskian') return wronskian;
     if (mode == 'envelope') return envelope.isEmpty ? null : envelope.first;
+    if (mode == 'oblique') return trajectory ?? solution;
     if (isExplicit && explicitY != null) return explicitY;
     return solution;
   }
+
+  /// The trajectory family for the orthogonal/oblique modes.
+  ExView? get trajectorySolution => trajectory ?? orthogonal;
+  bool get trajectoryIsExplicit =>
+      trajectory != null ? trajectoryExplicit : orthogonalExplicit;
 
   bool get parametricAvailable => paramX != null || paramY != null;
 }

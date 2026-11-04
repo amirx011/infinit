@@ -30,6 +30,7 @@ sys.path.insert(0, str(ROOT / "python"))
 
 from infinit_engine import (  # noqa: E402
     envelope,
+    oblique,
     solve_ode,
     verify_candidate,
     verify_parametric,
@@ -176,8 +177,8 @@ def check_case(case: dict, native: dict, timeout: float) -> tuple[list[str], str
     return problems, None
 
 
-def verify_orthogonal_native(solution_text: str, explicit: bool, slope_text: str):
-    """Check a native orthogonal family against the oracle's orthogonal slope."""
+def verify_trajectory_native(solution_text: str, explicit: bool, slope_text: str):
+    """Check a native trajectory family against the oracle's trajectory slope."""
     try:
         X, Y = sp.Symbol("x", real=True), sp.Symbol("y", real=True)
         slope = sp.sympify(slope_text.replace("^", "**"), locals={"x": X, "y": Y, "e": sp.E})
@@ -309,6 +310,8 @@ def main() -> int:
         )
         if not ok:
             failures += 1
+        else:
+            passed += 1
 
     # ------------------------------------------------ Orthogonal trajectories
     for family in ("y = c*x", "x^2 + y^2 = c^2"):
@@ -318,7 +321,7 @@ def main() -> int:
         ok = bool(native.get("ok")) and bool(oracle.get("ok")) and native_solution is not None
         detail = ""
         if ok:
-            ok, detail = verify_orthogonal_native(
+            ok, detail = verify_trajectory_native(
                 native_solution["plain"],
                 bool(native.get("orthogonal_explicit")),
                 oracle.get("orthogonal_slope", ""),
@@ -330,6 +333,44 @@ def main() -> int:
         )
         if not ok:
             failures += 1
+        else:
+            passed += 1
+
+    # ---------------------------------------------------- Oblique trajectories
+    for family, angle in (
+        ("y = c", 45.0),
+        ("x = c", 45.0),
+        ("y = c*x", 45.0),
+        ("x^2 + y^2 = c^2", 45.0),
+        ("x^2 + y^2 = c^2", 90.0),
+    ):
+        native = engine.call(
+            {"mode": "oblique", "input": family, "angle": angle}
+        )
+        oracle = oblique(family, angle=angle)
+        native_solution = native.get("trajectory")
+        ok = (
+            bool(native.get("ok"))
+            and bool(oracle.get("ok"))
+            and native_solution is not None
+            and bool(oracle.get("trajectory_slope"))
+        )
+        detail = ""
+        if ok:
+            ok, detail = verify_trajectory_native(
+                native_solution["plain"],
+                bool(native.get("trajectory_explicit")),
+                oracle["trajectory_slope"],
+            )
+        print(
+            f"[{'ok' if ok else 'FAIL':4}] oblique {family} at {angle:g} deg "
+            f"native={native_solution['plain'] if native_solution else None} "
+            f"oracle={oracle.get('trajectory_slope')} {detail}"
+        )
+        if not ok:
+            failures += 1
+        else:
+            passed += 1
 
     print()
     for category, (ok, sk, bad) in sorted(by_category.items()):

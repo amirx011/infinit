@@ -16,7 +16,7 @@ Exact symbolic calculus and differential equations for **Linux** and **Android**
 - **Applications of the derivative:** monotonicity, concavity and inflection points; tangent and normal lines; extrema on a closed interval; related rates; and the mean value theorems (Rolle, Lagrange, Cauchy) plus L'Hôpital's rule
 - **Plots:** direction fields for first-order equations in either `y' = f(x, y)` or `M dx + N dy = 0` form, solved curves, and the tangent, secant and normal lines that illustrate each theorem
 - **Linear algebra:** Wronskian determinant and linear independence
-- **Geometry:** family envelopes and orthogonal trajectories
+- **Geometry:** family envelopes, orthogonal trajectories, and oblique trajectories that cross a family at a constant angle
 
 If an antiderivative is not elementary, the result stays as an exact `Integral(f, x)` node with `closed_form = false`. Implicit, parametric, and singular solutions are reported separately.
 

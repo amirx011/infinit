@@ -21,6 +21,7 @@ import 'src/pages/integral_page.dart';
 import 'src/pages/limit_page.dart';
 import 'src/pages/linear_algebra_page.dart';
 import 'src/pages/ode_page.dart';
+import 'src/pages/settings_page.dart';
 import 'src/pages/wronskian_page.dart';
 import 'src/theme.dart';
 import 'src/widgets.dart';
@@ -55,6 +56,16 @@ class InfinitApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
+          builder: (context, child) {
+            final media = MediaQuery.of(context);
+            return MediaQuery(
+              data: media.copyWith(
+                textScaler: TextScaler.linear(settings.textScale),
+                disableAnimations: settings.reduceMotion,
+              ),
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
           home: HomeScreen(settings: settings),
         );
       },
@@ -228,6 +239,30 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       case 19:
         return EducationalPage(key: const ValueKey('educational'), l10n: l10n);
+      case 20:
+        return EnvelopePage(
+          key: const ValueKey('orthogonal'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+          orthogonalOnly: true,
+        );
+      case 21:
+        return EnvelopePage(
+          key: const ValueKey('oblique'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+          obliqueOnly: true,
+        );
+      case 22:
+        return SettingsPage(
+          key: const ValueKey('settings'),
+          settings: widget.settings,
+          l10n: l10n,
+          version: _version,
+          engineReady: _engine != null,
+        );
       default:
         return _HomePage(
           l10n: l10n,
@@ -253,7 +288,6 @@ class _HomeScreenState extends State<HomeScreen> {
           key: _scaffoldKey,
           drawer: _AppDrawer(
             l10n: l10n,
-            settings: widget.settings,
             selected: _index,
             onSelected: (i) {
               _open(i);
@@ -272,11 +306,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       _Header(
                         l10n: l10n,
                         onMenu: () => _scaffoldKey.currentState?.openDrawer(),
-                        onSettings: () => _openSettings(context),
+                        onSettings: () => _open(22),
                       ),
                       const SizedBox(height: 26),
                       AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 240),
+                        duration: widget.settings.reduceMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 240),
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
                         transitionBuilder: (child, animation) => FadeTransition(
@@ -302,18 +338,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openSettings(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _SettingsSheet(
-        settings: widget.settings,
-        version: _version,
-        engineReady: _engine != null,
-      ),
-    );
-  }
 }
 
 // ---------------------------------------------------------------- navigation
@@ -347,13 +371,11 @@ class _DrawerEntry {
 class _AppDrawer extends StatelessWidget {
   const _AppDrawer({
     required this.l10n,
-    required this.settings,
     required this.selected,
     required this.onSelected,
   });
 
   final L10n l10n;
-  final AppSettings settings;
   final int selected;
   final ValueChanged<int> onSelected;
 
@@ -391,7 +413,19 @@ class _AppDrawer extends StatelessWidget {
           _DrawerEntry.link(
             index: 4,
             icon: Icons.join_inner_rounded,
-            label: l10n.t('Envelope & orthogonal', 'پوش و مسیرهای متعامد'),
+            label: l10n.t('Envelope', 'پوش خانواده'),
+          ),
+          _DrawerEntry.link(
+            index: 20,
+            icon: Icons.swap_calls_rounded,
+            label: l10n.t('Orthogonal trajectories', 'مسیرهای قائم'),
+            hint: l10n.t('Right angles', 'زاویهٔ قائمه'),
+          ),
+          _DrawerEntry.link(
+            index: 21,
+            icon: Icons.straighten_rounded,
+            label: l10n.t('Oblique trajectories', 'مسیرهای مایل'),
+            hint: l10n.t('Constant angle', 'زاویهٔ ثابت'),
           ),
         ],
       ),
@@ -498,6 +532,12 @@ class _AppDrawer extends StatelessWidget {
         label: l10n.t('Educational explanations', 'توضیحات آموزشی'),
         children: const [],
       ),
+      _DrawerEntry.link(
+        index: 22,
+        icon: Icons.settings_rounded,
+        label: l10n.t('Settings', 'تنظیمات'),
+        hint: l10n.t('Language & theme', 'زبان و پوسته'),
+      ),
     ];
 
     return Drawer(
@@ -556,41 +596,6 @@ class _AppDrawer extends StatelessWidget {
                       depth: 0,
                     ),
                   ],
-                ],
-              ),
-            ),
-            Divider(color: c.line, height: 1),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    l10n.t('Appearance', 'ظاهر'),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _OptionTile(
-                          icon: Icons.dark_mode_rounded,
-                          label: l10n.t('Dark', 'تاریک'),
-                          selected: settings.isDark,
-                          onTap: () => settings.setThemeMode(ThemeMode.dark),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _OptionTile(
-                          icon: Icons.light_mode_rounded,
-                          label: l10n.t('Light', 'روشن'),
-                          selected: !settings.isDark,
-                          onTap: () => settings.setThemeMode(ThemeMode.light),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
@@ -1313,10 +1318,10 @@ class _HomePageState extends State<_HomePage> {
               ),
               _WideCard(
                 icon: Icons.join_inner_rounded,
-                title: l.t('Envelope & orthogonal', 'پوش و مسیرهای متعامد'),
+                title: l.t('Envelope & trajectories', 'پوش و مسیرهای قائم'),
                 subtitle: l.t(
-                  'Envelopes of a family and orthogonal trajectories.',
-                  'پوش یک خانوادهٔ منحنی و مسیرهای متعامد.',
+                  'Envelopes of a family, orthogonal trajectories, and oblique trajectories.',
+                  'پوش یک خانوادهٔ منحنی، مسیرهای قائم و مسیرهای مایل.',
                 ),
                 onTap: () => widget.onOpen(4),
               ),
@@ -1710,178 +1715,3 @@ TextDirection l10nDirection(BuildContext context) =>
     Localizations.localeOf(context).languageCode == 'fa'
     ? TextDirection.rtl
     : TextDirection.ltr;
-
-class _SettingsSheet extends StatelessWidget {
-  const _SettingsSheet({
-    required this.settings,
-    required this.version,
-    required this.engineReady,
-  });
-
-  final AppSettings settings;
-  final String version;
-  final bool engineReady;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: settings,
-      builder: (context, _) {
-        final l10n = L10n(settings.isPersian);
-        final c = context.colors;
-        return Directionality(
-          textDirection: l10n.isFa ? TextDirection.rtl : TextDirection.ltr,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 4, 24, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.t('Settings', 'تنظیمات'),
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  l10n.t('Appearance', 'ظاهر'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _OptionTile(
-                        icon: Icons.dark_mode_rounded,
-                        label: l10n.t('Dark', 'تاریک'),
-                        selected: settings.isDark,
-                        onTap: () => settings.setThemeMode(ThemeMode.dark),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _OptionTile(
-                        icon: Icons.light_mode_rounded,
-                        label: l10n.t('Light', 'روشن'),
-                        selected: !settings.isDark,
-                        onTap: () => settings.setThemeMode(ThemeMode.light),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  l10n.t('Language', 'زبان'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _OptionTile(
-                        icon: Icons.translate_rounded,
-                        label: 'English',
-                        selected: !settings.isPersian,
-                        onTap: () => settings.setLocale(const Locale('en')),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _OptionTile(
-                        icon: Icons.translate_rounded,
-                        label: 'فارسی',
-                        selected: settings.isPersian,
-                        onTap: () => settings.setLocale(const Locale('fa')),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Divider(color: c.line),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      engineReady
-                          ? Icons.check_circle_rounded
-                          : Icons.error_outline_rounded,
-                      size: 17,
-                      color: engineReady ? c.success : c.warning,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        engineReady
-                            ? l10n.t(
-                                'Native engine ${version.isEmpty ? '' : 'v$version'}, exact rational arithmetic',
-                                'موتور بومی ${version.isEmpty ? '' : 'نسخهٔ $version'}، حساب گویای دقیق',
-                              )
-                            : l10n.t(
-                                'Native engine unavailable',
-                                'موتور بومی در دسترس نیست',
-                              ),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _OptionTile extends StatelessWidget {
-  const _OptionTile({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: selected ? c.accentSoft : c.cardAlt,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: selected ? c.accent : c.line,
-              width: selected ? 1.4 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: selected ? c.accent : c.muted),
-              const SizedBox(width: 9),
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'Vazirmatn',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? c.accent : c.text,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

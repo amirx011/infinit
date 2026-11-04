@@ -384,6 +384,13 @@ std::string resultJson(const ode::Result& r) {
     o << ",\"envelope\":" << exArrayJson(r.envelope);
     o << ",\"orthogonal\":" << exJson(r.orthogonal);
     o << ",\"orthogonal_explicit\":" << (r.orthogonalExplicit ? "true" : "false");
+    o << ",\"orthogonal_slope\":" << exJson(r.orthogonalSlope);
+    o << ",\"trajectory\":" << exJson(r.trajectory);
+    o << ",\"trajectory_explicit\":" << (r.trajectoryExplicit ? "true" : "false");
+    o << ",\"trajectory_slope\":" << exJson(r.trajectorySlope);
+    o << ",\"trajectory_angle\":" << numJson(r.trajectoryAngle);
+    o << ",\"trajectory_mode\":" << q(r.trajectoryMode);
+    o << ",\"family_branches\":" << exArrayJson(r.familyBranches);
     o << ",\"functions\":" << strArrayJson(r.functions);
     o << ",\"family\":" << q(r.family);
 
@@ -557,9 +564,19 @@ ode::Result handle(const JVal& req) {
         return ode::derivativeExpression(req.str("input"), req.str("x", "x"), order,
                                          req.str("lang", "en"));
     }
-    if (mode == "envelope" || mode == "orthogonal") {
+    if (mode == "orthogonal") {
+        return ode::solveOrthogonal(req.str("input"), req.str("c", "c"),
+                                    req.str("x", "x"), req.str("y", "y"),
+                                    req.str("lang", "en"));
+    }
+    if (mode == "oblique") {
+        return ode::solveOblique(req.str("input"), req.str("c", "c"),
+                                 numberArg(req, "angle", 45.0), req.str("x", "x"),
+                                 req.str("y", "y"), req.str("lang", "en"));
+    }
+    if (mode == "envelope") {
         return ode::solveEnvelope(req.str("input"), req.str("c", "c"),
-                                  req.boolean("orthogonal", mode == "orthogonal"),
+                                  req.boolean("orthogonal", false),
                                   req.str("x", "x"), req.str("y", "y"),
                                   req.str("lang", "en"));
     }

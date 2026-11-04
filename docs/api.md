@@ -79,7 +79,27 @@ const char* ode_core_version(void);
 }
 ```
 
-برای مسیرهای متعامد، `mode` را `"orthogonal"` بگذارید یا `orthogonal: true` بفرستید.
+برای مسیرهای قائم (متعامد)، `mode` را `"orthogonal"` بگذارید یا `orthogonal: true` بفرستید.
+
+### ۲.۳.۱. مسیرهای مایل
+
+```json
+{
+  "mode": "oblique",
+  "input": "y = c*x",
+  "c": "c",
+  "angle": 45,
+  "x": "x",
+  "y": "y",
+  "lang": "fa"
+}
+```
+
+`angle` زاویهٔ ثابت تقاطع بر حسب درجه است و باید بین ۰ و ۹۰ باشد. رابطهٔ شیب‌ها:
+
+`tan α = (m_t − m)/(1 + m_t m)` و بنابراین `m_t = (m + tan α)/(1 − m tan α)`.
+
+زاویهٔ ۹۰ درجه به حالت قائم (`y′ = −1/y′`) تقلیل می‌یابد. خروجی این حالت در فیلدهای `trajectory`، `trajectory_explicit`، `trajectory_slope`، `trajectory_angle` و `trajectory_mode` برمی‌گردد.
 
 ### ۲.۴. انتگرال نامعین
 
@@ -216,6 +236,11 @@ const char* ode_core_version(void);
   "envelope": [],
   "orthogonal": null,
   "orthogonal_explicit": false,
+  "trajectory": null,
+  "trajectory_explicit": false,
+  "trajectory_slope": null,
+  "trajectory_angle": 90,
+  "trajectory_mode": "",
   "functions": [],
   "family": "",
   "steps": [
@@ -238,7 +263,7 @@ const char* ode_core_version(void);
 | فیلد | نوع | معنی |
 |---|---|---|
 | `ok` | bool | تحلیل با موفقیت انجام شد |
-| `mode` | string | `ode` / `wronskian` / `envelope` / `orthogonal` / `integral` / `derivative` |
+| `mode` | string | `ode` / `wronskian` / `envelope` / `orthogonal` / `oblique` / `integral` / `derivative` |
 | `type_id` | string | شناسهٔ انگلیسی نوع |
 | `type_fa` | string | نام فارسی نوع |
 | `type_en` | string | نام انگلیسی نوع |
@@ -254,8 +279,13 @@ const char* ode_core_version(void);
 | `wronskian` | ExView? | دترمینان رونسکی |
 | `independent` | bool | استقلال خطی |
 | `envelope` | ExView[] | منحنی‌های پوش |
-| `orthogonal` | ExView? | جواب مسیرهای متعامد |
-| `orthogonal_explicit` | bool | جواب متعامد صریح است |
+| `orthogonal` | ExView? | جواب مسیرهای قائم (حالت ۹۰ درجه) |
+| `orthogonal_explicit` | bool | جواب قائم صریح است |
+| `trajectory` | ExView? | جواب مسیرهای مایل یا قائم |
+| `trajectory_explicit` | bool | جواب مسیرها صریح است |
+| `trajectory_slope` | ExView? | سمت راست `y′ = f(x,y)` برای رسم میدان جهت |
+| `trajectory_angle` | double | زاویهٔ تقاطع بر حسب درجه (۹۰ برای قائم) |
+| `trajectory_mode` | string | `orthogonal` یا `oblique` |
 | `steps` | Step[] | مسیر حل |
 | `checks` | Check[] | گواهی‌های اعتبار |
 | `warnings` | string[] | هشدارها (مثلاً «پوش ندارد») |

@@ -1047,6 +1047,7 @@ class FieldPlot extends StatefulWidget {
     this.height = 330,
     this.title,
     this.caption,
+    this.extraCurves = const [],
   });
 
   final NativeEngine? engine;
@@ -1065,12 +1066,17 @@ class FieldPlot extends StatefulWidget {
   final String? title;
   final String? caption;
 
+  /// Curves drawn on top of the direction field, for example the original
+  /// family whose orthogonal trajectories are being plotted.
+  final List<PlotCurveSpec> extraCurves;
+
   @override
   State<FieldPlot> createState() => _FieldPlotState();
 }
 
 class _FieldPlotState extends State<FieldPlot> {
   FieldResult? _field;
+  List<SampleResult?> _extraSamples = const [];
   String? _error;
   bool _busy = false;
   int _generation = 0;
@@ -1091,9 +1097,21 @@ class _FieldPlotState extends State<FieldPlot> {
         oldWidget.xmax != widget.xmax ||
         oldWidget.ymin != widget.ymin ||
         oldWidget.ymax != widget.ymax ||
-        oldWidget.engine != widget.engine) {
+        oldWidget.engine != widget.engine ||
+        _extraCurvesChanged(oldWidget.extraCurves)) {
       _load();
     }
+  }
+
+  bool _extraCurvesChanged(List<PlotCurveSpec> oldCurves) {
+    if (oldCurves.length != widget.extraCurves.length) return true;
+    for (var i = 0; i < oldCurves.length; i++) {
+      final a = oldCurves[i];
+      final b = widget.extraCurves[i];
+      if (a.expression != b.expression) return true;
+      if (a.constants.toString() != b.constants.toString()) return true;
+    }
+    return false;
   }
 
   Future<void> _load() async {
@@ -1103,6 +1121,7 @@ class _FieldPlotState extends State<FieldPlot> {
     if (engine == null || expression.isEmpty) {
       setState(() {
         _field = null;
+        _extraSamples = const [];
         _busy = false;
         _error = null;
       });
@@ -1126,25 +1145,51 @@ class _FieldPlotState extends State<FieldPlot> {
         curves: widget.curves,
       );
       if (!mounted || generation != _generation) return;
-      setState(() {
-        _busy = false;
-        if (!result.ok) {
+      if (!result.ok) {
+        setState(() {
+          _busy = false;
           _field = null;
+          _extraSamples = const [];
           _error = result.error.isEmpty
               ? widget.l10n.t(
                   'Could not build the direction field.',
                   'میدان جهت ساخته نشد.',
                 )
               : result.error;
-        } else {
-          _field = result;
+        });
+        return;
+      }
+      final extras = <SampleResult?>[];
+      for (final curve in widget.extraCurves) {
+        try {
+          final s = await engine.sampleAsync(
+            curve.expression,
+            x: widget.xVariable.trim().isEmpty ? 'x' : widget.xVariable.trim(),
+            xmin: widget.xmin,
+            xmax: widget.xmax,
+            samples: 400,
+            constants: curve.constants,
+          );
+          if (!mounted || generation != _generation) return;
+          extras.add(s.ok ? s : null);
+        } catch (_) {
+          if (!mounted || generation != _generation) return;
+          extras.add(null);
         }
+      }
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _busy = false;
+        _field = result;
+        _extraSamples = extras;
+        _error = null;
       });
     } catch (e) {
       if (!mounted || generation != _generation) return;
       setState(() {
         _busy = false;
         _field = null;
+        _extraSamples = const [];
         _error = widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
       });
     }
@@ -1191,6 +1236,23 @@ class _FieldPlotState extends State<FieldPlot> {
         PlotSeries(xs: curve.xs, ys: curve.ys, color: color, label: label),
       );
       markers.add(PlotMarker(x: curve.icX, y: curve.icY, color: color));
+    }
+    // Original-family curves drawn on top of the orthogonal field. They are
+    // sampled with c substituted, so each member keeps its own constant.
+    for (var i = 0; i < _extraSamples.length && i < widget.extraCurves.length; i++) {
+      final sample = _extraSamples[i];
+      if (sample == null) continue;
+      final curve = widget.extraCurves[i];
+      series.add(
+        PlotSeries(
+          xs: sample.xs,
+          ys: sample.ys,
+          color: curve.color,
+          label: curve.label,
+          width: curve.width,
+          dashed: curve.dashed,
+        ),
+      );
     }
     return PlotSpec(
       arrows: arrows,
@@ -1316,6 +1378,7 @@ class PlotCurveSpec {
     required this.label,
     this.dashed = false,
     this.width = 2.2,
+    this.constants = const {},
   });
 
   final String expression;
@@ -1323,6 +1386,10 @@ class PlotCurveSpec {
   final String label;
   final bool dashed;
   final double width;
+
+  /// Numeric values substituted before sampling, for example c = 2 in a
+  /// one-parameter family y(x, c).
+  final Map<String, double> constants;
 }
 
 /// Draws several sampled curves in one coordinate system. The Cauchy mean value
@@ -1427,6 +1494,7 @@ class _MultiCurvePlotState extends State<MultiCurvePlot> {
           xmin: widget.xmin,
           xmax: widget.xmax,
           samples: widget.samples,
+          constants: curve.constants,
         );
         if (!mounted || generation != _generation) return;
         if (!r.ok) {

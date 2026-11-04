@@ -73,6 +73,47 @@ static void fieldCases() {
            "exact form produces trajectory curves");
 }
 
+static void orthogonalApiCase() {
+    // The Flutter UI sends mode "orthogonal" for the dedicated page. It must
+    // not fall back to the envelope response with a warning-only orthogonal
+    // field.
+    const std::string s = api(
+        "{\"mode\":\"orthogonal\",\"input\":\"x^2 + y^2 = c^2\",\"c\":\"c\","
+        "\"x\":\"x\",\"y\":\"y\",\"lang\":\"en\"}");
+    expect(s.find("\"ok\":true") != std::string::npos,
+           "orthogonal API request succeeds");
+    expect(s.find("\"type_id\":\"orthogonal\"") != std::string::npos,
+           "orthogonal API request keeps its own type id");
+    expect(s.find("\"orthogonal\":{") != std::string::npos,
+           "orthogonal API request returns the orthogonal family");
+    expect(s.find("\"orthogonal_explicit\":true") != std::string::npos,
+           "orthogonal API request reports the explicit form");
+    expect(s.find("\"orthogonal_slope\":{") != std::string::npos,
+           "orthogonal API request exposes the solved slope for the plot");
+    expect(s.find("\"family_branches\":[{") != std::string::npos,
+           "orthogonal API request exposes the family branches for the plot");
+}
+
+static void obliqueApiCase() {
+    const std::string s = api(
+        "{\"mode\":\"oblique\",\"input\":\"y = c\",\"c\":\"c\",\"angle\":45,"
+        "\"x\":\"x\",\"y\":\"y\",\"lang\":\"en\"}");
+    expect(s.find("\"ok\":true") != std::string::npos,
+           "oblique API request succeeds");
+    expect(s.find("\"type_id\":\"oblique\"") != std::string::npos,
+           "oblique API request keeps its own type id");
+    expect(s.find("\"trajectory\":{") != std::string::npos,
+           "oblique API request returns the trajectory family");
+    expect(s.find("\"trajectory_explicit\":true") != std::string::npos,
+           "oblique API request reports the explicit form");
+    expect(s.find("\"trajectory_slope\":{") != std::string::npos,
+           "oblique API request exposes the solved slope for the plot");
+    expect(s.find("\"trajectory_angle\":45") != std::string::npos,
+           "oblique API request echoes the crossing angle");
+    expect(s.find("\"trajectory_mode\":\"oblique\"") != std::string::npos,
+           "oblique API request reports the trajectory mode");
+}
+
 static void behaviourCase() {
     Result r = analyseFunction("x^3 - 3*x", "x", -3, 3, "en");
     expect(r.ok, "behaviour: x^3-3x solved");
@@ -94,7 +135,7 @@ static void behaviourCase() {
         if (p.sign < 0) falling = true;
     }
     expect(rising && falling, "behaviour: both trends detected");
-    expect(!r.steps.empty(), "behaviour: solution path is populated");
+    expect(r.steps.size() == 4, "behaviour: solution path has 4 steps");
 }
 
 static void tangentCase() {
@@ -112,6 +153,7 @@ static void tangentCase() {
     expect(flat.ok, "tangent: horizontal case solved");
     expect(flat.normalSlope == nullptr, "vertical normal has no slope");
     expect(plain(flat.tangent) == "0", "horizontal tangent is y = 0");
+    expect(r.steps.size() == 4, "tangent: solution path has 4 steps");
 }
 
 static void optimisationCase() {
@@ -122,6 +164,7 @@ static void optimisationCase() {
     expect(r.minimum && plain(r.minimum) == "-2", "optimise: minimum value -2");
     // All four candidates are compared, including both endpoints.
     expect(r.candidates.size() == 4, "optimise: compares two critical and two endpoint values");
+    expect(r.steps.size() == 4, "optimise: solution path has 4 steps");
 }
 
 static void meanValueCase() {
@@ -136,6 +179,7 @@ static void meanValueCase() {
     expect(r.hypothesesContinuous, "mvt: continuity hypothesis checked");
     expect(r.hypothesesDifferentiable, "mvt: differentiability hypothesis checked");
     expect(!r.rolleApplies, "mvt: Rolle does not apply when f(a) != f(b)");
+    expect(r.steps.size() == 4, "mvt: solution path has 4 steps");
 
     // Rolle: x^2 - 4x + 3 has f(1) = f(3) = 0, so c = 2.
     Result rolle = meanValueTheorems("x^2 - 4*x + 3", "x", 1, 3, "en");
@@ -146,6 +190,58 @@ static void meanValueCase() {
                (rolle.points.empty() ? std::string("<none>") : plain(rolle.points[0])));
 }
 
+static void parserImplicitProductCase() {
+    Ex e = parseODEExpr("2XY", "x", nullptr, {"x", "e", "pi"});
+    expect(plain(e) == "2*X*Y", "implicit product: 2XY -> 2*X*Y, got " + plain(e));
+    Ex f = parseODEExpr("2xy", "x", nullptr, {"x", "y", "c"});
+    expect(plain(f) == "2*x*y", "implicit product: 2xy -> 2*x*y, got " + plain(f));
+    Ex g = parseODEExpr("exp(x)", "x", nullptr, {"x", "e", "pi"});
+    expect(plain(g) == "exp(x)", "parser keeps exp(x) intact, got " + plain(g));
+    Ex h = parseExpr("atan(x)");
+    expect(plain(h) == "atan(x)", "parser keeps atan(x) intact, got " + plain(h));
+    Ex i = parseExpr("alpha");
+    expect(plain(i) == "alpha", "parser keeps multi-letter variable alpha, got " + plain(i));
+}
+
+static void rootBlowupCase() {
+    // The reported crash: a constant target used to enumerate all 4000 samples.
+    Result mvt = meanValueTheorems("2XY", "x", 0, 1, "en");
+    expect(mvt.ok, "mvt: 2XY solved");
+    expect(mvt.points.size() == 1, "mvt: 2XY reports one representative point, got " +
+                                       std::to_string(mvt.points.size()));
+    if (!mvt.points.empty()) {
+        expect(plain(mvt.points[0]) == "1/2", "mvt: 2XY midpoint is 1/2");
+    }
+
+    Result linear = meanValueTheorems("x", "x", 0, 1, "en");
+    expect(linear.ok && linear.points.size() == 1,
+           "mvt: linear function reports one representative point");
+
+    Result constant = meanValueTheorems("5", "x", 0, 1, "en");
+    expect(constant.ok && constant.points.size() == 1,
+           "mvt: constant function reports one representative point");
+
+    Result expCase = meanValueTheorems("exp(x)", "x", 0, 1, "en");
+    expect(expCase.ok, "mvt: exp(x) solved");
+    expect(expCase.normalized && plain(expCase.normalized) == "exp(x)",
+           "mvt: exp(x) normalized without splitting");
+
+    Result behaviour = analyseFunction("5", "x", 0, 1, "en");
+    expect(behaviour.ok && behaviour.critical.empty(),
+           "behaviour: constant has no critical points");
+    expect(behaviour.inflections.empty(), "behaviour: constant has no inflections");
+
+    Result opt = optimiseFunction("5", "x", 0, 1, "en");
+    expect(opt.ok, "optimise: constant solved");
+    expect(opt.candidates.size() == 2,
+           "optimise: constant compares only endpoints, got " +
+               std::to_string(opt.candidates.size()));
+
+    Result cauchy = cauchyMeanValue("2XY", "x", "x", 0, 1, "en");
+    expect(cauchy.ok && cauchy.points.size() == 1,
+           "cauchy: constant f reports one representative point");
+}
+
 static void cauchyCase() {
     Result r = cauchyMeanValue("x^2", "x^3", "x", 0, 1, "en");
     expect(r.ok, "cauchy: x^2 and x^3 on [0,1]");
@@ -154,6 +250,7 @@ static void cauchyCase() {
     if (r.points.size() == 1) {
         expect(plain(r.points[0]) == "2/3", "cauchy: c = 2/3, got " + plain(r.points[0]));
     }
+    expect(r.steps.size() == 3, "cauchy: solution path has 3 steps");
     // g(a) = g(b) must be reported as a failed hypothesis, not solved.
     Result bad = cauchyMeanValue("x", "x^2", "x", -1, 1, "en");
     expect(!bad.ok, "cauchy: rejects g(a) = g(b)");
@@ -164,6 +261,7 @@ static void lhopitalCase() {
     expect(r.ok, "lhopital: sin(x)/x at 0");
     expect(r.solution && plain(r.solution) == "1", "lhopital: limit is 1");
     expect(r.limitExists, "lhopital: limit exists");
+    expect(r.steps.size() == 3, "lhopital: solution path has 3 steps");
 
     // A quotient that is not indeterminate must not be treated as L'Hopital.
     Result direct = lhopitalLimit("x^2", "x", "x", "3", "en");
@@ -183,7 +281,7 @@ static void relatedRatesCase() {
     expect(r.ok, "related rates: circle relation solved");
     // Differentiating gives 2x x' + 2y y' = 0, so the isolated rate is -y/x.
     expect(r.derivative != nullptr, "related rates: differentiated relation shown");
-    expect(!r.steps.empty(), "related rates: solution path is populated");
+    expect(r.steps.size() == 2, "related rates: symbolic path has 2 steps");
 
     // At x = 3, y = 4 with y' = 2: q' = -(y/x) w' = -(4/3)(2) = -8/3.
     Result numeric = relatedRates("x^2 + y^2 = 25", "x", "y", "t", 3.0, 4.0, 2.0, "en");
@@ -191,13 +289,18 @@ static void relatedRatesCase() {
     expect(numeric.hasNumeric, "related rates: numeric answer available");
     expect(std::fabs(numeric.numericValue + 8.0 / 3.0) < 1e-9,
            "related rates: rate is -8/3, got " + std::to_string(numeric.numericValue));
+    expect(numeric.steps.size() == 3, "related rates: numeric path has 3 steps");
 }
 
 int main() {
     fieldCases();
+    orthogonalApiCase();
+    obliqueApiCase();
     behaviourCase();
     tangentCase();
     optimisationCase();
+    parserImplicitProductCase();
+    rootBlowupCase();
     meanValueCase();
     cauchyCase();
     lhopitalCase();

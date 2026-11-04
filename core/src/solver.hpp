@@ -59,6 +59,13 @@ struct Result {
     std::vector<Ex> envelope;
     Ex orthogonal;             // solution of the orthogonal-trajectory ODE
     bool orthogonalExplicit = false;
+    Ex orthogonalSlope;        // right side of y' = f(x,y) after eliminating c
+    Ex trajectory;             // solution of the oblique/orthogonal family ODE
+    bool trajectoryExplicit = false;
+    Ex trajectorySlope;        // right side of y' = f(x,y) for the trajectory
+    double trajectoryAngle = 90.0; // requested crossing angle in degrees
+    std::string trajectoryMode;    // orthogonal / oblique
+    std::vector<Ex> familyBranches; // explicit y(x,c) branches of the original family
     std::vector<std::string> functions;
     std::string family;
 
@@ -152,6 +159,16 @@ Result solveODE(const std::string& input, const OdeOptions& opt = {});
 Result solveEnvelope(const std::string& input, const std::string& c = "c", bool orthogonal = false,
                      const std::string& x = "x", const std::string& y = "y",
                      const std::string& lang = "en");
+// Dedicated orthogonal-trajectory solver: eliminates c, flips the slope and
+// solves the resulting first-order ODE with the full step-by-step derivation.
+Result solveOrthogonal(const std::string& input, const std::string& c = "c",
+                       const std::string& x = "x", const std::string& y = "y",
+                       const std::string& lang = "en");
+// Oblique trajectories: curves crossing the family at a constant angle
+// `angleDeg` (degrees).  The orthogonal family is the 90° special case.
+Result solveOblique(const std::string& input, const std::string& c = "c",
+                    double angleDeg = 45.0, const std::string& x = "x",
+                    const std::string& y = "y", const std::string& lang = "en");
 Result solveWronskian(const std::vector<std::string>& functions, const std::string& x = "x",
                       const std::string& lang = "en");
 Result integrateExpression(const std::string& input, const std::string& x = "x",

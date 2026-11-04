@@ -111,17 +111,19 @@ class PointTable extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'x = ${points[i].x?.pretty ?? '?'}'
-                    '${points[i].value == null ? '' : '   f(x) = ${points[i].value!.pretty}'}',
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.left,
-                    style: TextStyle(
-                      fontFamily: 'DejaVu Sans Mono',
-                      fontFamilyFallback: const ['monospace', 'Vazirmatn'],
-                      fontSize: 13,
-                      color: c.text,
+                  child: MathInline(
+                    math: ExView(
+                      plain:
+                          'x = ${points[i].x?.plain ?? '?'}'
+                          '${points[i].value == null ? '' : '   f(x) = ${points[i].value!.plain}'}',
+                      pretty:
+                          'x = ${points[i].x?.pretty ?? '?'}'
+                          '${points[i].value == null ? '' : '   f(x) = ${points[i].value!.pretty}'}',
+                      latex:
+                          'x = ${points[i].x?.latex ?? '?'}'
+                          '${points[i].value == null ? '' : ', \\quad f(x) = ${points[i].value!.latex}'}',
                     ),
+                    size: 14,
                   ),
                 ),
                 const SizedBox(width: 8),

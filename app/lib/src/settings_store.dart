@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
-/// Storage for the two user preferences.  Linux uses a small JSON file; Android
+/// Storage for the user preferences.  Linux uses a small JSON file; Android
 /// uses native SharedPreferences through a platform channel (no extra plugin).
 abstract class SettingsPersistence {
   Future<Map<String, String>> load();

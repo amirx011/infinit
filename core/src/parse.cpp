@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "expr.hpp"
 #include <cctype>
+#include <cstring>
 #include <regex>
 #include <sstream>
 
@@ -270,40 +271,197 @@ std::string preprocessDifferentials(const std::string& in, const std::string& in
 static const char* kFunctionNames =
     "erfc|erf|asinh|acosh|atanh|asin|acos|atan|sinh|cosh|tanh|sin|cos|tan|cot|sec|csc|ln|log|exp|sqrt|abs";
 
+// Names that must survive the implicit-product splitter as a unit. Function
+// names were already handled above; the constants, differential symbols and
+// Greek variable names would otherwise turn into a product of letters.
+static const char* kProtectedNames[] = {
+    "erfc", "erf", "asinh", "acosh", "atanh", "asin", "acos", "atan",
+    "sinh", "cosh", "tanh", "sin", "cos", "tan", "cot", "sec", "csc",
+    "ln", "log", "exp", "sqrt", "abs", "Deriv", "Integral",
+    "pi", "inf", "dx", "dy", "dt",
+    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
+    "iota", "kappa", "lambda", "mu", "nu", "xi", "omicron", "rho",
+    "sigma", "tau", "upsilon", "phi", "chi", "psi", "omega"
+};
+
+bool asciiEqualFold(const std::string& a, const char* b) {
+    size_t i = 0;
+    for (; i < a.size() && b[i]; ++i) {
+        if (std::tolower((unsigned char)a[i]) != std::tolower((unsigned char)b[i])) return false;
+    }
+    return i == a.size() && b[i] == '\0';
+}
+
+bool isProtectedName(const std::string& s) {
+    for (const char* p : kProtectedNames) {
+        if (asciiEqualFold(s, p)) return true;
+    }
+    if (s.size() >= 2 && s[0] == 'C') {
+        bool digits = true;
+        for (size_t i = 1; i < s.size(); ++i) {
+            if (!std::isdigit((unsigned char)s[i])) { digits = false; break; }
+        }
+        if (digits) return true;
+    }
+    return false;
+}
+
+bool containsProtectedMulti(const std::string& run) {
+    for (const char* p : kProtectedNames) {
+        const size_t len = std::strlen(p);
+        if (len < 2 || len > run.size()) continue;
+        for (size_t start = 0; start + len <= run.size(); ++start) {
+            bool match = true;
+            for (size_t k = 0; k < len; ++k) {
+                if (std::tolower((unsigned char)run[start + k]) !=
+                    std::tolower((unsigned char)p[k])) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return true;
+        }
+    }
+    return false;
+}
+
+// The lexer reads `xy` as one identifier. This pass splits such a run into
+// single-letter factors (`x*y`) while keeping function names, constants,
+// differentials and multi-letter variable names whole.
+std::string splitImplicitRuns(const std::string& s, const std::vector<std::string>& vars) {
+    std::string out;
+    out.reserve(s.size() * 2);
+    size_t i = 0;
+    while (i < s.size()) {
+        const char c = s[i];
+        if (!(std::isalpha((unsigned char)c) || c == '_')) {
+            out += c;
+            ++i;
+            continue;
+        }
+        size_t j = i + 1;
+        while (j < s.size() && (std::isalnum((unsigned char)s[j]) || s[j] == '_')) ++j;
+        const std::string run = s.substr(i, j - i);
+        i = j;
+
+        bool protectedWhole = isProtectedName(run);
+        for (const auto& v : vars) {
+            if (run == v) { protectedWhole = true; break; }
+        }
+        bool hasDigitOrUnderscore = false;
+        for (char ch : run) {
+            if (std::isdigit((unsigned char)ch) || ch == '_') {
+                hasDigitOrUnderscore = true;
+                break;
+            }
+        }
+        if (protectedWhole || hasDigitOrUnderscore) {
+            out += run;
+            continue;
+        }
+
+        bool allImplicit = !vars.empty();
+        for (char ch : run) {
+            bool found = false;
+            for (const auto& v : vars) {
+                if (v.size() == 1 &&
+                    std::tolower((unsigned char)v[0]) == std::tolower((unsigned char)ch)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) { allImplicit = false; break; }
+        }
+        // Short runs are almost always implicit products. Longer runs are only
+        // split when every letter is a declared variable, or when they embed a
+        // known name (`xpi` -> `x*pi`); this keeps `alpha` and `theta` intact.
+        if (!(run.size() <= 3 || allImplicit || containsProtectedMulti(run))) {
+            out += run;
+            continue;
+        }
+
+        std::vector<std::string> pieces;
+        size_t k = 0;
+        while (k < run.size()) {
+            size_t bestLen = 0;
+            for (const char* p : kProtectedNames) {
+                const size_t len = std::strlen(p);
+                if (len == 0 || len > run.size() - k) continue;
+                bool match = true;
+                for (size_t m = 0; m < len; ++m) {
+                    if (std::tolower((unsigned char)run[k + m]) !=
+                        std::tolower((unsigned char)p[m])) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match && len > bestLen) bestLen = len;
+            }
+            for (const auto& v : vars) {
+                if (v.size() <= bestLen || v.size() > run.size() - k) continue;
+                bool match = true;
+                for (size_t m = 0; m < v.size(); ++m) {
+                    if (run[k + m] != v[m]) { match = false; break; }
+                }
+                if (match) bestLen = v.size();
+            }
+            if (bestLen > 0) {
+                pieces.push_back(run.substr(k, bestLen));
+                k += bestLen;
+            } else {
+                pieces.push_back(run.substr(k, 1));
+                ++k;
+            }
+        }
+        for (size_t p = 0; p < pieces.size(); ++p) {
+            if (p) out += '*';
+            out += pieces[p];
+        }
+    }
+    return out;
+}
+
 static std::string naturalizeImplicit(std::string s, const std::vector<std::string>& vars) {
+    std::vector<std::string> effective = vars;
+    if (effective.empty()) {
+        // parseExpr has no declared variable list. These are the letters the
+        // app's input fields use; without them `2xy` would remain one symbol.
+        effective = {"x", "y", "z", "t", "a", "b", "c", "u", "v", "w", "r", "s", "e", "pi"};
+    }
     std::string vc;
-    for (auto& v : vars) {
+    for (auto& v : effective) {
         if (v.size() == 1 && std::isalpha((unsigned char)v[0])) vc += v[0];
     }
-    if (vc.empty()) return s;
-    std::string cls = "[" + vc + "]";
-    try {
-        // x sin y / x siny  ->  x*sin y / x*siny
-        std::regex beforeFn("(" + cls + ")('*)\\s*(?=(" + kFunctionNames + "))", std::regex::icase);
-        s = std::regex_replace(s, beforeFn, "$1$2*");
-        for (int pass = 0; pass < 4; ++pass) {
-            std::string prev = s;
-            // cos^2(x)  ->  (cos(x))^2
-            std::regex fnPowParen("(^|[^A-Za-z_])(" + std::string(kFunctionNames) +
-                                  ")\\s*\\^\\s*(-?[0-9]+)\\s*\\(([^()]*)\\)", std::regex::icase);
-            s = std::regex_replace(s, fnPowParen, "$1$2($4)^$3");
-            // cos^2x / sin^2 x  ->  (cos(x))^2
-            std::regex fnPowVar("(^|[^A-Za-z_])(" + std::string(kFunctionNames) +
-                                ")\\s*\\^\\s*(-?[0-9]+)\\s*(" + cls + "+)('*)", std::regex::icase);
-            s = std::regex_replace(s, fnPowVar, "$1$2($4$5)^$3");
-            // sinx / sin x / ln y'  ->  sin(x) / ln(y')
-            std::regex fnArg("(^|[^A-Za-z_])(" + std::string(kFunctionNames) +
-                             ")\\s*(" + cls + "+)('*)", std::regex::icase);
-            s = std::regex_replace(s, fnArg, "$1$2($3$4)");
-            // xy / x y' / cx  ->  x*y / x*y' / c*x
-            std::regex varVar("(" + cls + ")('*)(?=" + cls + ")", std::regex::icase);
-            s = std::regex_replace(s, varVar, "$1$2*");
-            if (s == prev) break;
+    if (!vc.empty()) {
+        std::string cls = "[" + vc + "]";
+        try {
+            // x sin y / x siny  ->  x*sin y / x*siny. The lookahead keeps the
+            // leading letter of atan/asin/acos/... from becoming a factor.
+            std::regex beforeFn("(^|[^A-Za-z_])(?!(?:" + std::string(kFunctionNames) + "))(" +
+                                    cls + ")('*)\\s*(?=(" + kFunctionNames + "))",
+                                std::regex::icase);
+            s = std::regex_replace(s, beforeFn, "$1$2$3*");
+            for (int pass = 0; pass < 4; ++pass) {
+                std::string prev = s;
+                // cos^2(x)  ->  (cos(x))^2
+                std::regex fnPowParen("(^|[^A-Za-z_])(" + std::string(kFunctionNames) +
+                                      ")\\s*\\^\\s*(-?[0-9]+)\\s*\\(([^()]*)\\)", std::regex::icase);
+                s = std::regex_replace(s, fnPowParen, "$1$2($4)^$3");
+                // cos^2x / sin^2 x  ->  (cos(x))^2
+                std::regex fnPowVar("(^|[^A-Za-z_])(" + std::string(kFunctionNames) +
+                                    ")\\s*\\^\\s*(-?[0-9]+)\\s*(" + cls + "+)('*)", std::regex::icase);
+                s = std::regex_replace(s, fnPowVar, "$1$2($4$5)^$3");
+                // sinx / sin x / ln y'  ->  sin(x) / ln(y')
+                std::regex fnArg("(^|[^A-Za-z_])(" + std::string(kFunctionNames) +
+                                 ")\\s*(" + cls + "+)('*)", std::regex::icase);
+                s = std::regex_replace(s, fnArg, "$1$2($3$4)");
+                if (s == prev) break;
+            }
+        } catch (const std::regex_error&) {
+            return s;
         }
-    } catch (const std::regex_error&) {
-        return s;
     }
-    return s;
+    return splitImplicitRuns(s, effective);
 }
 
 namespace {
@@ -318,7 +476,7 @@ Ex parseWith(const std::string& raw, const std::string& indep, std::string* depO
     // not be exposed to arbitrarily large or adversarial strings.
     if (raw.size() > 1000) throw std::runtime_error("عبارت بسیار طولانی است");
     std::string s = preprocessDifferentials(normalizeInput(raw), indep);
-    if (!implicitVars.empty()) s = naturalizeImplicit(s, implicitVars);
+    s = naturalizeImplicit(s, implicitVars);
     s = replaceAll(s, "==", "=");
     // split on top-level '='
     int par = 0; size_t eq = std::string::npos;

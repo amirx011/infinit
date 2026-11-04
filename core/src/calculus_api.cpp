@@ -1179,12 +1179,11 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
             if (!rules.empty()) rules += en ? ", " : "، ";
             rules += name;
         }
-        r.steps.push_back({en ? "Expression tree" : "درخت عبارت", f,
-                           en ? "Walk the AST and differentiate node by node."
-                              : "درخت عبارت پیمایش و گره‌به‌گره مشتق‌گیری می‌شود."});
-        if (!rules.empty())
-            r.steps.push_back({en ? "Rules applied" : "قواعد به‌کاررفته", nullptr,
-                               en ? ("Rules: " + rules) : ("قواعد: " + rules)});
+        r.steps.push_back({en ? "Differentiation rules" : "قواعد مشتق‌گیری", f,
+                           !rules.empty()
+                               ? (en ? ("Rules: " + rules) : ("قواعد: " + rules))
+                               : (en ? "Differentiate node by node."
+                                     : "گره‌به‌گره مشتق می‌گیریم.")});
         if (derivatives.size() >= 1)
             r.steps.push_back({en ? "First derivative" : "مشتق اول", derivatives[0]});
         if (derivatives.size() >= 2)
@@ -1378,11 +1377,8 @@ Result limitExpression(const std::string& input, const std::string& x, const std
         publish(r, L);
         r.laws = laws;
 
-        r.steps.push_back({en ? "Expression" : "\u0639\u0628\u0627\u0631\u062a", f,
-                           en ? "The expression whose limit is computed."
-                              : "\u0639\u0628\u0627\u0631\u062a\u06cc \u06a9\u0647 \u062d\u062f \u0622\u0646 \u0645\u062d\u0627\u0633\u0628\u0647 \u0645\u06cc\u200c\u0634\u0648\u062f."});
         r.steps.push_back(
-            {en ? "Approach" : "\u0646\u0632\u062f\u06cc\u06a9\u200c\u0634\u062f\u0646", nullptr,
+            {en ? "Expression and limit point" : "\u0639\u0628\u0627\u0631\u062a \u0648 \u0646\u0642\u0637\u0647\u0654 \u062d\u062f", f,
              x + " \u2192 " + pointText(a) + "  (" + sideText(r.side, en) + ")"});
 
         if (r.side == "both" && !isInfinityPoint(a)) {
@@ -1408,13 +1404,13 @@ Result limitExpression(const std::string& input, const std::string& x, const std
                              : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0645\u062a\u0641\u0627\u0648\u062a\u0646\u062f\u061b \u067e\u0633 \u062d\u062f \u062f\u0648\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f.")});
         }
 
-        if (!laws.empty())
-            r.steps.push_back({en ? "Limit laws applied" : "\u0642\u0648\u0627\u0646\u06cc\u0646 \u062d\u062f \u0628\u0647\u200c\u06a9\u0627\u0631\u0631\u0641\u062a\u0647", nullptr,
-                               lawsText(laws, en)});
-
+        const std::string lawSuffix = laws.empty()
+            ? std::string()
+            : (en ? (" (laws: " + lawsText(laws, en) + ")")
+                  : (" (\u0642\u0648\u0627\u0646\u06cc\u0646: " + lawsText(laws, en) + ")"));
         if (L.kind == LimitOutcome::Finite) {
             r.steps.push_back({en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", L.value,
-                               outcomeText(L, en)});
+                               outcomeText(L, en) + lawSuffix});
             if (L.numeric) {
                 r.warnings.push_back(
                     en ? "This value was established numerically; no closed form was found."
@@ -1424,11 +1420,11 @@ Result limitExpression(const std::string& input, const std::string& x, const std
             r.steps.push_back(
                 {en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
                  (en ? "The limit does not exist: " : "\u062d\u062f \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f: ") +
-                     L.reason});
+                     L.reason + lawSuffix});
         } else {
             r.steps.push_back({en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
                                (en ? "The expression diverges to " : "\u0639\u0628\u0627\u0631\u062a \u0628\u0647 ") +
-                                   outcomeText(L, en)});
+                                   outcomeText(L, en) + lawSuffix});
         }
         r.ok = true;
     } catch (const std::exception& e) {
@@ -1488,10 +1484,8 @@ Result continuityExpression(const std::string& input, const std::string& x,
             r.closedForm = false;
         }
 
-        r.steps.push_back({en ? "Function" : "\u062a\u0627\u0628\u0639", f,
-                           en ? "Continuity is tested at a single point."
-                              : "\u067e\u06cc\u0648\u0633\u062a\u06af\u06cc \u062f\u0631 \u06cc\u06a9 \u0646\u0642\u0637\u0647 \u0628\u0631\u0631\u0633\u06cc \u0645\u06cc\u200c\u0634\u0648\u062f."});
-        r.steps.push_back({en ? "Point" : "\u0646\u0642\u0637\u0647", a, x + " = " + pointText(a)});
+        r.steps.push_back({en ? "Function and point" : "\u062a\u0627\u0628\u0639 \u0648 \u0646\u0642\u0637\u0647", f,
+                           x + " = " + pointText(a)});
         r.steps.push_back({en ? "Left limit" : "\u062d\u062f \u0686\u067e", c.left.value,
                            outcomeText(c.left, en)});
         r.steps.push_back({en ? "Right limit" : "\u062d\u062f \u0631\u0627\u0633\u062a", c.right.value,
@@ -1543,13 +1537,30 @@ Result continuityExpression(const std::string& input, const std::string& x,
             verdict = en ? "Jump discontinuity." : "\u0627\u0646\u0642\u0637\u0627\u0639 \u062c\u0647\u0634\u06cc.";
         } else if (c.kind == "infinite") {
             verdict = en ? "Infinite discontinuity (vertical asymptote)."
-                         : "\u0627\u0646\u0642\u0637\u0627\u0639 \u0646\u0627\u0645\u062a\u0646\u0627\u0647\u06cc (\u0645\u062c\u0627\u0633\u0645 \u0639\u0645\u0648\u062f\u06cc).";
+                         : "\u0627\u0646\u0642\u0637\u0627\u0639 \u0646\u0627\u0645\u062a\u0646\u0627\u0647\u06cc (\u0645\u062c\u0627\u0646\u0628 \u0639\u0645\u0648\u062f\u06cc).";
         } else {
             verdict = en ? "The limit does not exist, so the function is not continuous here."
                          : "\u062d\u062f \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f\u060c \u067e\u0633 \u062a\u0627\u0628\u0639 \u0627\u06cc\u0646\u062c\u0627 \u067e\u06cc\u0648\u0633\u062a\u0647 \u0646\u06cc\u0633\u062a.";
         }
+        std::string explanation;
+        if (r.continuous) {
+            explanation = en ? "The left limit, the right limit and f(a) all agree."
+                             : "\u062d\u062f \u0686\u067e\u060c \u062d\u062f \u0631\u0627\u0633\u062a \u0648 \u0645\u0642\u062f\u0627\u0631 \u062a\u0627\u0628\u0639 \u0628\u0627 \u0647\u0645 \u0628\u0631\u0627\u0628\u0631\u0646\u062f.";
+        } else if (c.kind == "removable") {
+            explanation = en ? "The two-sided limit exists but does not match f(a)."
+                             : "\u062d\u062f \u062f\u0648\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u062f\u0627\u0631\u062f \u0627\u0645\u0627 \u0628\u0627 \u0645\u0642\u062f\u0627\u0631 \u062a\u0627\u0628\u0639 \u0628\u0631\u0627\u0628\u0631 \u0646\u06cc\u0633\u062a.";
+        } else if (c.kind == "jump") {
+            explanation = en ? "The one-sided limits exist but are different."
+                             : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u062f\u0627\u0631\u0646\u062f \u0627\u0645\u0627 \u0628\u0631\u0627\u0628\u0631 \u0646\u06cc\u0633\u062a\u0646\u062f.";
+        } else if (c.kind == "infinite") {
+            explanation = en ? "At least one one-sided limit is infinite (vertical asymptote)."
+                             : "\u062f\u0633\u062a\u200c\u06a9\u0645 \u06cc\u06a9\u06cc \u0627\u0632 \u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0628\u06cc\u200c\u0646\u0647\u0627\u06cc\u062a \u0627\u0633\u062a (\u0645\u062c\u0627\u0646\u0628 \u0639\u0645\u0648\u062f\u06cc).";
+        } else {
+            explanation = en ? "At least one one-sided limit does not exist."
+                             : "\u062f\u0633\u062a\u200c\u06a9\u0645 \u06cc\u06a9\u06cc \u0627\u0632 \u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f.";
+        }
         r.steps.push_back({en ? "Conclusion" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
-                           verdict + " " + c.note});
+                           verdict + " " + explanation});
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;

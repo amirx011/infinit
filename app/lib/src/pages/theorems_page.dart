@@ -477,30 +477,47 @@ class _TheoremsPageState extends State<TheoremsPage> {
             const SizedBox(height: 6),
             _valueRow(
               l.t('Secant slope', 'شیب خط قاطع'),
-              r.slope?.pretty ?? '?',
+              r.slope ??
+                  const ExView(plain: '?', pretty: '?', latex: '?'),
             ),
           ],
           if (!isLhopital && points.isNotEmpty) ...[
             const SizedBox(height: 6),
             _valueRow(
               l.t('Promised point c', 'نقطهٔ تضمین‌شده c'),
-              points.map((p) => p.pretty).join(', '),
+              ExView(
+                plain: points.map((p) => 'c = ${p.plain}').join(', '),
+                pretty: points.map((p) => 'c = ${p.pretty}').join(', '),
+                latex: points
+                    .asMap()
+                    .entries
+                    .map(
+                      (e) => points.length == 1
+                          ? 'c = ${e.value.latex}'
+                          : 'c_{${e.key + 1}} = ${e.value.latex}',
+                    )
+                    .join(r',\quad '),
+              ),
             ),
           ],
           if (isLhopital && r.solution != null) ...[
             const SizedBox(height: 6),
-            _valueRow(l.t('Limit', 'حد'), r.solution!.pretty),
+            _valueRow(l.t('Limit', 'حد'), r.solution!),
           ],
           if (isLhopital && r.limitInfinite) ...[
             const SizedBox(height: 6),
             _valueRow(
               l.t('Limit', 'حد'),
-              r.limitSign < 0 ? '−∞' : '∞',
+              ExView(
+                plain: r.limitSign < 0 ? '-∞' : '∞',
+                pretty: r.limitSign < 0 ? '−∞' : '∞',
+                latex: r.limitSign < 0 ? r'-\infty' : r'\infty',
+              ),
             ),
           ],
           if (isLhopital && !r.limitExists && !r.limitInfinite) ...[
             const SizedBox(height: 6),
-            _valueRow(
+            _textValueRow(
               l.t('Limit', 'حد'),
               l.t('does not exist', 'وجود ندارد'),
             ),
@@ -525,7 +542,22 @@ class _TheoremsPageState extends State<TheoremsPage> {
     );
   }
 
-  Widget _valueRow(String label, String value) {
+  Widget _valueRow(String label, ExView math) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ),
+          Expanded(child: MathInline(math: math, size: 15)),
+        ],
+      ),
+    );
+  }
+
+  Widget _textValueRow(String label, String value) {
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),

@@ -284,6 +284,23 @@ class NativeEngine {
     'lang': lang,
   };
 
+  Map<String, dynamic> _obliqueRequest(
+    String input, {
+    required String c,
+    required double angle,
+    required String x,
+    required String y,
+    required String lang,
+  }) => {
+    'mode': 'oblique',
+    'input': input,
+    'c': c,
+    'angle': angle,
+    'x': x,
+    'y': y,
+    'lang': lang,
+  };
+
   // ------------------------------------------- applications of the derivative
   Map<String, dynamic> _behaviourRequest(
     String input, {
@@ -561,6 +578,43 @@ class NativeEngine {
     ),
   );
 
+  // ------------------------------------------------------- oblique trajectories
+  SolveResult oblique(
+    String input, {
+    String c = 'c',
+    double angle = 45,
+    String x = 'x',
+    String y = 'y',
+    String lang = 'en',
+  }) => solve(
+    _obliqueRequest(
+      input,
+      c: c,
+      angle: angle,
+      x: x,
+      y: y,
+      lang: lang,
+    ),
+  );
+
+  Future<SolveResult> obliqueAsync(
+    String input, {
+    String c = 'c',
+    double angle = 45,
+    String x = 'x',
+    String y = 'y',
+    String lang = 'en',
+  }) => solveAsync(
+    _obliqueRequest(
+      input,
+      c: c,
+      angle: angle,
+      x: x,
+      y: y,
+      lang: lang,
+    ),
+  );
+
   // ------------------------------------------- applications of the derivative
   Future<SolveResult> behaviourAsync(
     String input, {
@@ -665,6 +719,7 @@ class NativeEngine {
     double xmin = -10,
     double xmax = 10,
     int samples = 600,
+    Map<String, double> constants = const {},
   }) async => SampleResult.fromJson(
     await _graphAsync({
       'mode': 'sample',
@@ -673,6 +728,7 @@ class NativeEngine {
       'xmin': xmin,
       'xmax': xmax,
       'samples': samples,
+      'constants': constants,
     }),
   );
 

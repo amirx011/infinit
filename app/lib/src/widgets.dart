@@ -202,6 +202,46 @@ class MathBlock extends StatelessWidget {
   }
 }
 
+/// A formula rendered on the text baseline, for rows and tables where a full
+/// [MathBlock] would be too heavy.  Fractions and roots still use the real
+/// mathematical layout instead of the linear `.pretty` fallback.
+class MathInline extends StatelessWidget {
+  const MathInline({
+    super.key,
+    required this.math,
+    this.size = 15,
+    this.color,
+  });
+
+  final ExView math;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final style = TextStyle(fontSize: size, color: color ?? c.text);
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Math.tex(
+          math.latex,
+          mathStyle: MathStyle.text,
+          textStyle: style,
+          onErrorFallback: (error) => Text(
+            math.pretty,
+            style: style.copyWith(
+              fontFamily: 'DejaVu Sans Mono',
+              fontFamilyFallback: const ['monospace', 'Vazirmatn'],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class TypeBadge extends StatelessWidget {
   const TypeBadge(this.text, {super.key, this.icon, this.tone});
 
@@ -480,10 +520,19 @@ class _LearningCardState extends State<LearningCard> {
 }
 
 class ResultView extends StatelessWidget {
-  const ResultView({super.key, required this.result, required this.l10n});
+  const ResultView({
+    super.key,
+    required this.result,
+    required this.l10n,
+    this.beforeSteps,
+  });
 
   final SolveResult result;
   final L10n l10n;
+
+  /// Optional visualisation (for example a direction field) shown after the
+  /// answer card and before the step-by-step solution.
+  final Widget? beforeSteps;
 
   Future<void> _copyLatex(BuildContext context, ExView? math) async {
     if (math == null) return;
@@ -537,6 +586,10 @@ class ResultView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _answerCard(context),
+        if (beforeSteps != null) ...[
+          const SizedBox(height: 18),
+          beforeSteps!,
+        ],
         if (result.steps.isNotEmpty) ...[
           const SizedBox(height: 18),
           _stepsCard(context),
@@ -598,6 +651,10 @@ class ResultView extends StatelessWidget {
     }
     return l10n.isFa ? result.typeFa : result.typeEn;
   }
+
+  String _angleText(double angle) => angle == angle.roundToDouble()
+      ? '${angle.toStringAsFixed(0)}°'
+      : '${angle.toStringAsFixed(1)}°';
 
   String _formatNumber(double v) {
     if (v.isNaN) return '?';
@@ -763,6 +820,13 @@ class ResultView extends StatelessWidget {
       badges.add(
         TypeBadge(l10n.t('Order ${result.order}', 'مرتبه ${result.order}')),
       );
+    }
+    if (result.mode == 'oblique') {
+      final angle = result.trajectoryAngle;
+      final text = angle == angle.roundToDouble()
+          ? 'α = ${angle.toStringAsFixed(0)}°'
+          : 'α = ${angle.toStringAsFixed(1)}°';
+      badges.add(TypeBadge(text, icon: Icons.straighten_rounded));
     }
     if (!result.closedForm) {
       badges.add(
@@ -1144,7 +1208,7 @@ class ResultView extends StatelessWidget {
             : '${o.pretty} = C';
         children.add(const SizedBox(height: 16));
         children.add(
-          SectionLabel(l10n.t('Orthogonal trajectories', 'مسیرهای متعامد')),
+          SectionLabel(l10n.t('Orthogonal trajectories', 'مسیرهای قائم')),
         );
         children.add(const SizedBox(height: 10));
         children.add(
@@ -1164,6 +1228,48 @@ class ResultView extends StatelessWidget {
             onCopyLatex: () => _copyLatex(context, o),
           ),
         );
+      }
+    } else if (result.mode == 'orthogonal' || result.mode == 'oblique') {
+      final t = result.trajectorySolution;
+      if (t != null) {
+        final explicit = result.trajectoryIsExplicit;
+        final oblique = result.mode == 'oblique';
+        children.add(
+          SectionLabel(
+            oblique
+                ? l10n.t('Oblique trajectories', 'مسیرهای مایل')
+                : l10n.t('Orthogonal trajectories', 'مسیرهای قائم'),
+          ),
+        );
+        children.add(const SizedBox(height: 10));
+        final latex = explicit ? 'y = ${t.latex}' : '${t.latex} = C';
+        final pretty = explicit ? 'y = ${t.pretty}' : '${t.pretty} = C';
+        final plain = explicit ? 'y = ${t.plain}' : '${t.plain} = C';
+        children.add(
+          MathBlock(
+            math: ExView(plain: plain, pretty: pretty, latex: latex),
+            accent: true,
+            size: 21,
+            tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
+            onCopyLatex: () => _copyLatex(
+              context,
+              ExView(plain: plain, pretty: pretty, latex: latex),
+            ),
+          ),
+        );
+        if (oblique) {
+          children.add(const SizedBox(height: 12));
+          children.add(
+            _NoteRow(
+              icon: Icons.straighten_rounded,
+              text: l10n.t(
+                'The family crosses every member at a constant angle α = ${_angleText(result.trajectoryAngle)}.',
+                'خانواده هر عضو را با زاویهٔ ثابت α = ${_angleText(result.trajectoryAngle)} قطع می‌کند.',
+              ),
+              color: c.muted,
+            ),
+          );
+        }
       }
     } else {
       final primary = result.primary;
@@ -1312,7 +1418,7 @@ class ResultView extends StatelessWidget {
         _valueLine(
           context,
           l10n.t('Value at the point f(a)', 'مقدار در نقطه f(a)'),
-          result.value!.pretty,
+          result.value!,
         ),
       );
       out.add(const SizedBox(height: 8));
@@ -1322,7 +1428,7 @@ class ResultView extends StatelessWidget {
         _valueLine(
           context,
           l10n.t("Tangent slope f'(a)", 'شیب مماس f′(a)'),
-          result.slope!.pretty,
+          result.slope!,
         ),
       );
       out.add(const SizedBox(height: 14));
@@ -1441,7 +1547,11 @@ class ResultView extends StatelessWidget {
         _valueLine(
           context,
           l10n.t('At this instant', 'در این لحظه'),
-          _formatNumber(result.numericValue),
+          ExView(
+            plain: _formatNumber(result.numericValue),
+            pretty: _formatNumber(result.numericValue),
+            latex: '\\approx ${_formatNumber(result.numericValue).replaceAll('−', '-')}',
+          ),
         ),
       );
     }
@@ -1480,7 +1590,7 @@ class ResultView extends StatelessWidget {
         _valueLine(
           context,
           l10n.t('Secant slope', 'شیب خط قاطع'),
-          result.slope!.pretty,
+          result.slope!,
         ),
       );
       out.add(const SizedBox(height: 10));
@@ -1516,27 +1626,15 @@ class ResultView extends StatelessWidget {
     return out;
   }
 
-  Widget _valueLine(BuildContext context, String label, String value) {
-    final c = context.colors;
+  Widget _valueLine(BuildContext context, String label, ExView math) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
           width: 160,
           child: Text(label, style: Theme.of(context).textTheme.bodySmall),
         ),
-        Expanded(
-          child: Text(
-            value,
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.left,
-            style: TextStyle(
-              fontFamily: 'DejaVu Sans Mono',
-              fontFamilyFallback: const ['monospace', 'Vazirmatn'],
-              fontSize: 14,
-              color: c.text,
-            ),
-          ),
-        ),
+        Expanded(child: MathInline(math: math, size: 16)),
       ],
     );
   }

@@ -42,6 +42,7 @@ int main() {
         expect(r.ok, "sin(x)/x at 0 succeeds");
         expect(r.limitExists, "sin(x)/x has a limit at 0");
         expect(closeTo(r.solution, 1.0), "sin(x)/x -> 1");
+        expect(r.steps.size() == 4, "two-sided finite limit emits 4 steps");
     }
     {
         Result r = limitExpression("(1-cos(x))/x^2", "x", "0", "both", "en");
@@ -136,6 +137,7 @@ int main() {
         expect(r.ok, "continuity of x^2 succeeds");
         expect(r.continuous, "x^2 is continuous at 2");
         expect(closeTo(r.solution, 4.0), "continuity value is f(2)=4");
+        expect(r.steps.size() == 5, "continuity check emits 5 steps");
     }
     {
         Result r = continuityExpression("1/x", "x", "0", "en");

@@ -813,6 +813,82 @@ def envelope(
     return payload
 
 
+def oblique(
+    family: str,
+    c: str = "c",
+    angle: float = 45.0,
+    x: str = "x",
+    y: str = "y",
+) -> dict:
+    """Reference slope of the family that crosses ``family`` at ``angle``.
+
+    The crossing angle is measured in degrees.  The returned
+    ``trajectory_slope`` is the right-hand side of the first-order ODE that the
+    native solver integrates; ``verify_candidate`` (or the caller) can then
+    check a native solution against it.
+    """
+    X, Y, C = sp.Symbol(x, real=True), sp.Symbol(y, real=True), sp.Symbol(c, real=True)
+    lhs, rhs = _split_equation(family)
+    F = sp.sympify(
+        _insert_implicit_multiplication(
+            _normalize(f"({lhs})-({rhs})"), variables=x + y + c
+        ),
+        locals=_base_locals(x, y, y_function=False, extra={c: C}),
+    )
+    payload = {
+        "ok": True,
+        "family": family,
+        "angle": angle,
+        "F": str(F),
+        "family_slope": "",
+        "trajectory_slope": "",
+        "warnings": [],
+    }
+    Fx = sp.simplify(sp.diff(F, X))
+    Fy = sp.simplify(sp.diff(F, Y))
+    if Fy == 0:
+        # Vertical family: every member has an infinite slope.
+        payload["warnings"].append(
+            "the family slope is infinite; the trajectory slope is the cotangent"
+        )
+        if abs(angle - 90.0) < 1e-9:
+            payload["trajectory_slope"] = "0"
+        else:
+            payload["trajectory_slope"] = str(
+                sp.simplify(1 / sp.tan(sp.pi * angle / 180))
+            )
+        return payload
+
+    slope = sp.simplify(-Fx / Fy)
+    cvals = sp.solve(F, C, dict=False)
+    if cvals:
+        slope = sp.simplify(slope.subs(C, cvals[0]))
+    if slope.has(C):
+        payload["family_slope"] = str(slope)
+        payload["warnings"].append(
+            "c could not be eliminated from the family slope; no trajectory family"
+        )
+        return payload
+    payload["family_slope"] = str(slope)
+
+    if abs(angle - 90.0) < 1e-9:
+        if slope == 0:
+            payload["warnings"].append("the trajectory is vertical (x = C)")
+            return payload
+        payload["trajectory_slope"] = str(sp.simplify(-1 / slope))
+        return payload
+
+    tangent = sp.tan(sp.pi * angle / 180)
+    denominator = sp.simplify(1 - slope * tangent)
+    if denominator == 0:
+        payload["warnings"].append("the trajectory is vertical (x = C)")
+        return payload
+    payload["trajectory_slope"] = str(
+        sp.simplify((slope + tangent) / denominator)
+    )
+    return payload
+
+
 def _verify_orthogonal(ortho: sp.Expr, solution: sp.Eq, X) -> bool:
     try:
         if not isinstance(solution, sp.Eq) or solution.lhs != sp.Function("y")(X):
