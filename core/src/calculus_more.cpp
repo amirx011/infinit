@@ -140,6 +140,36 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
         Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
         Ex center = exactCentre(a);
         r.normalized = f;
+        const std::string unknown = unknownFunction(f);
+        if (!unknown.empty()) {
+            r.ok = false;
+            r.verified = false;
+            r.errorCode = "unknown_function";
+            r.errorDetail = "unknown function: " + unknown;
+            r.error = en ? ("Unknown function: " + unknown)
+                         : ("تابع " + unknown + " ناشناخته است.");
+            return r;
+        }
+        // E4: name any extra free symbols instead of evaluating them as 0.
+        std::vector<std::string> symbols;
+        collectSymbols(f, symbols);
+        std::vector<std::string> extras;
+        for (const auto& s : symbols) {
+            if (s == x || s == "e" || s == "pi" || s.rfind("C", 0) == 0) continue;
+            extras.push_back(s);
+        }
+        if (!extras.empty()) {
+            std::string names;
+            for (size_t i = 0; i < extras.size(); ++i) {
+                if (i) names += ", ";
+                names += extras[i];
+            }
+            r.warnings.push_back(
+                en ? "Extra symbol(s) " + names +
+                         " are free; the validation evaluates them at non-zero sample values."
+                   : "نماد(های) اضافی " + names +
+                         " آزاد هستند؛ در بررسی عددی با مقادیر نمونهٔ ناصفر ارزیابی می‌شوند.");
+        }
         r.order = order;
         r.point = toPlain(center);
         r.value = simplify(substitute(f, x, center));
@@ -252,29 +282,43 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
         r.assumptions.push_back(en ? "xi lies between a and x."
                                    : "xi بین a و x قرار دارد.");
 
-        // Numeric evidence: compare the polynomial with f a little away from a.
-        const double probe = a + 0.1;
-        bool okF = false, okP = false;
-        const double fv = evalAt(f, x, probe, &okF);
-        const double pv = evalAt(polynomial, x, probe, &okP);
-        if (okF && okP && std::isfinite(fv) && std::isfinite(pv)) {
+        // Numeric evidence: compare the polynomial with f at a few points away
+        // from the centre.  Extra symbols get non-zero values so every term is
+        // exercised instead of silently vanishing.
+        std::vector<std::string> evalVars = {x};
+        std::vector<double> extraValues;
+        for (size_t i = 0; i < extras.size(); ++i) {
+            evalVars.push_back(extras[i]);
+            extraValues.push_back(0.7 + 0.3 * (double)i);
+        }
+        bool firstProbe = true;
+        for (double probe : {a + 0.1, a - 0.1, a + 0.2}) {
+            std::vector<double> values = {probe};
+            values.insert(values.end(), extraValues.begin(), extraValues.end());
+            bool okF = false, okP = false;
+            const double fv = evalMany(f, evalVars, values, &okF);
+            const double pv = evalMany(polynomial, evalVars, values, &okP);
+            if (!okF || !okP || !std::isfinite(fv) || !std::isfinite(pv)) continue;
             const double err = std::fabs(fv - pv);
+            const bool ok = err < 0.05 * (1.0 + std::fabs(fv));
             r.checks.push_back({
-                en ? "Polynomial agrees with f near the centre"
-                   : "تطابق چندجمله‌ای با f نزدیک مرکز",
-                err < 0.05,
-                en ? ("At x = " + numStr(probe) + ", f = " + numStr(fv) + " and P = " +
-                      numStr(pv) + "; |error| = " + numStr(err) + ".")
-                   : ("در x = " + numStr(probe) + "، f = " + numStr(fv) + " و P = " +
-                      numStr(pv) + "؛ |خطا| = " + numStr(err) + "."),
+                en ? "Polynomial agrees with f at x = " + numStr(probe)
+                   : "تطابق چندجمله‌ای با f در x = " + numStr(probe),
+                ok,
+                en ? ("f = " + numStr(fv) + ", P = " + numStr(pv) +
+                      "; |error| = " + numStr(err) + ".")
+                   : ("f = " + numStr(fv) + "، P = " + numStr(pv) +
+                      "؛ |خطا| = " + numStr(err) + "."),
             });
-            r.hasNumeric = true;
-            r.numericValue = pv;
+            if (firstProbe) {
+                r.hasNumeric = true;
+                r.numericValue = pv;
+                firstProbe = false;
+            }
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Taylor-series error: ") + e.what()
-                     : std::string("خطا در سری تیلور: ") + e.what();
+        setFailure(r, en, e, "Taylor-series error: ", "خطا در سری تیلور: ");
     }
     return r;
 }

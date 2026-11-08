@@ -120,6 +120,27 @@ void fail(Result& r, bool en, const std::string& enMsg, const std::string& faMsg
     r.verified = false;
 }
 
+void failDomain(Result& r, bool en, const DomainIssue& issue) {
+    r.ok = false;
+    r.verified = false;
+    r.errorCode = issue.code.empty() ? "singular" : issue.code;
+    r.errorDetail = issue.detail;
+    r.errorPoint = issue.point;
+    r.hasErrorPoint = true;
+    r.error = en
+                  ? ("The function is undefined at x = " + numStr(issue.point) +
+                     " (singular point).")
+                  : ("تابع در x = " + numStr(issue.point) + " تعریف نشده است (نقطه تکین).");
+}
+
+bool validCoefficient(double v) {
+    if (!std::isfinite(v)) return false;
+    if (v >= (double)std::numeric_limits<long long>::max() ||
+        v <= (double)std::numeric_limits<long long>::min())
+        return false;
+    return std::fabs(v) <= 1e10;
+}
+
 Ex linearCombine(double c1, const Ex& f1, double c2, const Ex& f2) {
     std::vector<Ex> terms;
     if (std::fabs(c1) > 1e-14) terms.push_back(Mul(numEx(c1), f1));
@@ -547,11 +568,31 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
     try {
         f = parseExpr(input);
     } catch (const std::exception& e) {
-        fail(r, en, std::string("Could not parse f(x,y): ") + e.what(),
-             std::string("تابع f(x,y) خوانده نشد: ") + e.what());
+        setFailure(r, en, e, "Could not parse f(x,y): ", "تابع f(x,y) خوانده نشد: ");
+        return r;
+    }
+    const std::string unknown = unknownFunction(f);
+    if (!unknown.empty()) {
+        r.ok = false;
+        r.verified = false;
+        r.errorCode = "unknown_function";
+        r.errorDetail = "unknown function: " + unknown;
+        r.error = en ? ("Unknown function: " + unknown)
+                     : ("تابع " + unknown + " ناشناخته است.");
         return r;
     }
     r.normalized = f;
+    // A singular right-hand side (for example csc²x at x = 0) is a domain
+    // failure, not an unknown function or a generic integration failure.
+    {
+        std::map<std::string, double> fixed;
+        fixed["y"] = y0;
+        DomainIssue issue;
+        if (checkDomain(f, "x", fixed, x0, x0 + n * h, &issue)) {
+            failDomain(r, en, issue);
+            return r;
+        }
+    }
     double x = x0;
     double y = y0;
     std::ostringstream table;
@@ -764,14 +805,41 @@ Result fourierSeries(const TopicRequest& req, bool en) {
         return r;
     }
     Ex f;
-    try { f = parseExpr(input); } catch (const std::exception& e) {
-        fail(r, en, std::string("Could not parse f(x): ") + e.what(),
-             std::string("تابع f(x) خوانده نشد: ") + e.what());
+    try {
+        f = parseExpr(input);
+    } catch (const std::exception& e) {
+        setFailure(r, en, e, "Could not parse f(x): ", "تابع f(x) خوانده نشد: ");
         return r;
     }
     r.normalized = f;
+    const std::string unknown = unknownFunction(f);
+    if (!unknown.empty()) {
+        r.ok = false;
+        r.verified = false;
+        r.errorCode = "unknown_function";
+        r.errorDetail = "unknown function: " + unknown;
+        r.error = en ? ("Unknown function: " + unknown)
+                     : ("تابع " + unknown + " ناشناخته است.");
+        return r;
+    }
+    // sec²x and friends are infinite inside [-L, L]; there is no series.
+    DomainIssue issue;
+    if (checkDomain(f, "x", {}, -L, L, &issue)) {
+        failDomain(r, en, issue);
+        return r;
+    }
     const double a0 = simpson(f, "x", -L, L) / L;
+    if (!validCoefficient(a0)) {
+        r.ok = false;
+        r.verified = false;
+        r.errorCode = "not_integrable";
+        r.errorDetail = "non-finite or overflowing Fourier coefficient a0";
+        r.error = en ? "This function is not integrable on the interval."
+                     : "این تابع روی بازه انتگرال‌پذیر نیست.";
+        return r;
+    }
     std::vector<Ex> parts;
+    std::vector<double> anVals, bnVals;
     if (std::fabs(a0) > 1e-10) parts.push_back(numEx(a0 / 2.0));
     std::ostringstream coeffs;
     coeffs << "n\ta_n\tb_n\n";
@@ -781,7 +849,19 @@ Result fourierSeries(const TopicRequest& req, bool en) {
         const Ex fs = Mul(f, sinEx(arg));
         const double an = simpson(fc, "x", -L, L) / L;
         const double bn = simpson(fs, "x", -L, L) / L;
-        coeffs << n << "\t" << numStr(an) << "\t" << numStr(bn) << "\n";
+        anVals.push_back(an);
+        bnVals.push_back(bn);
+        if (!validCoefficient(an) || !validCoefficient(bn)) {
+            r.ok = false;
+            r.verified = false;
+            r.errorCode = "not_integrable";
+            r.errorDetail = "non-finite or overflowing Fourier coefficient at n = " +
+                            std::to_string(n);
+            r.error = en ? "This function is not integrable on the interval."
+                         : "این تابع روی بازه انتگرال‌پذیر نیست.";
+            return r;
+        }
+        coeffs << n << "\t" << numStr(an, 10) << "\t" << numStr(bn, 10) << "\n";
         if (std::fabs(an) > 1e-10) parts.push_back(Mul(smartNum(an), cosEx(arg)));
         if (std::fabs(bn) > 1e-10) parts.push_back(Mul(smartNum(bn), sinEx(arg)));
     }
@@ -797,6 +877,52 @@ Result fourierSeries(const TopicRequest& req, bool en) {
             "با نگه‌داشتن " + std::to_string(terms) + " هارمونیک.");
     addCheck(r, en, "Constant term", "جملهٔ ثابت", std::isfinite(a0),
              "a0/2 = " + numStr(a0 / 2.0) + ".", "a0/2 = " + numStr(a0 / 2.0) + ".");
+
+    // A jump at the endpoints makes the series converge slowly (Gibbs).
+    bool okLeft = false, okRight = false;
+    const double fLeft = evalF(f, "x", -L, "", 0, &okLeft);
+    const double fRight = evalF(f, "x", L, "", 0, &okRight);
+    if (okLeft && okRight && std::isfinite(fLeft) && std::isfinite(fRight)) {
+        const double jump = std::fabs(fLeft - fRight);
+        if (jump > 1e-6 * (1.0 + std::fabs(fLeft) + std::fabs(fRight))) {
+            r.warnings.push_back(
+                en ? "Jump at the endpoints: the periodic extension is discontinuous, so "
+                     "the series converges slowly and shows the Gibbs phenomenon near -L and L."
+                   : "پرش در دو سر بازه: ادامهٔ متناوب تابع پیوسته نیست، پس سری به‌کندی "
+                     "همگرا می‌شود و نزدیک -L و L پدیدهٔ گیبس دیده می‌شود.");
+            addCheck(r, en, "Endpoint jump", "پرش دو سر بازه", true,
+                     "f(-L) - f(L) = " + numStr(fLeft - fRight) +
+                         "; expect slow convergence (Gibbs).",
+                     "f(-L) - f(L) = " + numStr(fLeft - fRight) +
+                         "؛ همگرایی کند (گیبس) انتظار می‌رود.");
+        }
+    }
+
+    // Independent validation: the partial sum against f at interior points.
+    for (double xv : {0.0, -1.0, 1.0}) {
+        if (xv <= -L || xv >= L) continue;
+        bool okF = false;
+        const double fv = evalF(f, "x", xv, "", 0, &okF);
+        if (!okF || !std::isfinite(fv)) continue;
+        double sv = a0 / 2.0;
+        for (size_t k = 0; k < anVals.size(); ++k) {
+            const double arg = (double)(k + 1) * kPi * xv / L;
+            sv += anVals[k] * std::cos(arg) + bnVals[k] * std::sin(arg);
+        }
+        if (!std::isfinite(sv)) continue;
+        const double err = std::fabs(fv - sv);
+        double scale = std::fabs(a0);
+        for (size_t k = 0; k < anVals.size(); ++k)
+            scale += std::fabs(anVals[k]) + std::fabs(bnVals[k]);
+        const double tolerance = std::max(0.05, 0.25 * scale);
+        addCheck(r, en, "Partial sum at x = " + numStr(xv),
+                 "سری جزئی در x = " + numStr(xv),
+                 err < tolerance,
+                 "f = " + numStr(fv) + ", partial sum = " + numStr(sv) +
+                     ", |error| = " + numStr(err) + ".",
+                 "f = " + numStr(fv) + "، سری جزئی = " + numStr(sv) +
+                     "، |خطا| = " + numStr(err) + ".");
+    }
     return r;
 }
 
@@ -1096,11 +1222,20 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
     const std::string input = req.text("f", "t");
     Ex f;
     try { f = parseExpr(input); } catch (const std::exception& e) {
-        fail(r, en, std::string("Could not parse f(t): ") + e.what(),
-             std::string("تابع f(t) خوانده نشد: ") + e.what());
+        setFailure(r, en, e, "Could not parse f(t): ", "تابع f(t) خوانده نشد: ");
         return r;
     }
     r.normalized = f;
+    const std::string unknown = unknownFunction(f);
+    if (!unknown.empty()) {
+        r.ok = false;
+        r.verified = false;
+        r.errorCode = "unknown_function";
+        r.errorDetail = "unknown function: " + unknown;
+        r.error = en ? ("Unknown function: " + unknown)
+                     : ("تابع " + unknown + " ناشناخته است.");
+        return r;
+    }
     std::string rule;
     bool ok = true;
     Ex F = laplaceOf(f, "t", rule, ok);
@@ -1593,8 +1728,7 @@ Result solveTopic(const TopicRequest& req) {
         Result r;
         r.ok = false;
         r.mode = "topic";
-        r.error = en ? std::string("Topic failed: ") + e.what()
-                     : std::string("اجرای مبحث ناموفق بود: ") + e.what();
+        setFailure(r, en, e, "Topic failed: ", "اجرای مبحث ناموفق بود: ");
         return r;
     }
     Result r;

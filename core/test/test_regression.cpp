@@ -1,8 +1,13 @@
 #include "odecore.h"
+#include "calculus_apps.hpp"
+#include "numeric.hpp"
 #include "solver.hpp"
+#include "topics.hpp"
 
+#include <cmath>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace ode;
@@ -667,6 +672,154 @@ int main() {
         expect(response.find("(s - 2)^-2") != std::string::npos,
                "Laplace t*exp(2t) = (s-2)^-2");
         ode_free(raw);
+    }
+
+    // Parser fixtures (P1, P3, P4): superscripts, implicit multiplication and
+    // glued functions must all canonicalise to the documented forms.
+    {
+        const std::pair<const char*, const char*> cases[] = {
+            {"e^2t", "exp(2*t)"},
+            {"e^5x", "exp(5*x)"},
+            {"3e^3x", "3*exp(3*x)"},
+            {"csc²x", "csc(x)^2"},
+            {"csc²(x)", "csc(x)^2"},
+            {"sec²x", "sec(x)^2"},
+            {"sinx", "sin(x)"},
+            {"csinx", "c*sin(x)"},
+            {"x⁶y", "y*x^6"},
+            {"4e^x y", "4*y*exp(x)"},
+            {"2x", "2*x"},
+            {"x × y", "x*y"},
+            {"x + secx²x", "x + x*sec(x)^2"},
+        };
+        for (const auto& item : cases) {
+            const std::string got = toPlain(parseExpr(item.first));
+            expect(got == item.second,
+                   std::string("parse ") + item.first + " -> " + item.second +
+                       " (got " + got + ")");
+        }
+    }
+
+    // P3: an invalid multi-byte character must raise a coded error instead of
+    // truncating UTF-8 mid-character.
+    {
+        bool coded = false;
+        try {
+            parseExpr("تابع");
+        } catch (const EngineError& e) {
+            coded = e.code == "bad_characters";
+        } catch (...) {
+        }
+        expect(coded, "Persian letters raise bad_characters");
+    }
+
+    // E1: a singular start point is reported with its location; moving the
+    // start away from the pole still solves.
+    {
+        TopicRequest req;
+        req.topic = "heun";
+        req.strs["f"] = "x + csc(x)^2";
+        req.nums["x0"] = 0;
+        req.nums["y0"] = 1;
+        req.nums["h"] = 0.1;
+        req.nums["n"] = 10;
+        Result r = solveTopic(req);
+        expect(!r.ok, "Heun at a pole does not claim success");
+        expect(r.errorCode == "singular", "Heun at a pole reports singular");
+        expect(r.hasErrorPoint && std::fabs(r.errorPoint) < 1e-9,
+               "Heun reports the singular point x=0");
+
+        req.nums["x0"] = 1;
+        Result shifted = solveTopic(req);
+        expect(shifted.ok, "Heun away from the pole solves");
+        expect(shifted.hasNumeric && std::fabs(shifted.numericValue - 3.60218) < 5e-4,
+               "Heun x + csc^2(x) at x0=1 matches the known value");
+    }
+
+    // E2: a non-integrable Fourier input is refused; a genuine jump keeps the
+    // Gibbs note and interior-point validation.
+    {
+        TopicRequest req;
+        req.topic = "fourier_series";
+        req.strs["f"] = "1/cos(x)^2";
+        req.nums["L"] = 3.141592653589793;
+        req.nums["n"] = 5;
+        Result r = solveTopic(req);
+        expect(!r.ok, "Fourier refuses sec^2 on [-pi, pi]");
+        expect(r.errorCode == "singular", "Fourier reports the singular point");
+    }
+    {
+        TopicRequest req;
+        req.topic = "fourier_series";
+        req.strs["f"] = "6000000000";
+        req.nums["L"] = 3.141592653589793;
+        req.nums["n"] = 5;
+        Result r = solveTopic(req);
+        expect(!r.ok, "Fourier rejects an overflowing coefficient");
+        expect(r.errorCode == "not_integrable",
+               "overflowing coefficient reports not_integrable");
+    }
+    {
+        TopicRequest req;
+        req.topic = "fourier_series";
+        req.strs["f"] = "x^2 + 3*exp(3*x)";
+        req.nums["L"] = 3.141592653589793;
+        req.nums["n"] = 5;
+        Result r = solveTopic(req);
+        expect(r.ok, "Fourier still solves a continuous interior function");
+        bool gibbs = false;
+        for (const auto& w : r.warnings) {
+            if (w.find("Gibbs") != std::string::npos) gibbs = true;
+        }
+        expect(gibbs, "Fourier warns about the endpoint jump and Gibbs");
+        bool interior = false;
+        for (const auto& c : r.checks) {
+            if (c.name == "Partial sum at x = 0") interior = true;
+        }
+        expect(interior, "Fourier validates the partial sum at an interior point");
+    }
+
+    // E3: a singular endpoint removes only the affected extremum, and the
+    // interior minimum survives.
+    {
+        Result r = optimiseFunction("1/sin(x)^2 + 6*exp(5)*x^3", "x", 0, 2, "en");
+        expect(r.ok, "optimisation with a singular endpoint completes");
+        expect(!r.maximum, "no maximum is reported when f is unbounded above");
+        expect(r.minimum != nullptr, "the interior minimum is still reported");
+        bool ok = false;
+        const double minimum = evalReal(r.minimum, {}, &ok);
+        expect(ok && minimum > 27.0 && minimum < 33.0,
+               "the interior minimum is near 30");
+    }
+
+    // E3/E4: an extra free symbol is named in a warning, never silently zero.
+    {
+        Result r = optimiseFunction("xy + 6*x^2*exp(5*x) + csc(x)^2", "x", 0, 2, "en");
+        expect(r.ok, "optimisation with an extra symbol completes");
+        bool named = false;
+        for (const auto& w : r.warnings) {
+            if (w.find("y") != std::string::npos) named = true;
+        }
+        expect(named, "optimisation warns that y was treated as a parameter");
+        expect(!r.maximum, "extra-symbol case has no maximum");
+    }
+    {
+        Result r = taylorSeries("x + 2*y", "x", 0, 2, "en");
+        expect(r.ok, "Taylor series with an extra symbol completes");
+        bool named = false;
+        for (const auto& w : r.warnings) {
+            if (w.find("y") != std::string::npos) named = true;
+        }
+        expect(named, "Taylor validation names the extra symbol y");
+        expect(r.checks.size() >= 2, "Taylor validation uses non-zero samples");
+    }
+
+    // E10: unknown functions and malformed input carry stable error codes.
+    {
+        Result unknown = taylorSeries("foo(x)", "x", 0, 2, "en");
+        expect(!unknown.ok, "unknown function is rejected");
+        expect(unknown.errorCode == "unknown_function",
+               "unknown function carries its code");
     }
 
     if (failures == 0) {

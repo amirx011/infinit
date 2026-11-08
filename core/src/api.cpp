@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <iomanip>
 #include <limits>
 #include <map>
@@ -426,6 +427,11 @@ std::string resultJson(const ode::Result& r) {
     o << ",\"order\":" << r.order;
     o << ",\"engine\":" << q(r.engine);
     o << ",\"error\":" << q(r.error);
+    o << ",\"error_code\":" << q(r.errorCode);
+    o << ",\"error_detail\":" << q(r.errorDetail);
+    o << ",\"error_point\":"
+      << (r.hasErrorPoint ? numJson(r.errorPoint) : "null");
+    o << ",\"interpreted_as\":" << q(r.interpretedAs);
     o << ",\"closed_form\":" << (r.closedForm ? "true" : "false");
     o << ",\"time_ms\":" << r.timeMs;
     o << ",\"normalized\":" << exJson(r.normalized);
@@ -606,8 +612,40 @@ std::string resultJson(const ode::Result& r) {
     return o.str();
 }
 
-ode::Result handle(const JVal& req) {
+// True when two spellings differ only by whitespace.  The interpretation
+// notice is only useful when the parser actually changed something.
+bool sameIgnoringWhitespace(std::string a, std::string b) {
+    auto strip = [](std::string& s) {
+        s.erase(std::remove_if(s.begin(), s.end(),
+                               [](unsigned char c) { return std::isspace(c); }),
+                s.end());
+    };
+    strip(a);
+    strip(b);
+    return a == b;
+}
+
+ode::Result handleRaw(const JVal& req) {
     std::string mode = req.str("mode", "ode");
+    if (mode == "parse") {
+        ode::Result r;
+        r.mode = "parse";
+        r.typeId = "parse";
+        r.variable = req.str("x", "x");
+        try {
+            ode::Ex parsed = ode::parseODEExpr(req.str("input"), r.variable, nullptr,
+                                               {r.variable, "e", "pi"});
+            r.normalized = parsed;
+            r.solution = parsed;
+            const std::string canonical = ode::toPlain(parsed);
+            if (!sameIgnoringWhitespace(canonical, req.str("input")))
+                r.interpretedAs = canonical;
+            r.ok = true;
+        } catch (const std::exception& e) {
+            ode::setFailure(r, req.str("lang", "en") != "fa", e);
+        }
+        return r;
+    }
     if (mode == "wronskian") {
         std::vector<std::string> fns;
         if (const JVal* arr = req.get("functions")) {
@@ -800,8 +838,46 @@ ode::Result handle(const JVal& req) {
     return ode::solveODE(req.str("input"), opt);
 }
 
-std::string errorJson(const std::string& message) {
-    return std::string("{\"ok\":false,\"error\":") + q(message) + ",\"mode\":\"ode\"}";
+ode::Result handle(const JVal& req) {
+    ode::Result r = handleRaw(req);
+    const std::string mode = req.str("mode", "ode");
+    if (mode == "parse") return r;
+    std::string text;
+    std::string indep = req.str("x", "x");
+    if (mode == "taylor" || mode == "optimize" || mode == "behaviour" ||
+        mode == "envelope" || mode == "orthogonal" || mode == "oblique" ||
+        mode == "derivative" || mode == "integral" || mode == "integral_apps" ||
+        mode == "limit" || mode == "continuity" || mode == "tangent" ||
+        mode == "mvt" || mode == "cauchy" || mode == "lhopital" ||
+        mode == "partial" || mode == "series") {
+        text = req.str("input");
+    } else if (mode == "topic") {
+        text = req.str("f");
+        if (text.empty()) text = req.str("F");
+        indep = "x";
+    } else {
+        return r;
+    }
+    if (text.empty()) return r;
+    try {
+        ode::Ex parsed = (mode == "topic")
+                             ? ode::parseExpr(text)
+                             : ode::parseODEExpr(text, indep, nullptr, {indep, "e", "pi"});
+        const std::string canonical = ode::toPlain(parsed);
+        if (!sameIgnoringWhitespace(canonical, text)) r.interpretedAs = canonical;
+    } catch (...) {
+        // The solver already reported the parse failure; no notice to add.
+    }
+    return r;
+}
+
+std::string errorJson(const std::string& message, const std::string& code = "",
+                      const std::string& detail = "") {
+    std::string out = "{\"ok\":false,\"error\":" + q(message) + ",\"mode\":\"ode\"";
+    if (!code.empty()) out += ",\"error_code\":" + q(code);
+    if (!detail.empty()) out += ",\"error_detail\":" + q(detail);
+    out += "}";
+    return out;
 }
 
 // The request itself may be malformed, so a full JSON parse is not available.
@@ -840,6 +916,8 @@ ODE_API char* ode_solve(const char* request_json) {
         } else {
             out = resultJson(handle(req));
         }
+    } catch (const ode::EngineError& e) {
+        out = errorJson(en ? ode::englishForEngineError(e) : e.what(), e.code, e.detail);
     } catch (const std::exception& e) {
         const std::string detail = ode::localizeError(e.what(), en);
         out = errorJson(en ? std::string("Invalid request: ") + detail

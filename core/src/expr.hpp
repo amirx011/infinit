@@ -17,6 +17,15 @@ struct OverflowError : std::runtime_error {
     explicit OverflowError(const std::string& s) : std::runtime_error(s) {}
 };
 
+// An engine failure with a stable machine-readable code.  The message is the
+// user-facing sentence; `detail` keeps the technical text for logs.
+struct EngineError : std::runtime_error {
+    std::string code;
+    std::string detail;
+    EngineError(std::string c, std::string message, std::string d = "")
+        : std::runtime_error(std::move(message)), code(std::move(c)), detail(std::move(d)) {}
+};
+
 // ---------------------------------------------------------------- Rational
 struct Rational {
     long long n = 0, d = 1;
@@ -218,6 +227,12 @@ bool polyCoeffs(const Ex& a, const std::string& var, std::vector<Ex>& coeffs);
 Ex solveLinear(const Ex& a, const std::string& var); // solve a=0 if linear in var
 std::vector<Ex> solvePoly(const Ex& a, const std::string& var, int maxDeg = 4); // rational/quadratic roots
 Ex limitAt(const Ex& a, const std::string& var, const Ex& point);
+
+// Function-name tests shared by the parser and the validators.
+bool isKnownFunctionName(const std::string& name);
+// First unknown function name in the tree, or an empty string when all names
+// are known.  Used to turn "could not evaluate" into a precise message.
+std::string unknownFunction(const Ex& a);
 
 // printing
 std::string toPlain(const Ex& a);

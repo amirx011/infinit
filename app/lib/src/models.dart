@@ -233,6 +233,11 @@ class SolveResult {
     this.numericOnly = false,
     this.numericRhs = '',
     this.numericNote = '',
+    this.errorCode = '',
+    this.errorDetail = '',
+    this.errorPoint,
+    this.hasErrorPoint = false,
+    this.interpretedAs = '',
   });
 
   final bool ok;
@@ -241,6 +246,21 @@ class SolveResult {
   final String typeFa;
   final String typeEn;
   final String error;
+
+  /// Stable engine error code (`bad_characters`, `singular`,
+  /// `not_integrable`, `unknown_function`) used to pick a user-facing message.
+  final String errorCode;
+
+  /// Technical context for logs only. Never shown to the student.
+  final String errorDetail;
+
+  /// Point where a singular domain error was detected, when known.
+  final double? errorPoint;
+  final bool hasErrorPoint;
+
+  /// Canonical form of the input when the parser had to reinterpret it.
+  final String interpretedAs;
+
   final String engine;
   final String method;
   final String variable;
@@ -412,6 +432,11 @@ class SolveResult {
     typeFa: (j['type_fa'] ?? '').toString(),
     typeEn: (j['type_en'] ?? '').toString(),
     error: (j['error'] ?? '').toString(),
+    errorCode: (j['error_code'] ?? '').toString(),
+    errorDetail: (j['error_detail'] ?? '').toString(),
+    errorPoint: (j['error_point'] as num?)?.toDouble(),
+    hasErrorPoint: j['error_point'] != null,
+    interpretedAs: (j['interpreted_as'] ?? '').toString(),
     engine: (j['engine'] ?? 'native').toString(),
     method: (j['method'] ?? '').toString(),
     variable: (j['variable'] ?? 'x').toString(),

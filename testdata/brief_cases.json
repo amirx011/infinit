@@ -1,0 +1,284 @@
+[
+  {
+    "id": "taylor_exp",
+    "section": "taylor",
+    "request": {"mode": "taylor", "input": "exp(x)", "a": 0, "order": 4, "lang": "en"},
+    "check": {"polynomial": "1 + x + x**2/2 + x**3/6 + x**4/24", "remainder_has": "xi"}
+  },
+  {
+    "id": "taylor_ln",
+    "section": "taylor",
+    "request": {"mode": "taylor", "input": "ln(1+x)", "a": 0, "order": 4, "lang": "en"},
+    "check": {"polynomial": "x - x**2/2 + x**3/3 - x**4/4"}
+  },
+  {
+    "id": "taylor_cos",
+    "section": "taylor",
+    "request": {"mode": "taylor", "input": "cos(x)", "a": 0, "order": 4, "lang": "en"},
+    "check": {"polynomial": "1 - x**2/2 + x**4/24"}
+  },
+  {
+    "id": "taylor_extra_symbol",
+    "section": "taylor",
+    "request": {"mode": "taylor", "input": "x + 2*y", "a": 0, "order": 2, "lang": "en"},
+    "check": {"polynomial": "x + 2*y", "warning_names": "y", "min_checks": 2}
+  },
+  {
+    "id": "laplace_t3",
+    "section": "laplace",
+    "request": {"mode": "topic", "topic": "laplace", "f": "t^3", "lang": "en"},
+    "check": {"solution": "6/s**4"}
+  },
+  {
+    "id": "laplace_exp_sin",
+    "section": "laplace",
+    "request": {"mode": "topic", "topic": "laplace", "f": "exp(2*t)*sin(3*t)", "lang": "en"},
+    "check": {"solution": "3/((s-2)**2+9)"}
+  },
+  {
+    "id": "laplace_t_exp",
+    "section": "laplace",
+    "request": {"mode": "topic", "topic": "laplace", "f": "t*exp(-t)", "lang": "en"},
+    "check": {"solution": "1/(s+1)**2"}
+  },
+  {
+    "id": "laplace_mixed_exp2t",
+    "section": "laplace",
+    "request": {"mode": "topic", "topic": "laplace", "f": "exp(2*t)*3*t^2 + t^3", "lang": "en"},
+    "check": {"solution": "6/(s-2)**3 + 6/s**4"}
+  },
+  {
+    "id": "laplace_mixed_e2t",
+    "section": "laplace",
+    "request": {"mode": "topic", "topic": "laplace", "f": "e^2t * 3t^2 + t^3", "lang": "en"},
+    "check": {"solution": "6/(s-2)**3 + 6/s**4", "interpreted": true}
+  },
+  {
+    "id": "envelope_line",
+    "section": "envelope",
+    "request": {"mode": "envelope", "input": "y = c*x - c^2", "lang": "en"},
+    "check": {"solution": "y - x**2/4"}
+  },
+  {
+    "id": "envelope_circles",
+    "section": "envelope",
+    "request": {"mode": "envelope", "input": "(x-c)^2 + y^2 = 1", "lang": "en"},
+    "check": {"solution": "y**2 - 1"}
+  },
+  {
+    "id": "envelope_none_hyperbola",
+    "section": "envelope",
+    "request": {"mode": "envelope", "input": "y = c/x", "lang": "en"},
+    "check": {"no_solution": true}
+  },
+  {
+    "id": "envelope_none_mixed",
+    "section": "envelope",
+    "request": {"mode": "envelope", "input": "y = c*x^2 + c*sin(x)", "lang": "en"},
+    "check": {"no_solution": true}
+  },
+  {
+    "id": "cooling_newton",
+    "section": "cooling",
+    "request": {"mode": "topic", "topic": "cooling", "k": 0.1, "room": 20, "t0": 100, "t": 10, "lang": "en"},
+    "check": {"numeric": 49.4303552937, "solution": "20 + 80*exp(-t/10)"}
+  },
+  {
+    "id": "rk4_y",
+    "section": "rk4",
+    "request": {"mode": "topic", "topic": "rk4", "f": "y", "x0": 0, "y0": 1, "h": 0.1, "n": 10, "lang": "en"},
+    "check": {"ode_oracle": true, "tol": 1e-8}
+  },
+  {
+    "id": "heun_y",
+    "section": "heun",
+    "request": {"mode": "topic", "topic": "heun", "f": "y", "x0": 0, "y0": 1, "h": 0.1, "n": 10, "lang": "en"},
+    "check": {"ode_oracle": true, "tol": 1e-8}
+  },
+  {
+    "id": "rk4_sin_exp",
+    "section": "rk4",
+    "request": {"mode": "topic", "topic": "rk4", "f": "x^6*y + sin(x)*exp(y)", "x0": 0, "y0": 1, "h": 0.1, "n": 1, "lang": "en"},
+    "check": {"ode_oracle": true, "tol": 1e-8}
+  },
+  {
+    "id": "rk4_unicode_input",
+    "section": "rk4",
+    "request": {"mode": "topic", "topic": "rk4", "f": "x⁶y + sinx × e^y", "x0": 0, "y0": 1, "h": 0.1, "n": 1, "lang": "en"},
+    "check": {"ode_oracle": true, "tol": 1e-8, "oracle_rhs": "x**6*y + sin(x)*exp(y)"}
+  },
+  {
+    "id": "heun_csc_singular_start",
+    "section": "heun",
+    "request": {"mode": "topic", "topic": "heun", "f": "x + csc^2x", "x0": 0, "y0": 1, "h": 0.1, "n": 10, "lang": "en"},
+    "check": {"error_code": "singular", "error_point": 0.0}
+  },
+  {
+    "id": "heun_csc_ok_start",
+    "section": "heun",
+    "request": {"mode": "topic", "topic": "heun", "f": "x + csc^2x", "x0": 1, "y0": 1, "h": 0.1, "n": 10, "lang": "en"},
+    "check": {"numeric": 3.60218, "tol": 1e-4}
+  },
+  {
+    "id": "heun_csc_xy_singular_start",
+    "section": "heun",
+    "request": {"mode": "topic", "topic": "heun", "f": "xy^3 + csc^2x * x^2", "x0": 0, "y0": 1, "h": 0.1, "n": 10, "lang": "en"},
+    "check": {"error_code": "singular", "error_point": 0.0}
+  },
+  {
+    "id": "fourier_x",
+    "section": "fourier",
+    "request": {"mode": "topic", "topic": "fourier_series", "f": "x", "L": 3.141592653589793, "n": 5, "lang": "en"},
+    "check": {"fourier": "x", "terms": 5}
+  },
+  {
+    "id": "fourier_x2",
+    "section": "fourier",
+    "request": {"mode": "topic", "topic": "fourier_series", "f": "x^2", "L": 3.141592653589793, "n": 5, "lang": "en"},
+    "check": {"fourier": "x**2", "terms": 5}
+  },
+  {
+    "id": "fourier_x2_exp",
+    "section": "fourier",
+    "request": {"mode": "topic", "topic": "fourier_series", "f": "x^2 + 3*exp(3*x)", "L": 3.141592653589793, "n": 5, "lang": "en"},
+    "check": {"fourier": "x**2 + 3*exp(3*x)", "terms": 5, "gibbs": true, "interior_points": [0, 1, -1]}
+  },
+  {
+    "id": "fourier_sec2_not_integrable",
+    "section": "fourier",
+    "request": {"mode": "topic", "topic": "fourier_series", "f": "1/cos(x)^2", "L": 3.141592653589793, "n": 5, "lang": "en"},
+    "check": {"error_code": "singular"}
+  },
+  {
+    "id": "fourier_sec2_brief_input",
+    "section": "fourier",
+    "request": {"mode": "topic", "topic": "fourier_series", "f": "x² + 3e^3x × sec²x", "L": 3.141592653589793, "n": 5, "lang": "en"},
+    "check": {"error_code": "singular"}
+  },
+  {
+    "id": "fourier_coefficient_guard",
+    "section": "fourier",
+    "request": {"mode": "topic", "topic": "fourier_series", "f": "6000000000", "L": 3.141592653589793, "n": 5, "lang": "en"},
+    "check": {"error_code": "not_integrable"}
+  },
+  {
+    "id": "optimize_cubic",
+    "section": "optimize",
+    "request": {"mode": "optimize", "input": "x^3 - 3*x", "xmin": 0, "xmax": 2, "lang": "en"},
+    "check": {"max": 2, "max_at": 2, "min": -2, "min_at": 1}
+  },
+  {
+    "id": "optimize_quadratic",
+    "section": "optimize",
+    "request": {"mode": "optimize", "input": "x^2 - 4*x + 5", "xmin": 0, "xmax": 3, "lang": "en"},
+    "check": {"max": 5, "max_at": 0, "min": 1, "min_at": 2}
+  },
+  {
+    "id": "optimize_sin",
+    "section": "optimize",
+    "request": {"mode": "optimize", "input": "sin(x)", "xmin": 0, "xmax": 6.283185307179586, "lang": "en"},
+    "check": {"max": 1, "min": -1}
+  },
+  {
+    "id": "optimize_unbounded_csc",
+    "section": "optimize",
+    "request": {"mode": "optimize", "input": "1/sin(x)^2 + 6*exp(5)*x^3", "xmin": 0, "xmax": 2, "lang": "en"},
+    "check": {"no_max": true, "oracle_expr": "csc(x)**2 + 6*exp(5)*x**3"}
+  },
+  {
+    "id": "optimize_extra_symbol",
+    "section": "optimize",
+    "request": {"mode": "optimize", "input": "xy + 6x^2 * e^5x + csc^2x", "xmin": 0, "xmax": 2, "lang": "en"},
+    "check": {"no_max": true, "oracle_expr": "csc(x)**2 + 6*x**2*exp(5*x)", "warning_names": "y"}
+  },
+  {
+    "id": "parse_csc_sup2",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "csc²x", "lang": "en"},
+    "check": {"canonical": "csc(x)**2"}
+  },
+  {
+    "id": "parse_csc_sup2_paren",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "csc²(x)", "lang": "en"},
+    "check": {"canonical": "csc(x)**2"}
+  },
+  {
+    "id": "parse_sec_sup2",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "sec²x", "lang": "en"},
+    "check": {"canonical": "sec(x)**2"}
+  },
+  {
+    "id": "parse_sinx",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "sinx", "lang": "en"},
+    "check": {"canonical": "sin(x)"}
+  },
+  {
+    "id": "parse_csinx",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "csinx", "lang": "en"},
+    "check": {"canonical": "c*sin(x)", "interpreted": true}
+  },
+  {
+    "id": "parse_sup6_product",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "x⁶y", "lang": "en"},
+    "check": {"canonical": "x**6*y"}
+  },
+  {
+    "id": "parse_4exp_xy",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "4e^x y", "lang": "en"},
+    "check": {"canonical": "4*exp(x)*y"}
+  },
+  {
+    "id": "parse_2x",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "2x", "lang": "en"},
+    "check": {"canonical": "2*x"}
+  },
+  {
+    "id": "parse_unicode_product",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "x × y", "lang": "en"},
+    "check": {"canonical": "x*y"}
+  },
+  {
+    "id": "parse_e2t",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "e^2t", "lang": "en"},
+    "check": {"canonical": "exp(2*t)", "interpreted": true}
+  },
+  {
+    "id": "parse_e5x",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "e^5x", "lang": "en"},
+    "check": {"canonical": "exp(5*x)"}
+  },
+  {
+    "id": "parse_3e3x",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "3e^3x", "lang": "en"},
+    "check": {"canonical": "3*exp(3*x)"}
+  },
+  {
+    "id": "parse_typo_secx2x",
+    "section": "parse",
+    "request": {"mode": "parse", "input": "x + secx²x", "lang": "en"},
+    "check": {"canonical": "x + x*sec(x)**2", "interpreted": true}
+  },
+  {
+    "id": "error_unknown_function",
+    "section": "error",
+    "request": {"mode": "taylor", "input": "foo(x)", "order": 2, "lang": "en"},
+    "check": {"error_code": "unknown_function"}
+  },
+  {
+    "id": "utf8_persian_round_trip",
+    "section": "utf8",
+    "request": {"mode": "parse", "input": "تابع", "lang": "fa"},
+    "check": {"error_code": "bad_characters", "valid_utf8": true}
+  }
+]

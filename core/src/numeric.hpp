@@ -3,6 +3,7 @@
 #include "expr.hpp"
 #include "solver.hpp"
 #include <map>
+#include <string>
 
 namespace ode {
 
@@ -12,5 +13,20 @@ bool numericallyEqual(const Ex& a, const Ex& b, const std::vector<std::string>& 
                       double tol = 1e-7);
 Ex numericSolutionCheck(const Ex& F, const Ex& yExpr, const std::string& x, const std::string& y,
                         const Check& placeholder = {});
+
+// A structured domain failure: a division by zero, a pole of tan/sec/cot/csc,
+// a non-finite sample or runaway growth on [lo, hi].
+struct DomainIssue {
+    bool found = false;
+    std::string code;      // singular
+    double point = 0.0;
+    std::string detail;    // technical text for the log
+};
+
+// Sample f densely on [lo, hi], also locating denominator zeros exactly enough
+// to name them.  Returns true and fills `issue` when f is not defined/finite.
+bool checkDomain(const Ex& f, const std::string& var,
+                 const std::map<std::string, double>& fixed, double lo, double hi,
+                 DomainIssue* issue, int samples = 4001);
 
 } // namespace ode

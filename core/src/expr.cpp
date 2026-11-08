@@ -544,6 +544,34 @@ void collectSymbols(const Ex& a, std::vector<std::string>& out) {
 }
 bool isConstWrt(const Ex& a, const std::string& var) { return !dependsOn(a, var); }
 
+// ---------------------------------------------------------------- function names
+static const char* kKnownFunctions[] = {
+    "sin", "cos", "tan", "cot", "sec", "csc",
+    "asin", "acos", "atan", "asinh", "acosh", "atanh",
+    "sinh", "cosh", "tanh", "exp", "ln", "log", "sqrt", "abs",
+    "erf", "erfc", "fact", "deriv", "integral"
+};
+
+bool isKnownFunctionName(const std::string& name) {
+    for (const char* known : kKnownFunctions) {
+        if (name == known) return true;
+    }
+    return false;
+}
+
+std::string unknownFunction(const Ex& a) {
+    if (!a) return "";
+    if (a->isFunc() && !a->isFunc("Deriv") && !a->isFunc("Integral") &&
+        !isKnownFunctionName(a->name)) {
+        return a->name;
+    }
+    for (const auto& arg : a->args) {
+        const std::string found = unknownFunction(arg);
+        if (!found.empty()) return found;
+    }
+    return "";
+}
+
 // ---------------------------------------------------------------- substitution
 Ex substitute(const Ex& a, const std::string& var, const Ex& rep) {
     if (!a) return a;

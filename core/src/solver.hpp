@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #pragma once
 #include "expr.hpp"
+#include "localize.hpp"
 
 namespace ode {
 
@@ -46,6 +47,14 @@ struct Result {
     std::string typeId;
     std::string typeFa;
     std::string error;
+    // Stable machine-readable failure code (singular / bad_characters /
+    // unknown_function / not_integrable) plus technical detail for logs.
+    std::string errorCode;
+    std::string errorDetail;
+    double errorPoint = 0.0;
+    bool hasErrorPoint = false;
+    // Canonical form of the parsed input when it differs from the raw text.
+    std::string interpretedAs;
     std::string engine = "native";
     std::string method;        // integration method, e.g. substitution / parts
     std::string variable;      // calculus variable
@@ -188,6 +197,32 @@ struct Result {
     std::vector<std::string> singularities;
     long long timeMs = 0;
 };
+
+// User-facing English text for a coded engine failure.
+inline std::string englishForEngineError(const EngineError& e) {
+    if (e.code == "bad_characters") return "The input contains an invalid character.";
+    if (e.code == "singular") return "The function is undefined at a singular point.";
+    if (e.code == "not_integrable") return "This function is not integrable on the interval.";
+    if (e.code == "unknown_function") {
+        return e.detail.empty() ? "Unknown function." : ("Unknown function: " +
+               e.detail.substr(e.detail.find(':') == std::string::npos
+                                   ? 0 : e.detail.find(':') + 2));
+    }
+    return localizeError(e.what(), true);
+}
+
+// Fill a Result from an exception without leaking Persian text into an English
+// response.  EngineError carries its own user-facing sentence.
+inline void setFailure(Result& r, bool en, const std::exception& e,
+                       const std::string& enPrefix = "", const std::string& faPrefix = "") {
+    if (const auto* coded = dynamic_cast<const EngineError*>(&e)) {
+        r.errorCode = coded->code;
+        r.errorDetail = coded->detail;
+        r.error = en ? englishForEngineError(*coded) : coded->what();
+        return;
+    }
+    r.error = en ? enPrefix + localizeError(e.what(), true) : faPrefix + e.what();
+}
 
 struct OdeOptions {
     std::string x = "x";

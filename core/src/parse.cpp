@@ -101,7 +101,31 @@ struct Lexer {
                 tk.t = Tok::Bang; break;
             }
             default:
-                throw std::runtime_error(std::string("نویسه ناشناخته: '") + c + "'");
+                {
+                    // Consume the whole UTF-8 code point.  Slicing one byte
+                    // out of a multi-byte character produced invalid UTF-8,
+                    // which crashed the Dart string decoder.
+                    const size_t start = i - 1;
+                    size_t len = 1;
+                    const unsigned char lead = (unsigned char)c;
+                    if ((lead & 0xE0) == 0xC0) len = 2;
+                    else if ((lead & 0xF0) == 0xE0) len = 3;
+                    else if ((lead & 0xF8) == 0xF0) len = 4;
+                    for (size_t k = 1; k < len && i < s.size(); ++k) {
+                        if (((unsigned char)s[i] & 0xC0) != 0x80) break;
+                        ++i;
+                    }
+                    std::ostringstream detail;
+                    detail << "unknown character at byte " << start << " (";
+                    for (size_t k = start; k < i; ++k) {
+                        if (k != start) detail << ' ';
+                        detail << "0x" << std::hex << std::uppercase
+                               << (unsigned)(unsigned char)s[k] << std::dec;
+                    }
+                    detail << ")";
+                    throw EngineError("bad_characters", "ورودی کاراکتر نامعتبر دارد.",
+                                      detail.str());
+                }
         }
         return tk;
     }
@@ -171,6 +195,12 @@ struct Parser {
         Ex b = atom();
         if (accept(Tok::Caret)) {
             Ex e = unary(); // right associative
+            // Student notation `e^2t` means e^(2t), not (e^2)*t.  Apply the
+            // rule only for the base e and only when the exponent starts with
+            // a number, so `e^x y` keeps standard precedence.
+            if (b->isSym("e") && e->isNum()) {
+                while (cur.t == Tok::Ident) e = Mul(e, unary());
+            }
             return Pow(b, e);
         }
         return b;
@@ -213,7 +243,15 @@ struct Parser {
                     int order = args[2]->isNum() ? (int)args[2]->num.n : 1;
                     out = Deriv(args[0], v, order);
                 }
-                else out = Fn(lower, args);
+                else {
+                    if (!isKnownFunctionName(lower) && lower != "deriv" &&
+                        lower != "integral") {
+                        throw EngineError("unknown_function",
+                                          "تابع " + name + " ناشناخته است.",
+                                          "unknown function: " + name);
+                    }
+                    out = Fn(lower, args);
+                }
             } else {
                 std::string lower = name;
                 for (auto& ch : lower) ch = (char)std::tolower((unsigned char)ch);
@@ -238,20 +276,67 @@ struct Parser {
     }
 };
 
+namespace {
+// Decode one superscript digit or sign at s[i].  Returns the digit value, -1
+// for a sign (with `sign` set to +1/-1) and -2 when this is not a superscript.
+int superscriptAt(const std::string& s, size_t i, size_t& len, int& sign) {
+    static const char* digits[] = {
+        "\xE2\x81\xB0", "\xE2\x81\xB1", "\xE2\x81\xB2", "\xE2\x81\xB3", "\xE2\x81\xB4",
+        "\xE2\x81\xB5", "\xE2\x81\xB6", "\xE2\x81\xB7", "\xE2\x81\xB8", "\xE2\x81\xB9"};
+    for (int d = 0; d < 10; ++d) {
+        const size_t n = std::strlen(digits[d]);
+        if (s.compare(i, n, digits[d]) == 0) { len = n; return d; }
+    }
+    // Superscript one, two and three also live in Latin-1.
+    if (s.compare(i, 2, "\xC2\xB9") == 0) { len = 2; return 1; }
+    if (s.compare(i, 2, "\xC2\xB2") == 0) { len = 2; return 2; }
+    if (s.compare(i, 2, "\xC2\xB3") == 0) { len = 2; return 3; }
+    if (s.compare(i, 3, "\xE2\x81\xBA") == 0) { len = 3; sign = 1; return -1; }
+    if (s.compare(i, 3, "\xE2\x81\xBB") == 0) { len = 3; sign = -1; return -1; }
+    return -2;
+}
+} // namespace
+
 std::string normalizeInput(std::string s) {
     s = replaceAll(s, "−", "-");
     s = replaceAll(s, "×", "*");
     s = replaceAll(s, "·", "*");
+    s = replaceAll(s, "⋅", "*");
     s = replaceAll(s, "÷", "/");
     s = replaceAll(s, "√", "sqrt");
     s = replaceAll(s, "π", "pi");
     s = replaceAll(s, "′", "'");
     s = replaceAll(s, "’", "'");
-    s = replaceAll(s, "²", "^2");
-    s = replaceAll(s, "³", "^3");
-    s = replaceAll(s, "⁴", "^4");
     s = replaceAll(s, "≤", "<=");
-    return s;
+    // Superscript runs become one exponent: x⁶y -> x^6y, x⁻² -> x^-2,
+    // x²³ -> x^23.  A run must contain at least one digit.
+    std::string out;
+    out.reserve(s.size());
+    for (size_t i = 0; i < s.size();) {
+        int sign = 0;
+        std::string digits;
+        size_t j = i;
+        while (j < s.size()) {
+            size_t len = 0;
+            const int d = superscriptAt(s, j, len, sign);
+            if (d == -2) break;
+            if (d >= 0) digits += (char)('0' + d);
+            j += len;
+        }
+        if (!digits.empty()) {
+            if (!out.empty() && out.back() == '^') out.pop_back();
+            out += '^';
+            if (sign < 0) out += '-';
+            out += digits;
+            i = j;
+            continue;
+        }
+        // A sign without digits is malformed but must still be copied whole so
+        // the output stays valid UTF-8.
+        if (j > i) { out += s.substr(i, j - i); i = j; continue; }
+        out += s[i++];
+    }
+    return out;
 }
 
 // convert dy/dx, d^2y/dx^2, d/dx(...) into Deriv(f,x,n)
@@ -330,6 +415,69 @@ bool containsProtectedMulti(const std::string& run) {
     return false;
 }
 
+// Longest known function name starting at `pos` and ending no later than
+// `end`.  Longest wins so `sinh` is not read as `sin` followed by `h`.
+size_t functionLengthAt(const std::string& s, size_t pos, size_t end) {
+    static const char* names[] = {
+        "asinh", "acosh", "atanh", "erfc", "asin", "acos", "atan", "sinh",
+        "cosh", "tanh", "sqrt", "sin", "cos", "tan", "cot", "sec", "csc",
+        "erf", "exp", "log", "abs", "ln"};
+    size_t best = 0;
+    for (const char* name : names) {
+        const size_t len = std::strlen(name);
+        if (len <= best || len > end - pos) continue;
+        bool match = true;
+        for (size_t k = 0; k < len; ++k) {
+            if (std::tolower((unsigned char)s[pos + k]) !=
+                std::tolower((unsigned char)name[k])) {
+                match = false;
+                break;
+            }
+        }
+        if (match) best = len;
+    }
+    return best;
+}
+
+// `csinx` is one identifier to the lexer.  Insert a product before a function
+// name glued to a preceding letter (`c*sinx`), then the function pass adds the
+// parentheses.  Whole names such as `asinh` and `sinh` are left intact.
+std::string separateGluedFunctions(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 8);
+    size_t i = 0;
+    while (i < s.size()) {
+        if (!(std::isalpha((unsigned char)s[i]) || s[i] == '_')) {
+            out += s[i++];
+            continue;
+        }
+        size_t j = i + 1;
+        while (j < s.size() && (std::isalnum((unsigned char)s[j]) || s[j] == '_')) ++j;
+        size_t pos = i;
+        while (pos < j) {
+            const size_t here = functionLengthAt(s, pos, j);
+            if (here) {
+                out += s.substr(pos, here);
+                pos += here;
+                continue;
+            }
+            size_t next = std::string::npos;
+            for (size_t k = pos + 1; k < j; ++k) {
+                if (functionLengthAt(s, k, j)) { next = k; break; }
+            }
+            if (next == std::string::npos) {
+                out += s.substr(pos, j - pos);
+                break;
+            }
+            out += s.substr(pos, next - pos);
+            out += '*';
+            pos = next;
+        }
+        i = j;
+    }
+    return out;
+}
+
 // The lexer reads `xy` as one identifier. This pass splits such a run into
 // single-letter factors (`x*y`) while keeping function names, constants,
 // differentials and multi-letter variable names whole.
@@ -360,7 +508,11 @@ std::string splitImplicitRuns(const std::string& s, const std::vector<std::strin
                 break;
             }
         }
-        if (protectedWhole || hasDigitOrUnderscore) {
+        // An identifier followed by '(' is a function name, even when it is an
+        // unknown one: `foo(x)` must be reported as an unknown function, not
+        // split into `f*o*o(x)`.
+        const bool callLike = j < s.size() && s[j] == '(';
+        if (protectedWhole || callLike || hasDigitOrUnderscore) {
             out += run;
             continue;
         }
@@ -427,6 +579,7 @@ std::string splitImplicitRuns(const std::string& s, const std::vector<std::strin
 }
 
 static std::string naturalizeImplicit(std::string s, const std::vector<std::string>& vars) {
+    s = separateGluedFunctions(s);
     std::vector<std::string> effective = vars;
     if (effective.empty()) {
         // parseExpr has no declared variable list. These are the letters the

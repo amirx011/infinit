@@ -562,12 +562,7 @@ class ResultView extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    result.error.isEmpty
-                        ? l10n.t(
-                            'The input could not be analysed.',
-                            'ورودی قابل تحلیل نبود.',
-                          )
-                        : result.error,
+                    _errorMessage(),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -585,6 +580,10 @@ class ResultView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (result.interpretedAs.isNotEmpty) ...[
+          _interpretationCard(context),
+          const SizedBox(height: 18),
+        ],
         _answerCard(context),
         if (beforeSteps != null) ...[const SizedBox(height: 18), beforeSteps!],
         if (showSteps && result.steps.isNotEmpty) ...[
@@ -599,6 +598,66 @@ class ResultView extends StatelessWidget {
           _checksCard(context),
         ],
       ],
+    );
+  }
+
+  String _errorMessage() {
+    switch (result.errorCode) {
+      case 'bad_characters':
+        return l10n.t(
+          'The input contains an invalid character.',
+          'ورودی کاراکتر نامعتبر دارد.',
+        );
+      case 'singular':
+        if (result.hasErrorPoint && result.errorPoint != null) {
+          final point = _formatNumber(result.errorPoint!);
+          return l10n.t(
+            'The function is undefined at x = $point (singular point).',
+            'تابع در x = $point تعریف نشده است (نقطه تکین).',
+          );
+        }
+        return l10n.t(
+          'The function is undefined at a singular point.',
+          'تابع در نقطهٔ تکین تعریف نشده است.',
+        );
+      case 'not_integrable':
+        return l10n.t(
+          'This function is not integrable on the interval.',
+          'این تابع روی بازه انتگرال‌پذیر نیست.',
+        );
+      case 'unknown_function':
+        if (result.error.isNotEmpty) return result.error;
+        return l10n.t('Unknown function.', 'تابع ناشناخته است.');
+    }
+    if (result.error.isNotEmpty) return result.error;
+    return l10n.t(
+      'The input could not be analysed.',
+      'ورودی قابل تحلیل نبود.',
+    );
+  }
+
+  Widget _interpretationCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final c = context.colors;
+    return SoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      elevated: false,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 18, color: c.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              l10n.t(
+                'Read as ${result.interpretedAs}',
+                'به‌صورت ${result.interpretedAs} خوانده شد',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

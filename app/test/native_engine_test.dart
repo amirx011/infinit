@@ -262,6 +262,77 @@ void main() {
     );
   });
 
+  test('parser reports when input was reinterpreted', () {
+    final interpreted = engine.solve({
+      'mode': 'parse',
+      'input': 'e^2t',
+    });
+    expect(interpreted.ok, isTrue);
+    expect(interpreted.interpretedAs, contains('exp'));
+
+    final canonical = engine.solve({
+      'mode': 'parse',
+      'input': 'x^2 + 3*exp(3*x)',
+    });
+    expect(canonical.ok, isTrue);
+    expect(canonical.interpretedAs, isEmpty);
+
+    final derivative = engine.derivative('csinx');
+    expect(derivative.ok, isTrue);
+    expect(derivative.interpretedAs, contains('sin(x)'));
+  });
+
+  test('unicode input survives the Dart bridge intact', () {
+    final superscript = engine.solve({
+      'mode': 'topic',
+      'topic': 'rk4',
+      'f': 'x⁶y + sinx × e^y',
+      'x0': 0,
+      'y0': 1,
+      'h': 0.1,
+      'n': 1,
+      'lang': 'fa',
+    });
+    expect(superscript.ok, isTrue);
+    expect(superscript.hasNumeric, isTrue);
+
+    final persian = engine.solve({
+      'mode': 'parse',
+      'input': 'تابع',
+      'lang': 'fa',
+    });
+    expect(persian.ok, isFalse);
+    expect(persian.errorCode, 'bad_characters');
+    expect(persian.error, contains('کاراکتر'));
+  });
+
+  test('singular start point returns its location', () {
+    final result = engine.solve({
+      'mode': 'topic',
+      'topic': 'heun',
+      'f': 'x + csc(x)^2',
+      'x0': 0,
+      'y0': 1,
+      'h': 0.1,
+      'n': 10,
+    });
+    expect(result.ok, isFalse);
+    expect(result.errorCode, 'singular');
+    expect(result.hasErrorPoint, isTrue);
+    expect(result.errorPoint, closeTo(0, 1e-9));
+  });
+
+  test('an unknown function is named in the error', () {
+    final result = engine.solve({
+      'mode': 'taylor',
+      'input': 'foo(x)',
+      'order': 2,
+    });
+    expect(result.ok, isFalse);
+    expect(result.errorCode, 'unknown_function');
+    expect(result.error, contains('foo'));
+  });
+
   test('application topics keep the correct sign and readable constants', () {
     final falling = engine.solve({
       'mode': 'topic',

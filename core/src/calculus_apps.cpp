@@ -153,9 +153,9 @@ constexpr size_t kMaxRoots = 64;
 // Real roots on [lo, hi] from sign changes, refined by bisection. This backs up
 // solvePoly for derivatives whose roots are irrational.
 std::vector<double> numericRoots(const Ex& f, const std::string& x, double lo, double hi,
-                                 int samples = 4000) {
+                                 int samples = 4000, bool allowFreeSymbols = false) {
     if (identicallyZero(f, x, lo, hi)) return {};
-    if (hasFreeSymbols(f, x)) return {};
+    if (hasFreeSymbols(f, x) && !allowFreeSymbols) return {};
     std::vector<double> roots;
     const double h = (hi - lo) / samples;
     for (int i = 1; i <= samples && roots.size() < kMaxRoots; ++i) {
@@ -203,9 +203,9 @@ std::vector<double> numericRoots(const Ex& f, const std::string& x, double lo, d
 // `strict` drops the endpoints, which is what the mean-value theorems require:
 // the promised point c always lies in the OPEN interval (a, b).
 std::vector<double> allRoots(const Ex& f, const std::string& x, double lo, double hi,
-                             bool strict = false) {
+                             bool strict = false, bool allowFreeSymbols = false) {
     if (identicallyZero(f, x, lo, hi)) return {};
-    if (hasFreeSymbols(f, x)) return {};
+    if (hasFreeSymbols(f, x) && !allowFreeSymbols) return {};
     std::vector<double> out;
     for (const Ex& root : solvePoly(f, x, 6)) {
         bool ok = false;
@@ -214,7 +214,7 @@ std::vector<double> allRoots(const Ex& f, const std::string& x, double lo, doubl
         const double v = evalReal(root, vars, &ok);
         if (ok && std::isfinite(v) && v >= lo - 1e-9 && v <= hi + 1e-9) out.push_back(v);
     }
-    for (double r : numericRoots(f, x, lo, hi)) out.push_back(r);
+    for (double r : numericRoots(f, x, lo, hi, 4000, allowFreeSymbols)) out.push_back(r);
     std::sort(out.begin(), out.end());
     std::vector<double> merged;
     for (double r : out) {
@@ -736,13 +736,80 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
         }
         Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
         r.normalized = f;
+        const std::string unknown = unknownFunction(f);
+        if (!unknown.empty()) {
+            r.ok = false;
+            r.verified = false;
+            r.errorCode = "unknown_function";
+            r.errorDetail = "unknown function: " + unknown;
+            r.error = en ? ("Unknown function: " + unknown)
+                         : ("تابع " + unknown + " ناشناخته است.");
+            return r;
+        }
         Ex df = simplify(diff(f, x));
         r.derivative = df;
         addStep(r, en, "Objective function and derivative", "تابع هدف و مشتق", f,
                 en ? ("f' = " + toPlain(df) + ".") : "",
                 en ? "" : ("f′ = " + toPlain(df) + "."));
 
-        std::vector<double> critical = allRoots(df, x, xmin, xmax);
+        // E4: extra symbols are still bound to zero by the numeric evaluator.
+        // Say so instead of hiding the substitution.
+        std::vector<std::string> symbols;
+        collectSymbols(f, symbols);
+        std::vector<std::string> extras;
+        for (const auto& s : symbols) {
+            if (s == x || s == "e" || s == "pi" || s.rfind("C", 0) == 0) continue;
+            extras.push_back(s);
+        }
+        if (!extras.empty()) {
+            std::string names;
+            for (size_t i = 0; i < extras.size(); ++i) {
+                if (i) names += ", ";
+                names += extras[i];
+            }
+            r.warnings.push_back(
+                en ? "Extra symbol(s) " + names +
+                         " were treated as 0 for the numeric extrema."
+                   : "نماد(های) اضافی " + names +
+                         " در محاسبهٔ عددی اکسترمم‌ها صفر گرفته شدند.");
+        }
+
+        // E1: a pole or runaway sample means the closed-interval extremum may
+        // not exist.  Find the blow-up sign so only the affected side is lost.
+        DomainIssue issue;
+        const bool singular = checkDomain(f, x, {}, xmin, xmax, &issue);
+        int blow = 0;
+        if (singular) {
+            const double base = std::max(1e-7, (xmax - xmin) * 1e-5);
+            int positive = 0, negative = 0;
+            for (int k = 1; k <= 8; ++k) {
+                for (int side = -1; side <= 1; side += 2) {
+                    const double probe = issue.point + side * base * k;
+                    if (probe <= xmin || probe >= xmax) continue;
+                    bool ok = false;
+                    const double v = evalAt(f, x, probe, &ok);
+                    if (!ok || !std::isfinite(v)) continue;
+                    if (v > 0) ++positive;
+                    if (v < 0) ++negative;
+                }
+            }
+            if (positive && !negative) blow = 1;
+            else if (negative && !positive) blow = -1;
+            r.warnings.push_back(
+                en ? "Singular point at x = " + numStr(issue.point) + ": " +
+                         (blow > 0 ? "f tends to +infinity"
+                                   : (blow < 0 ? "f tends to -infinity" : "f is unbounded"))
+                   : "نقطهٔ تکین در x = " + numStr(issue.point) + ": " +
+                         (blow > 0 ? "f به +∞ میل می‌کند"
+                                   : (blow < 0 ? "f به -∞ میل می‌کند" : "f کران‌دار نیست")));
+            CriticalPointView sp;
+            sp.x = snap(issue.point);
+            sp.value = nullptr;
+            sp.kind = "singular";
+            r.candidates.push_back(sp);
+        }
+
+        std::vector<double> critical = allRoots(df, x, xmin, xmax, false, true);
         std::vector<double> candidates = {xmin, xmax};
         for (double c : critical) candidates.push_back(c);
 
@@ -753,6 +820,9 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
         Ex bestMinX = nullptr;
         std::string candFa, candEn;
         for (double c : candidates) {
+            if (singular &&
+                std::fabs(c - issue.point) <= 1e-6 * (1.0 + std::fabs(issue.point)))
+                continue;
             bool ok = false;
             const double v = evalAt(f, x, c, &ok);
             if (!ok || !std::isfinite(v)) continue;
@@ -771,7 +841,39 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
                 bestMinX = snap(c);
             }
         }
-        r.candidates = all;
+        if (singular) {
+            if (blow > 0) { bestMax = -std::numeric_limits<double>::infinity(); bestMaxX = nullptr; }
+            else if (blow < 0) { bestMin = std::numeric_limits<double>::infinity(); bestMinX = nullptr; }
+            else { bestMaxX = nullptr; bestMinX = nullptr; }
+        }
+
+        // E9/E3: a dense sample may not beat a reported extremum.
+        double gridMax = -std::numeric_limits<double>::infinity();
+        double gridMin = std::numeric_limits<double>::infinity();
+        int gridMaxIndex = -1, gridMinIndex = -1;
+        const int gridSamples = 1500;
+        for (int i = 1; i < gridSamples; ++i) {
+            const double gx = xmin + (xmax - xmin) * i / gridSamples;
+            if (singular && std::fabs(gx - issue.point) < 1e-3 * (1.0 + std::fabs(issue.point)))
+                continue;
+            bool ok = false;
+            const double v = evalAt(f, x, gx, &ok);
+            if (!ok || !std::isfinite(v)) continue;
+            if (v > gridMax) { gridMax = v; gridMaxIndex = i; }
+            if (v < gridMin) { gridMin = v; gridMinIndex = i; }
+        }
+        if (bestMaxX && std::isfinite(gridMax) &&
+            gridMax > bestMax + 1e-9 * (1.0 + std::fabs(bestMax))) {
+            bestMax = gridMax;
+            bestMaxX = snap(xmin + (xmax - xmin) * gridMaxIndex / gridSamples);
+        }
+        if (bestMinX && std::isfinite(gridMin) &&
+            gridMin < bestMin - 1e-9 * (1.0 + std::fabs(bestMin))) {
+            bestMin = gridMin;
+            bestMinX = snap(xmin + (xmax - xmin) * gridMinIndex / gridSamples);
+        }
+
+        for (const auto& point : all) r.candidates.push_back(point);
         if (bestMaxX) {
             r.maximum = snap(bestMax);
             r.maximumAt = bestMaxX;
@@ -791,16 +893,40 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
             addStep(r, en, "Maximum point on the interval", "نقطهٔ بیشینه روی بازه",
                     bestMaxX, "f(" + toPlain(bestMaxX) + ") = " + toPlain(r.maximum) + ".",
                     "f(" + toPlain(bestMaxX) + ") = " + toPlain(r.maximum) + ".");
+        } else {
+            addStep(r, en, "No maximum on the interval", "بیشینه‌ای روی بازه وجود ندارد",
+                    nullptr,
+                    "The function is unbounded above near the singular point, so it has no "
+                    "maximum on this closed interval.",
+                    "تابع نزدیک نقطهٔ تکین به بالا کران‌دار نیست، پس روی این بازهٔ بسته "
+                    "بیشینه ندارد.");
         }
         if (bestMinX) {
             addStep(r, en, "Minimum point on the interval", "نقطهٔ کمینه روی بازه",
                     bestMinX, "f(" + toPlain(bestMinX) + ") = " + toPlain(r.minimum) + ".",
                     "f(" + toPlain(bestMinX) + ") = " + toPlain(r.minimum) + ".");
+        } else {
+            addStep(r, en, "No minimum on the interval", "کمینه‌ای روی بازه وجود ندارد",
+                    nullptr,
+                    "The function is unbounded below near the singular point, so it has no "
+                    "minimum on this closed interval.",
+                    "تابع نزدیک نقطهٔ تکین به پایین کران‌دار نیست، پس روی این بازهٔ بسته "
+                    "کمینه ندارد.");
         }
+        const bool gridOk =
+            (!bestMaxX || !std::isfinite(gridMax) ||
+             gridMax <= bestMax + 1e-8 * (1.0 + std::fabs(bestMax))) &&
+            (!bestMinX || !std::isfinite(gridMin) ||
+             gridMin >= bestMin - 1e-8 * (1.0 + std::fabs(bestMin)));
+        r.checks.push_back({
+            en ? "Sample grid bound" : "کران نمونه‌برداری", gridOk,
+            en ? (gridOk ? "No grid sample beats the reported extrema."
+                         : "A grid sample beats a reported extremum.")
+               : (gridOk ? "هیچ نمونه‌ای از اکسترمم‌های گزارش‌شده فراتر نمی‌رود."
+                         : "یک نمونه از اکسترمم گزارش‌شده فراتر می‌رود.")});
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Optimisation error: ") + e.what()
-                     : std::string("خطا در بهینه‌سازی: ") + e.what();
+        setFailure(r, en, e, "Optimisation error: ", "خطا در بهینه‌سازی: ");
     }
     return r;
 }
