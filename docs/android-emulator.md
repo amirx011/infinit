@@ -49,6 +49,28 @@ ADB="$ANDROID_HOME/platform-tools/adb"
 The 320x640 default panel is too narrow for the header; the size/density
 override above produces a normal phone layout.
 
+## Launcher icon switching
+
+Each accent palette has its own pre-rendered icon behind an `activity-alias`.
+Android cannot recolor a launcher icon in place, and changing the enabled state
+of the alias that owns a running task closes that task even with
+`DONT_KILL_APP`. `MainActivity` therefore only records the palette while the app
+is visible and switches aliases in `onStop`/`onDestroy`.
+
+`LauncherRose` is the only alias enabled in the manifest, so a fresh install has
+an icon. `LauncherRoseAlt` is an identical runtime twin used when the user
+returns to rose: `LauncherRose` stays disabled after the first switch. That
+first switch is the only one that drops the background task from recents; later
+switches leave the task and process alive.
+
+To check the active alias:
+
+```bash
+"$ADB" shell cmd package query-activities --brief \
+  -a android.intent.action.MAIN -c android.intent.category.LAUNCHER |
+  grep ir.infinit
+```
+
 ## What was checked
 
 - Home hero, drawer groups, and the ODE / Derivative pages
@@ -57,3 +79,5 @@ override above produces a normal phone layout.
   closed form)
 - Higher-order solution graph and the `f` / `f'` derivative graph
 - Turning **Graphs** off removes the plot, turning it back on restores it
+- Switching the accent palette keeps the session alive and updates the launcher
+  icon once the app goes to the background
