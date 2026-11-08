@@ -58,6 +58,12 @@ class _OdePageState extends State<OdePage> {
     "y'' - 3y' + 2y = 0",
     "y'' + y = 0",
     "y'' = 6x",
+    "y'' = y'^2",
+    "y'' + y' = x",
+    "y''' = y''",
+    "y'' = y*y'",
+    "y'' + y*y' = 0",
+    "y'' = y^2",
   ];
 
   @override
@@ -259,7 +265,7 @@ class _OdePageState extends State<OdePage> {
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.auto_awesome_rounded, size: 19),
+                        : const Icon(Icons.play_arrow_rounded, size: 19),
                     label: Text(
                       _busy
                           ? l.t('Solving…', 'در حال حل…')
@@ -301,6 +307,10 @@ class _OdePageState extends State<OdePage> {
               'Differentiate the answer and substitute it back; that is the only reliable check.',
               'از جواب مشتق بگیرید و آن را جایگذاری کنید؛ تنها بررسی قابل‌اعتماد همین است.',
             ),
+            l.t(
+              'Higher order: if y is missing, set p = y′; if x is missing, set y′ = p(y) and y″ = p·dp/dy.',
+              'مرتبهٔ بالا: اگر y غایب باشد p = y′ می‌گذاریم؛ اگر x غایب باشد y′ = p(y) و y″ = p·dp/dy.',
+            ),
           ],
           example: const ExView(
             plain: "y' = y  =>  y = C*exp(x)",
@@ -339,21 +349,38 @@ class _OdePageState extends State<OdePage> {
         ],
         if (_result != null && _fieldEquation != null) ...[
           const SizedBox(height: 16),
-          FieldPlot(
-            engine: widget.engine,
-            expression: _fieldEquation!,
-            l10n: l,
-            xVariable: _fieldX,
-            yVariable: _fieldY,
-            title: l.t(
-              'Direction field & solution family',
-              'میدان جهت و خانوادهٔ جواب',
+          if ((_result?.order ?? 1) <= 1)
+            FieldPlot(
+              engine: widget.engine,
+              expression: _fieldEquation!,
+              l10n: l,
+              xVariable: _fieldX,
+              yVariable: _fieldY,
+              title: l.t(
+                'Direction field & solution family',
+                'میدان جهت و خانوادهٔ جواب',
+              ),
+              caption: l.t(
+                'Each arrow is the local slope of a solution. The coloured curves are RK4 trajectories started from different initial points, so you can compare members of the same family.',
+                'هر پیکان شیب محلی یک جواب است. منحنی‌های رنگی مسیرهای RK4 از نقطه‌های اولیهٔ مختلف‌اند تا اعضای یک خانواده را با هم مقایسه کنید.',
+              ),
+            )
+          else
+            OdeSolutionPlot(
+              engine: widget.engine,
+              expression: _fieldEquation!,
+              l10n: l,
+              xVariable: _fieldX,
+              yVariable: _fieldY,
+              title: l.t(
+                'Solution family (numeric RK4)',
+                'خانوادهٔ جواب (RK4 عددی)',
+              ),
+              caption: l.t(
+                'Higher-order equations have no single slope field. These curves are RK4 trajectories of the reduced first-order system from different initial states; they are approximate and stop when the solution leaves its domain.',
+                'معادلات مرتبهٔ بالا میدان شیب یکتا ندارند. این منحنی‌ها مسیرهای RK4 دستگاه مرتبهٔ اول کاهش‌یافته از حالت‌های اولیهٔ مختلف‌اند؛ تقریبی‌اند و وقتی جواب از دامنه خارج شود متوقف می‌شوند.',
+              ),
             ),
-            caption: l.t(
-              'Each arrow is the local slope of a solution. The coloured curves are RK4 trajectories started from different initial points, so you can compare members of the same family.',
-              'هر پیکان شیب محلی یک جواب است. منحنی‌های رنگی مسیرهای RK4 از نقطه‌های اولیهٔ مختلف‌اند تا اعضای یک خانواده را با هم مقایسه کنید.',
-            ),
-          ),
         ],
         if (_result != null) ...[
           const SizedBox(height: 18),

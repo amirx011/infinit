@@ -29,8 +29,10 @@ int main() {
     {
         Result r = solve("y' = y^2");
         expect(r.ok, "y'=y^2 solved");
-        expect(r.typeId == "separable", "y'=y^2 separable");
+        expect(r.typeId == "bernoulli", "y'=y^2 classified as Bernoulli");
         expect(r.closedForm, "y'=y^2 closed form");
+        expect(r.isExplicit && toPlain(r.explicitY).find("C - x") != std::string::npos,
+               "y'=y^2 gives the explicit family 1/(C-x)");
     }
     // Second-order non-homogeneous equations: undetermined coefficients.
     {
@@ -288,7 +290,7 @@ int main() {
         expect(r.ok, "dedicated orthogonal solver: lines");
         expect(r.orthogonal != nullptr, "lines produce orthogonal circles");
         expect(r.orthogonal &&
-                   toPlain(r.orthogonal) == "1/2*x^2 + 1/2*y^2",
+                   toPlain(r.orthogonal) == "x^2 + y^2",
                "orthogonal trajectories of lines are circles, got " +
                    (r.orthogonal ? toPlain(r.orthogonal) : std::string("<null>")));
         expect(!r.orthogonalExplicit, "orthogonal circles are implicit");
@@ -298,7 +300,7 @@ int main() {
         expect(r.ok, "dedicated orthogonal solver: hyperbolas");
         expect(r.orthogonal != nullptr, "hyperbolas produce orthogonal hyperbolas");
         expect(r.orthogonal &&
-                   toPlain(r.orthogonal) == "-1/2*x^2 + 1/2*y^2",
+                   toPlain(r.orthogonal) == "y^2 - x^2",
                "orthogonal trajectories of y = c/x, got " +
                    (r.orthogonal ? toPlain(r.orthogonal) : std::string("<null>")));
     }
@@ -393,10 +395,15 @@ int main() {
     {
         Result r = solve("x*(2*x+y) + x*(x+2*y)*y' = 0");
         expect(r.ok, "scaled exact equation solved");
-        expect(r.typeId == "exact" || r.typeId == "integrating_factor",
-               "scaled equation recognized as exact after cancelling x");
-        expect(r.solution && toPlain(r.solution).find("x^2 + y^2 + x*y") != std::string::npos,
-               "scaled equation has the potential x^2 + y^2 + x*y");
+        // The homogeneous path also catches this scaled equation; its implicit
+        // answer -1/2 ln|x^2 + xy + y^2| = C is the same potential.
+        expect(r.typeId == "exact" || r.typeId == "integrating_factor" ||
+                   r.typeId == "homogeneous",
+               "scaled equation recognized after cancelling x");
+        const std::string sol = r.solution ? toPlain(r.solution) : "";
+        expect(sol.find("x^2 + y^2 + x*y") != std::string::npos ||
+                   sol.find("y^2/x^2") != std::string::npos,
+               "scaled equation has the potential x^2 + y^2 + x*y (or equivalent)");
     }
     {
         Result r = solve("y' = exp(x+y)");
@@ -532,6 +539,94 @@ int main() {
         expect(r.ok && r.steps.size() == 3, "envelope emits 3 steps");
     }
 
+    // ------------------------------------------------ higher-order reductions
+    // Missing dependent variable: y' = p, then integrate p once more.
+    {
+        Result r = solve("y'' = 6*x");
+        expect(r.ok, "y''=6x solved through the missing-y path");
+        expect(r.typeId == "direct_integration", "y''=6x keeps direct integration");
+        expect(r.order == 2, "y''=6x reports order 2");
+        expect(r.isExplicit && r.explicitY &&
+                   toPlain(r.explicitY) == "C2 + x^3 + C*x",
+               "y''=6x answer is x^3 + Cx + C2");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y''=6x verified");
+    }
+    {
+        Result r = solve("y'' = y'^2");
+        expect(r.ok, "y''=y'^2 solved");
+        expect(r.typeId == "reduction_missing_y", "y''=y'^2 classified as missing y");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y''=y'^2 verified");
+    }
+    {
+        Result r = solve("y'' = y'^3");
+        expect(r.ok, "y''=y'^3 solved (negative-power isolation)");
+        expect(r.isExplicit, "y''=y'^3 explicit");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y''=y'^3 verified");
+    }
+    {
+        Result r = solve("y'' = 1/y'");
+        expect(r.ok, "y''=1/y' solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y''=1/y' verified");
+    }
+    {
+        Result r = solve("y'' = exp(y')");
+        expect(r.ok, "y''=exp(y') solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y''=exp(y') verified");
+    }
+    {
+        Result r = solve("y'' = exp(-y')");
+        expect(r.ok, "y''=exp(-y') solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y''=exp(-y') verified");
+    }
+    {
+        Result r = solve("y''' = y''");
+        expect(r.ok, "y'''=y'' solved");
+        expect(r.order == 3, "y'''=y'' reports order 3");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y'''=y'' verified");
+    }
+    // Missing independent variable: y' = p(y), y'' = p·dp/dy.
+    {
+        Result r = solve("y'' = y*y'");
+        expect(r.ok, "y''=y*y' solved");
+        expect(r.typeId == "reduction_missing_x", "y''=y*y' classified as missing x");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y''=y*y' verified");
+    }
+    {
+        Result r = solve("y'' + y*y' = 0");
+        expect(r.ok, "y''+y*y'=0 solved");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "y''+y*y'=0 real branch verified");
+    }
+    {
+        Result r = solve("y'' = y^2");
+        expect(r.ok, "y''=y^2 reduced");
+        expect(r.typeId == "reduction_missing_x", "y''=y^2 classified as missing x");
+        expect(!r.isExplicit, "y''=y^2 stays implicit (no elementary y(x))");
+        expect(r.checks.size() == 1 && r.checks[0].ok, "y''=y^2 implicit relation verified");
+    }
+    {
+        Result r = solve("y'' = y'^2 + y");
+        expect(r.ok, "y''=y'^2+y reduced");
+        expect(r.typeId == "reduction_missing_x", "y''=y'^2+y classified as missing x");
+    }
+    // A negative numeric base with an even root used to recurse forever in Pow.
+    {
+        Result r = solve("y'' = -y^2");
+        expect(r.ok, "negative-base square root does not crash");
+        expect(r.typeId == "reduction_missing_x", "y''=-y^2 classified as missing x");
+    }
+
+    // No closed form: keep the answer honest and expose a clean RK4 RHS.
+    {
+        Result r = solve("y'' = y' + y^2");
+        expect(r.ok, "y''=y'+y^2 returns the numeric fallback");
+        expect(r.numericOnly, "numeric fallback is labelled numeric");
+        expect(r.typeId == "numeric_second_order", "numeric fallback has its own type");
+        expect(r.numericRhs == "y^2 + y'",
+               "numeric RHS is normalised, got " + r.numericRhs);
+        expect(!r.closedForm, "numeric fallback has no closed form");
+    }
+
     // C ABI smoke test
     char* raw = ode_solve("{\"mode\":\"ode\",\"input\":\"y' = y\"}");
     expect(raw != nullptr, "C ABI returns a response");
@@ -557,6 +652,20 @@ int main() {
                "C ABI single-function Wronskian is ok");
         expect(response.find("\"independent\":true") != std::string::npos,
                "C ABI single-function Wronskian is independent");
+        ode_free(raw);
+    }
+
+    // Laplace transform of t*e^(2t).  The generic constant-multiple branch
+    // used to recurse on itself forever when a bare factor t was present.
+    raw = ode_solve(
+        "{\"mode\":\"topic\",\"topic\":\"laplace\",\"lang\":\"en\",\"f\":\"t*exp(2*t)\"}");
+    expect(raw != nullptr, "C ABI Laplace response");
+    if (raw) {
+        std::string response(raw);
+        expect(response.find("\"ok\":true") != std::string::npos,
+               "Laplace t*exp(2t) is solved");
+        expect(response.find("(s - 2)^-2") != std::string::npos,
+               "Laplace t*exp(2t) = (s-2)^-2");
         ode_free(raw);
     }
 

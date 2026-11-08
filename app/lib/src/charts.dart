@@ -6,6 +6,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'app_state.dart';
 import 'l10n.dart';
 import 'models.dart';
 import 'native_engine.dart';
@@ -151,6 +152,9 @@ class MathPlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (SettingsScope.maybeOf(context)?.showGraphs == false) {
+      return const SizedBox.shrink();
+    }
     final c = context.colors;
     final showLegend = legend && spec.legend.isNotEmpty;
     return Column(
@@ -926,6 +930,9 @@ class _CurvePlotState extends State<CurvePlot> {
 
   @override
   Widget build(BuildContext context) {
+    if (SettingsScope.maybeOf(context)?.showGraphs == false) {
+      return const SizedBox.shrink();
+    }
     final c = context.colors;
     final accent = widget.color ?? c.accent;
     final sample = _sample;
@@ -1274,6 +1281,9 @@ class _FieldPlotState extends State<FieldPlot> {
 
   @override
   Widget build(BuildContext context) {
+    if (SettingsScope.maybeOf(context)?.showGraphs == false) {
+      return const SizedBox.shrink();
+    }
     final c = context.colors;
     final field = _field;
     return Container(
@@ -1524,6 +1534,9 @@ class _MultiCurvePlotState extends State<MultiCurvePlot> {
 
   @override
   Widget build(BuildContext context) {
+    if (SettingsScope.maybeOf(context)?.showGraphs == false) {
+      return const SizedBox.shrink();
+    }
     final c = context.colors;
     return Container(
       decoration: BoxDecoration(
@@ -1622,4 +1635,584 @@ class _MultiCurvePlotState extends State<MultiCurvePlot> {
       ),
     );
   }
+}
+
+/// Solution curves for a second-order (or reduced higher-order) equation.
+///
+/// The native engine reduces y'' = f(x, y, y') to the first-order system
+/// (y, v) and integrates it with RK4 in both directions. This widget draws the
+/// resulting family, which is the only honest visual for equations without a
+/// closed form.
+class OdeSolutionPlot extends StatefulWidget {
+  const OdeSolutionPlot({
+    super.key,
+    required this.engine,
+    required this.expression,
+    required this.l10n,
+    this.xVariable = 'x',
+    this.yVariable = 'y',
+    this.xmin = -6,
+    this.xmax = 6,
+    this.curves = 7,
+    this.height = 330,
+    this.title,
+    this.caption,
+  });
+
+  final NativeEngine? engine;
+  final String expression;
+  final L10n l10n;
+  final String xVariable;
+  final String yVariable;
+  final double xmin;
+  final double xmax;
+  final int curves;
+  final double height;
+  final String? title;
+  final String? caption;
+
+  @override
+  State<OdeSolutionPlot> createState() => _OdeSolutionPlotState();
+}
+
+class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
+  TrajectoryResult? _result;
+  String? _error;
+  bool _busy = false;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant OdeSolutionPlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expression != widget.expression ||
+        oldWidget.xmin != widget.xmin ||
+        oldWidget.xmax != widget.xmax ||
+        oldWidget.curves != widget.curves ||
+        oldWidget.xVariable != widget.xVariable ||
+        oldWidget.yVariable != widget.yVariable) {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final engine = widget.engine;
+    final generation = ++_generation;
+    if (engine == null) {
+      setState(() {
+        _busy = false;
+        _error = widget.l10n.t(
+          'The native engine is not loaded, so the solution curves cannot be drawn.',
+          'موتور بومی بارگذاری نشده است، بنابراین منحنی‌های جواب رسم نمی‌شوند.',
+        );
+      });
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final result = await engine.odeTrajectoryAsync(
+        widget.expression,
+        x: widget.xVariable.trim().isEmpty ? 'x' : widget.xVariable.trim(),
+        y: widget.yVariable.trim().isEmpty ? 'y' : widget.yVariable.trim(),
+        xmin: widget.xmin,
+        xmax: widget.xmax,
+        curves: widget.curves,
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _busy = false;
+        _result = result.ok ? result : null;
+        _error = result.ok
+            ? null
+            : (result.error.isEmpty
+                  ? widget.l10n.t(
+                      'The solution curves could not be computed.',
+                      'منحنی‌های جواب محاسبه نشدند.',
+                    )
+                  : result.error);
+      });
+    } catch (e) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _busy = false;
+        _result = null;
+        _error = widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
+      });
+    }
+  }
+
+  PlotSpec _spec(TrajectoryResult result, OdeColors c, L10n l) {
+    final palette = <Color>[
+      c.accent,
+      c.success,
+      c.warning,
+      c.accentAlt,
+      c.info,
+      c.creative,
+    ];
+    final series = <PlotSeries>[];
+    final markers = <PlotMarker>[];
+    var yMin = double.infinity;
+    var yMax = double.negativeInfinity;
+    for (var i = 0; i < result.curves.length; i++) {
+      final curve = result.curves[i];
+      final color = palette[i % palette.length];
+      for (final y in curve.ys) {
+        if (!y.isFinite || y.abs() > 1e6) continue;
+        if (y < yMin) yMin = y;
+        if (y > yMax) yMax = y;
+      }
+      final label = l.t(
+        'y(${_short(curve.x0)}) = ${_short(curve.y0)}',
+        'y(${_short(curve.x0)}) = ${_short(curve.y0)}',
+      );
+      series.add(
+        PlotSeries(xs: curve.xs, ys: curve.ys, color: color, label: label),
+      );
+      markers.add(PlotMarker(x: curve.x0, y: curve.y0, color: color));
+    }
+    if (!yMin.isFinite || !yMax.isFinite) {
+      yMin = -6;
+      yMax = 6;
+    }
+    if ((yMax - yMin).abs() < 1e-9) {
+      yMin -= 1;
+      yMax += 1;
+    }
+    final pad = (yMax - yMin) * 0.08;
+    return PlotSpec(
+      series: series,
+      markers: markers,
+      xMin: result.xmin,
+      xMax: result.xmax,
+      yMin: yMin - pad,
+      yMax: yMax + pad,
+      xLabel: widget.xVariable,
+      yLabel: widget.yVariable,
+    );
+  }
+
+  static String _short(double v) {
+    var s = v.toStringAsFixed(2);
+    s = s.replaceFirst(RegExp(r'0+$'), '');
+    s = s.replaceFirst(RegExp(r'\.$'), '');
+    return s;
+  }
+
+  static String _prime(int order) {
+    const primes = ['', '′', '″', '‴', '⁗', '⁵', '⁶'];
+    if (order >= 0 && order < primes.length) return primes[order];
+    return '($order)';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (SettingsScope.maybeOf(context)?.showGraphs == false) {
+      return const SizedBox.shrink();
+    }
+    final c = context.colors;
+    final result = _result;
+    return Container(
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: c.line),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.title != null) ...[
+            Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: c.accent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    widget.title!,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (result != null && result.rhs.isNotEmpty) ...[
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text(
+                '${widget.yVariable}${_prime(result.order)} = ${result.rhs}',
+                style: TextStyle(
+                  fontFamily: 'DejaVu Sans Mono',
+                  fontFamilyFallback: const ['monospace', 'Vazirmatn'],
+                  fontSize: 13.5,
+                  color: c.muted,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (_busy)
+            SizedBox(
+              height: widget.height,
+              child: Center(
+                child: SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: c.accent,
+                  ),
+                ),
+              ),
+            )
+          else if (_error != null)
+            SizedBox(
+              height: widget.height,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Vazirmatn',
+                      color: c.warning,
+                      fontSize: 13,
+                      height: 1.7,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (result != null)
+            MathPlot(
+              key: const ValueKey('ode-solution-ready'),
+              spec: _spec(result, c, widget.l10n),
+              height: widget.height,
+              caption: widget.caption,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Heat map for z = f(x, y), used by the partial-derivative page.
+class SurfacePlot extends StatefulWidget {
+  const SurfacePlot({
+    super.key,
+    required this.engine,
+    required this.expression,
+    required this.l10n,
+    this.xVariable = 'x',
+    this.yVariable = 'y',
+    this.xmin = -4,
+    this.xmax = 4,
+    this.ymin = -4,
+    this.ymax = 4,
+    this.height = 320,
+    this.title,
+    this.caption,
+  });
+
+  final NativeEngine? engine;
+  final String expression;
+  final L10n l10n;
+  final String xVariable;
+  final String yVariable;
+  final double xmin;
+  final double xmax;
+  final double ymin;
+  final double ymax;
+  final double height;
+  final String? title;
+  final String? caption;
+
+  @override
+  State<SurfacePlot> createState() => _SurfacePlotState();
+}
+
+class _SurfacePlotState extends State<SurfacePlot> {
+  SurfaceResult? _result;
+  String? _error;
+  bool _busy = false;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant SurfacePlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.expression != widget.expression ||
+        oldWidget.xmin != widget.xmin ||
+        oldWidget.xmax != widget.xmax ||
+        oldWidget.ymin != widget.ymin ||
+        oldWidget.ymax != widget.ymax) {
+      _load();
+    }
+  }
+
+  Future<void> _load() async {
+    final engine = widget.engine;
+    final generation = ++_generation;
+    if (engine == null) {
+      setState(() {
+        _busy = false;
+        _error = widget.l10n.t(
+          'The native engine is not loaded, so the surface cannot be drawn.',
+          'موتور بومی بارگذاری نشده است، بنابراین سطح رسم نمی‌شود.',
+        );
+      });
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final result = await engine.surfaceAsync(
+        widget.expression,
+        x: widget.xVariable.trim().isEmpty ? 'x' : widget.xVariable.trim(),
+        y: widget.yVariable.trim().isEmpty ? 'y' : widget.yVariable.trim(),
+        xmin: widget.xmin,
+        xmax: widget.xmax,
+        ymin: widget.ymin,
+        ymax: widget.ymax,
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _busy = false;
+        _result = result.ok ? result : null;
+        _error = result.ok
+            ? null
+            : (result.error.isEmpty
+                  ? widget.l10n.t(
+                      'The surface could not be sampled.',
+                      'سطح نمونه‌برداری نشد.',
+                    )
+                  : result.error);
+      });
+    } catch (e) {
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _busy = false;
+        _result = null;
+        _error = widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (SettingsScope.maybeOf(context)?.showGraphs == false) {
+      return const SizedBox.shrink();
+    }
+    final c = context.colors;
+    final result = _result;
+    return Container(
+      decoration: BoxDecoration(
+        color: c.card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: c.line),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.title != null) ...[
+            Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 17,
+                  decoration: BoxDecoration(
+                    color: c.accent,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    widget.title!,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_busy)
+            SizedBox(
+              height: widget.height,
+              child: Center(
+                child: SizedBox(
+                  width: 26,
+                  height: 26,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: c.accent,
+                  ),
+                ),
+              ),
+            )
+          else if (_error != null)
+            SizedBox(
+              height: widget.height,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Vazirmatn',
+                      color: c.warning,
+                      fontSize: 13,
+                      height: 1.7,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (result != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  height: widget.height,
+                  decoration: BoxDecoration(
+                    color: c.cardAlt,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: c.line),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: CustomPaint(
+                      painter: _SurfacePainter(result: result, colors: c),
+                      size: Size.infinite,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: Text(
+                    '${widget.xVariable}: ${_short(result.xmin)} … ${_short(result.xmax)}'
+                    '   ·   ${widget.yVariable}: ${_short(result.ymin)} … ${_short(result.ymax)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                if (widget.caption != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.caption!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  static String _short(double v) {
+    var s = v.toStringAsFixed(2);
+    s = s.replaceFirst(RegExp(r'0+$'), '');
+    s = s.replaceFirst(RegExp(r'\.$'), '');
+    return s;
+  }
+}
+
+class _SurfacePainter extends CustomPainter {
+  _SurfacePainter({required this.result, required this.colors});
+
+  final SurfaceResult result;
+  final OdeColors colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final nx = result.nx;
+    final ny = result.ny;
+    if (nx < 2 || ny < 2 || result.zs.length < ny) return;
+    var zMin = double.infinity;
+    var zMax = double.negativeInfinity;
+    for (final row in result.zs) {
+      for (final z in row) {
+        if (!z.isFinite) continue;
+        if (z < zMin) zMin = z;
+        if (z > zMax) zMax = z;
+      }
+    }
+    if (!zMin.isFinite || !zMax.isFinite) return;
+    if ((zMax - zMin).abs() < 1e-12) {
+      zMin -= 1;
+      zMax += 1;
+    }
+    final cellW = size.width / nx;
+    final cellH = size.height / ny;
+    for (var r = 0; r < ny; r++) {
+      final row = result.zs[r];
+      for (var col = 0; col < nx && col < row.length; col++) {
+        final z = row[col];
+        if (!z.isFinite) continue;
+        final t = ((z - zMin) / (zMax - zMin)).clamp(0.0, 1.0);
+        final paint = Paint()..color = _ramp(t);
+        canvas.drawRect(
+          Rect.fromLTWH(
+            col * cellW,
+            size.height - (r + 1) * cellH,
+            cellW + 0.6,
+            cellH + 0.6,
+          ),
+          paint,
+        );
+      }
+    }
+    // A thin frame keeps the heat map from bleeding into the card.
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..color = colors.line
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+  }
+
+  Color _ramp(double t) {
+    final low = colors.info;
+    final mid = colors.accentAlt;
+    final high = colors.creative;
+    if (t < 0.5) {
+      return Color.lerp(low, mid, t * 2)!;
+    }
+    return Color.lerp(mid, high, (t - 0.5) * 2)!;
+  }
+
+  @override
+  bool shouldRepaint(covariant _SurfacePainter oldDelegate) =>
+      oldDelegate.result != result || oldDelegate.colors != colors;
 }

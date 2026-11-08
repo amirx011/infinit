@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
@@ -8,12 +9,15 @@ import 'src/app_state.dart';
 import 'src/l10n.dart';
 import 'src/native_engine.dart';
 import 'src/pages/behaviour_page.dart';
+import 'src/pages/coming_soon_page.dart';
 import 'src/pages/continuity_page.dart';
 import 'src/pages/educational_page.dart';
 import 'src/pages/optimize_page.dart';
 import 'src/pages/related_rates_page.dart';
 import 'src/pages/tangent_page.dart';
 import 'src/pages/theorems_page.dart';
+import 'src/pages/topic_workbench_page.dart';
+import 'src/topic_catalog.dart';
 import 'src/pages/derivative_page.dart';
 import 'src/pages/domain_range_page.dart';
 import 'src/pages/envelope_page.dart';
@@ -23,8 +27,39 @@ import 'src/pages/linear_algebra_page.dart';
 import 'src/pages/ode_page.dart';
 import 'src/pages/settings_page.dart';
 import 'src/pages/wronskian_page.dart';
+import 'src/pages/taylor_page.dart';
+import 'src/pages/integral_apps_page.dart';
+import 'src/pages/partial_page.dart';
+import 'src/pages/series_page.dart';
 import 'src/theme.dart';
 import 'src/widgets.dart';
+
+/// Highest index in the navigation tree. Indices 27–60 are the
+/// differential-equations curriculum slots, 61–64 are the four study
+/// articles and 65 is the Heun workbench.
+const int _lastPageIndex = 65;
+
+/// Curriculum slots that are backed by the shared topic workbench.
+const Map<int, String> _topicPages = <int, String>{
+  27: 'linear_system',
+  37: 'laplace',
+  38: 'inverse_laplace',
+  40: 'fourier_series',
+  42: 'euler',
+  43: 'rk4',
+  65: 'heun',
+  46: 'growth_decay',
+  47: 'cooling',
+  48: 'logistic',
+  49: 'mixing',
+  50: 'spring_mass',
+  51: 'damped_oscillation',
+  52: 'circuit',
+  53: 'falling_body',
+  58: 'heat',
+  59: 'wave',
+  60: 'laplace_pde',
+};
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,14 +78,27 @@ class InfinitApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: settings,
       builder: (context, _) {
+        final palette = OdePalette.byId(settings.palette);
         return MaterialApp(
           title: 'Infinit Lab',
           debugShowCheckedModeBanner: false,
-          theme: buildOdeTheme(dark: false),
-          darkTheme: buildOdeTheme(dark: true),
+          theme: buildOdeTheme(
+            dark: false,
+            palette: palette,
+            highContrast: settings.highContrast,
+            compact: settings.compact,
+          ),
+          darkTheme: buildOdeTheme(
+            dark: true,
+            palette: palette,
+            highContrast: settings.highContrast,
+            compact: settings.compact,
+          ),
           themeMode: settings.themeMode,
           locale: settings.locale,
-          supportedLocales: const [Locale('en'), Locale('fa')],
+          supportedLocales: [
+            for (final language in kAppLanguages) Locale(language.code),
+          ],
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
@@ -58,12 +106,15 @@ class InfinitApp extends StatelessWidget {
           ],
           builder: (context, child) {
             final media = MediaQuery.of(context);
-            return MediaQuery(
-              data: media.copyWith(
-                textScaler: TextScaler.linear(settings.textScale),
-                disableAnimations: settings.reduceMotion,
+            return SettingsScope(
+              settings: settings,
+              child: MediaQuery(
+                data: media.copyWith(
+                  textScaler: TextScaler.linear(settings.textScale),
+                  disableAnimations: settings.reduceMotion,
+                ),
+                child: child ?? const SizedBox.shrink(),
               ),
-              child: child ?? const SizedBox.shrink(),
             );
           },
           home: HomeScreen(settings: settings),
@@ -93,6 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _index = widget.settings.startPage.clamp(0, _lastPageIndex);
     try {
       _engine = NativeEngine.instance;
       _version = _engine!.version;
@@ -108,10 +160,40 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _openSearch() async {
+    final l10n = L10n(widget.settings.locale);
+    final choice = await showDialog<_DrawerEntry>(
+      context: context,
+      builder: (context) =>
+          _CommandPalette(l10n: l10n, entries: _flattenNav(_navSections(l10n))),
+    );
+    if (choice?.index != null && mounted) {
+      _open(choice!.index!);
+    }
+  }
+
   Widget _page(L10n l10n) {
+    final topicId = _topicPages[_index];
+    if (topicId != null) {
+      return TopicWorkbenchPage(
+        key: ValueKey('topic-$topicId-$_index'),
+        spec: kTopicCatalog[topicId]!,
+        engine: _engine,
+        l10n: l10n,
+        engineError: _engineError,
+      );
+    }
+    if (_index >= 27 && _index <= 60) {
+      return ComingSoonPage(key: ValueKey('coming-soon-$_index'), l10n: l10n);
+    }
     switch (_index) {
       case 1:
-        return const LinearAlgebraPage(key: ValueKey('linear-algebra'));
+        return LinearAlgebraPage(
+          key: const ValueKey('linear-algebra'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
       case 2:
         return OdePage(
           key: ValueKey('ode-${_odeSeed ?? ''}'),
@@ -238,7 +320,35 @@ class _HomeScreenState extends State<HomeScreen> {
           l10n: l10n,
         );
       case 19:
-        return EducationalPage(key: const ValueKey('educational'), l10n: l10n);
+        return EducationalPage(
+          key: const ValueKey('educational-derivative'),
+          l10n: l10n,
+          articleId: 'derivative',
+        );
+      case 61:
+        return EducationalPage(
+          key: const ValueKey('educational-derivative'),
+          l10n: l10n,
+          articleId: 'derivative',
+        );
+      case 62:
+        return EducationalPage(
+          key: const ValueKey('educational-integral'),
+          l10n: l10n,
+          articleId: 'integral',
+        );
+      case 63:
+        return EducationalPage(
+          key: const ValueKey('educational-ode-types'),
+          l10n: l10n,
+          articleId: 'ode_types',
+        );
+      case 64:
+        return EducationalPage(
+          key: const ValueKey('educational-ode-applications'),
+          l10n: l10n,
+          articleId: 'ode_applications',
+        );
       case 20:
         return EnvelopePage(
           key: const ValueKey('orthogonal'),
@@ -261,73 +371,133 @@ class _HomeScreenState extends State<HomeScreen> {
           settings: widget.settings,
           l10n: l10n,
           version: _version,
-          engineReady: _engine != null,
+        );
+      case 23:
+        return TaylorPage(
+          key: const ValueKey('taylor'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 24:
+        return IntegralAppsPage(
+          key: const ValueKey('integral-apps'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 25:
+        return PartialPage(
+          key: const ValueKey('partial'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
+        );
+      case 26:
+        return SeriesPage(
+          key: const ValueKey('series'),
+          engine: _engine,
+          engineError: _engineError,
+          l10n: l10n,
         );
       default:
-        return _HomePage(
-          l10n: l10n,
-          engineReady: _engine != null,
-          engineError: _engineError,
-          onOpen: _open,
-        );
+        return _HomePage(l10n: l10n, onOpen: _open);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = L10n(widget.settings.isPersian);
+    final l10n = L10n(widget.settings.locale);
     final c = context.colors;
     return Directionality(
-      textDirection: l10n.isFa ? TextDirection.rtl : TextDirection.ltr,
-      child: PopScope(
-        canPop: _index == 0,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) setState(() => _index = 0);
+      textDirection: l10n.isRtl ? TextDirection.rtl : TextDirection.ltr,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+              _openSearch,
+          const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+              _openSearch,
+          const SingleActivator(LogicalKeyboardKey.comma, control: true): () =>
+              _open(22),
+          const SingleActivator(LogicalKeyboardKey.comma, meta: true): () =>
+              _open(22),
         },
-        child: Scaffold(
-          key: _scaffoldKey,
-          drawer: _AppDrawer(
-            l10n: l10n,
-            selected: _index,
-            onSelected: (i) {
-              _open(i);
-              Navigator.of(context).pop();
+        child: Focus(
+          autofocus: true,
+          child: PopScope(
+            canPop: _index == 0,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) setState(() => _index = 0);
             },
-          ),
-          body: Container(
-            decoration: pageBackground(c),
-            child: SafeArea(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1120),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(22, 20, 22, 44),
-                    children: [
-                      _Header(
-                        l10n: l10n,
-                        onMenu: () => _scaffoldKey.currentState?.openDrawer(),
-                        onSettings: () => _open(22),
-                      ),
-                      const SizedBox(height: 26),
-                      AnimatedSwitcher(
-                        duration: widget.settings.reduceMotion
-                            ? Duration.zero
-                            : const Duration(milliseconds: 240),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.02),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
+            child: Scaffold(
+              key: _scaffoldKey,
+              drawer: _AppDrawer(
+                l10n: l10n,
+                selected: _index,
+                onSelected: (i) {
+                  _open(i);
+                  Navigator.of(context).pop();
+                },
+              ),
+              body: Container(
+                decoration: pageBackground(c),
+                child: SafeArea(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final wide = constraints.maxWidth >= 1320;
+                      final content = Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1120),
+                          child: ListView(
+                            padding: const EdgeInsets.fromLTRB(22, 20, 22, 44),
+                            children: [
+                              _Header(
+                                l10n: l10n,
+                                showMenu: !wide,
+                                onMenu: () =>
+                                    _scaffoldKey.currentState?.openDrawer(),
+                                onSearch: _openSearch,
+                                onSettings: () => _open(22),
+                              ),
+                              const SizedBox(height: 26),
+                              AnimatedSwitcher(
+                                duration: widget.settings.reduceMotion
+                                    ? Duration.zero
+                                    : const Duration(milliseconds: 240),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder: (child, animation) =>
+                                    FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: Tween<Offset>(
+                                          begin: const Offset(0, 0.02),
+                                          end: Offset.zero,
+                                        ).animate(animation),
+                                        child: child,
+                                      ),
+                                    ),
+                                child: _page(l10n),
+                              ),
+                            ],
                           ),
                         ),
-                        child: _page(l10n),
-                      ),
-                    ],
+                      );
+                      if (!wide) return content;
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _SideNav(
+                            l10n: l10n,
+                            selected: _index,
+                            onSelected: _open,
+                            onSearch: _openSearch,
+                            version: _version,
+                          ),
+                          Expanded(child: content),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -337,7 +507,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 }
 
 // ---------------------------------------------------------------- navigation
@@ -355,8 +524,8 @@ class _DrawerEntry {
     required this.icon,
     required this.label,
     required this.children,
-  }) : index = null,
-       hint = null;
+    this.hint,
+  }) : index = null;
 
   /// Destination page, null for a group.
   final int? index;
@@ -368,7 +537,7 @@ class _DrawerEntry {
   bool get isGroup => index == null;
 }
 
-class _AppDrawer extends StatelessWidget {
+class _AppDrawer extends StatefulWidget {
   const _AppDrawer({
     required this.l10n,
     required this.selected,
@@ -380,91 +549,1021 @@ class _AppDrawer extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   @override
+  State<_AppDrawer> createState() => _AppDrawerState();
+}
+
+class _AppDrawerState extends State<_AppDrawer> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final sections = <_DrawerEntry>[
-      _DrawerEntry.link(
-        index: 0,
-        icon: Icons.home_rounded,
-        label: l10n.t('Home', 'خانه'),
+    final sections = _navSections(widget.l10n);
+    final query = _query.trim().toLowerCase();
+    return Drawer(
+      width: 336,
+      backgroundColor: c.card,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 10, 14),
+              child: Row(
+                children: [
+                  const InfinitMark(size: 34),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Infinit Lab',
+                          maxLines: 1,
+                          softWrap: false,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontFamily: 'SpaceGrotesk',
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
+                              ),
+                        ),
+                        Text(
+                          widget.l10n.t('Modules', 'ماژول‌ها'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: widget.l10n.t('Close menu', 'بستن منو'),
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: Icon(Icons.close_rounded, size: 20, color: c.muted),
+                  ),
+                ],
+              ),
+            ),
+            Divider(color: c.line, height: 1),
+            if (query.isEmpty)
+              _DrawerLocation(sections: sections, selected: widget.selected),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+              child: _DrawerSearchField(
+                l10n: widget.l10n,
+                controller: _search,
+                onChanged: (value) => setState(() => _query = value),
+              ),
+            ),
+            Expanded(
+              child: query.isEmpty
+                  ? ListView(
+                      padding: const EdgeInsets.fromLTRB(10, 4, 10, 20),
+                      children: [
+                        for (var i = 0; i < sections.length; i++) ...[
+                          if (i > 0 && sections[i].isGroup)
+                            const SizedBox(height: 4),
+                          _DrawerNode(
+                            entry: sections[i],
+                            l10n: widget.l10n,
+                            selected: widget.selected,
+                            onSelected: widget.onSelected,
+                            depth: 0,
+                          ),
+                        ],
+                      ],
+                    )
+                  : _DrawerSearchResults(
+                      sections: sections,
+                      l10n: widget.l10n,
+                      selected: widget.selected,
+                      onSelected: widget.onSelected,
+                      query: query,
+                    ),
+            ),
+          ],
+        ),
       ),
-      _DrawerEntry.link(
-        index: 1,
-        icon: Icons.view_in_ar_rounded,
-        label: l10n.t('Linear algebra', 'جبر خطی'),
-        hint: l10n.t('Soon', 'به‌زودی'),
-      ),
-      
-      _DrawerEntry.group(
-        icon: Icons.functions_rounded,
-        label: l10n.t('Differential equations', 'معادلات دیفرانسیل'),
+    );
+  }
+}
+
+/// Shows where the current page sits in the module tree. This is the drawer's
+/// wayfinding cue: the accordion keeps the list short, while the trail keeps
+/// the user oriented when they open it from a deep page.
+class _DrawerLocation extends StatelessWidget {
+  const _DrawerLocation({required this.sections, required this.selected});
+
+  final List<_DrawerEntry> sections;
+  final int selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final path = _findPath(sections, selected);
+    if (path == null || path.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _DrawerEntry.link(
-            index: 2,
-            icon: Icons.functions_rounded,
-            label: l10n.t('Solve an equation', 'حل معادله'),
-            hint: l10n.t('Forms', 'فرم‌ها'),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.my_location_rounded, size: 14, color: c.muted),
           ),
-          _DrawerEntry.link(
-            index: 3,
-            icon: Icons.grid_on_rounded,
-            label: l10n.t('Wronskian', 'رونسکی'),
-          ),
-          _DrawerEntry.link(
-            index: 4,
-            icon: Icons.join_inner_rounded,
-            label: l10n.t('Envelope', 'پوش خانواده'),
-          ),
-          _DrawerEntry.link(
-            index: 20,
-            icon: Icons.swap_calls_rounded,
-            label: l10n.t('Orthogonal trajectories', 'مسیرهای قائم'),
-            hint: l10n.t('Right angles', 'زاویهٔ قائمه'),
-          ),
-          _DrawerEntry.link(
-            index: 21,
-            icon: Icons.straighten_rounded,
-            label: l10n.t('Oblique trajectories', 'مسیرهای مایل'),
-            hint: l10n.t('Constant angle', 'زاویهٔ ثابت'),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  for (var i = 0; i < path.length; i++) ...[
+                    if (i > 0)
+                      TextSpan(
+                        text: '  /  ',
+                        style: TextStyle(
+                          fontFamily: 'Vazirmatn',
+                          fontSize: 11.5,
+                          color: c.muted.withValues(alpha: 0.65),
+                        ),
+                      ),
+                    TextSpan(
+                      text: path[i].label,
+                      style: TextStyle(
+                        fontFamily: 'Vazirmatn',
+                        fontSize: 11.5,
+                        fontWeight: i == path.length - 1
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: i == path.length - 1 ? c.accent : c.muted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
-      _DrawerEntry.group(
-        icon: Icons.calculate_rounded,
-        label: l10n.t(
-          'Differential & integral',
-          'حساب دیفرانسیل و انتگرال',
+    );
+  }
+}
+
+class _DrawerSearchField extends StatelessWidget {
+  const _DrawerSearchField({
+    required this.l10n,
+    required this.controller,
+    required this.onChanged,
+  });
+
+  final L10n l10n;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      textInputAction: TextInputAction.search,
+      style: const TextStyle(fontFamily: 'Vazirmatn', fontSize: 13),
+      decoration: InputDecoration(
+        isDense: true,
+        filled: true,
+        fillColor: c.cardAlt,
+        hintText: l10n.t('Search modules…', 'جست‌وجوی ماژول‌ها…'),
+        hintStyle: TextStyle(
+          fontFamily: 'Vazirmatn',
+          fontSize: 12.5,
+          color: c.muted,
         ),
+        prefixIcon: Icon(Icons.search_rounded, size: 19, color: c.muted),
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: l10n.t('Clear', 'پاک کردن'),
+                onPressed: () {
+                  controller.clear();
+                  onChanged('');
+                },
+                icon: Icon(Icons.close_rounded, size: 17, color: c.muted),
+              ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: c.line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: c.line),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: c.accent.withValues(alpha: 0.65)),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchResult {
+  const _SearchResult(this.entry, this.path);
+
+  final _DrawerEntry entry;
+  final String path;
+}
+
+class _DrawerSearchResults extends StatelessWidget {
+  const _DrawerSearchResults({
+    required this.sections,
+    required this.l10n,
+    required this.selected,
+    required this.onSelected,
+    required this.query,
+  });
+
+  final List<_DrawerEntry> sections;
+  final L10n l10n;
+  final int selected;
+  final ValueChanged<int> onSelected;
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final results = _searchNav(sections, query);
+    if (results.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            l10n.t(
+              'No module matches that search.',
+              'هیچ ماژولی با این جست‌وجو پیدا نشد.',
+            ),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Vazirmatn',
+              fontSize: 12.5,
+              height: 1.7,
+              color: c.muted,
+            ),
+          ),
+        ),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 20),
+      children: [
+        for (final result in results)
+          _DrawerTile(
+            icon: result.entry.icon,
+            label: result.entry.label,
+            hint: result.entry.hint,
+            subtitle: result.path,
+            selected: selected == result.entry.index,
+            onTap: () => onSelected(result.entry.index!),
+          ),
+      ],
+    );
+  }
+}
+
+List<_DrawerEntry>? _findPath(List<_DrawerEntry> entries, int index) {
+  for (final entry in entries) {
+    if (entry.index == index) return [entry];
+    if (entry.children.isNotEmpty) {
+      final tail = _findPath(entry.children, index);
+      if (tail != null) return [entry, ...tail];
+    }
+  }
+  return null;
+}
+
+bool _containsIndex(_DrawerEntry entry, int index) {
+  if (entry.index == index) return true;
+  for (final child in entry.children) {
+    if (_containsIndex(child, index)) return true;
+  }
+  return false;
+}
+
+int _leafCount(_DrawerEntry entry) {
+  if (!entry.isGroup) return 1;
+  var total = 0;
+  for (final child in entry.children) {
+    total += _leafCount(child);
+  }
+  return total;
+}
+
+List<_SearchResult> _searchNav(List<_DrawerEntry> sections, String query) {
+  final results = <_SearchResult>[];
+  void walk(List<_DrawerEntry> entries, List<String> path) {
+    for (final entry in entries) {
+      if (entry.isGroup) {
+        walk(entry.children, [...path, entry.label]);
+      } else {
+        final haystack = '${entry.label} ${path.join(' ')}'.toLowerCase();
+        if (haystack.contains(query)) {
+          results.add(_SearchResult(entry, path.join(' / ')));
+        }
+      }
+    }
+  }
+
+  walk(sections, const []);
+  return results;
+}
+
+/// Persistent desktop navigation. It mirrors the drawer but keeps the module
+/// tree visible, which makes moving between calculus tools a single click.
+class _SideNav extends StatelessWidget {
+  const _SideNav({
+    required this.l10n,
+    required this.selected,
+    required this.onSelected,
+    required this.onSearch,
+    required this.version,
+  });
+
+  final L10n l10n;
+  final int selected;
+  final ValueChanged<int> onSelected;
+  final VoidCallback onSearch;
+  final String version;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final sections = _navSections(l10n);
+    return Container(
+      width: 278,
+      decoration: BoxDecoration(
+        color: c.card.withValues(alpha: 0.52),
+        border: BorderDirectional(end: BorderSide(color: c.line)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _DrawerEntry.link(
-            index: 5,
-            icon: Icons.drive_file_rename_outline_rounded,
-            label: l10n.t('Derivative', 'مشتق'),
-            hint: l10n.t('1st–10th order', 'مرتبهٔ ۱ تا ۱۰'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+            child: Row(
+              children: [
+                const InfinitMark(size: 34),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Infinit Lab',
+                        maxLines: 1,
+                        softWrap: false,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontFamily: 'SpaceGrotesk',
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                      ),
+                      Text(
+                        l10n.t('Symbolic workspace', 'فضای کار نمادین'),
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          _DrawerEntry.link(
-            index: 6,
-            icon: Icons.integration_instructions_rounded,
-            label: l10n.t('Integral', 'انتگرال'),
-            hint: l10n.t('1D / 2D / 3D', 'یگانه / دوگانه / سه‌گانه'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: _SearchLauncher(l10n: l10n, onTap: onSearch),
           ),
-          _DrawerEntry.link(
-            index: 7,
-            icon: Icons.linear_scale_rounded,
-            label: l10n.t('Limit', 'حد'),
-            hint: l10n.t('Both sides', 'دوطرفه'),
+          const SizedBox(height: 10),
+          Divider(color: c.line, height: 1),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(10, 12, 10, 16),
+              children: [
+                for (var i = 0; i < sections.length; i++) ...[
+                  if (i > 0 && sections[i].isGroup) const SizedBox(height: 4),
+                  _DrawerNode(
+                    entry: sections[i],
+                    l10n: l10n,
+                    selected: selected,
+                    onSelected: onSelected,
+                    depth: 0,
+                  ),
+                ],
+              ],
+            ),
           ),
-          _DrawerEntry.link(
-            index: 8,
-            icon: Icons.timeline_rounded,
-            label: l10n.t('Continuity', 'پیوستگی'),
+          if (version.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Text(
+                'v$version',
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(fontSize: 11, letterSpacing: 0.4),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchLauncher extends StatelessWidget {
+  const _SearchLauncher({required this.l10n, required this.onTap});
+
+  final L10n l10n;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: c.cardAlt,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: c.line),
           ),
-          _DrawerEntry.link(
-            index: 9,
-            icon: Icons.explore_rounded,
-            label: l10n.t('Domain & range', 'دامنه و برد'),
-            hint: l10n.t('Plot', 'نمودار'),
+          child: Row(
+            children: [
+              Icon(Icons.search_rounded, size: 18, color: c.muted),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  l10n.t('Search modules', 'جستجوی ماژول‌ها'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Vazirmatn',
+                    fontSize: 12.5,
+                    color: c.muted,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: c.card,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: c.line),
+                ),
+                child: Text(
+                  'Ctrl K',
+                  textDirection: TextDirection.ltr,
+                  style: TextStyle(
+                    fontFamily: 'SpaceGrotesk',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: c.muted,
+                  ),
+                ),
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+List<_DrawerEntry> _flattenNav(List<_DrawerEntry> entries) {
+  final result = <_DrawerEntry>[];
+  for (final entry in entries) {
+    if (entry.isGroup) {
+      result.addAll(_flattenNav(entry.children));
+    } else {
+      result.add(entry);
+    }
+  }
+  return result;
+}
+
+class _CommandPalette extends StatefulWidget {
+  const _CommandPalette({required this.l10n, required this.entries});
+
+  final L10n l10n;
+  final List<_DrawerEntry> entries;
+
+  @override
+  State<_CommandPalette> createState() => _CommandPaletteState();
+}
+
+class _CommandPaletteState extends State<_CommandPalette> {
+  final _controller = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  List<_DrawerEntry> get _matches {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return widget.entries.take(10).toList();
+    return widget.entries
+        .where(
+          (e) =>
+              e.label.toLowerCase().contains(query) ||
+              (e.hint ?? '').toLowerCase().contains(query),
+        )
+        .take(10)
+        .toList();
+  }
+
+  void _select(_DrawerEntry entry) => Navigator.of(context).pop(entry);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final l = widget.l10n;
+    final matches = _matches;
+    return Dialog(
+      backgroundColor: c.card,
+      insetPadding: const EdgeInsets.all(24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                onChanged: (value) => setState(() => _query = value),
+                onSubmitted: (_) {
+                  if (matches.isNotEmpty) _select(matches.first);
+                },
+                decoration: InputDecoration(
+                  hintText: l.t('Search modules…', 'جستجوی ماژول‌ها…'),
+                  prefixIcon: Icon(Icons.search_rounded, color: c.muted),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (matches.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 24,
+                  ),
+                  child: Text(
+                    l.t(
+                      'No module matches that search.',
+                      'هیچ ماژولی با این جستجو پیدا نشد.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final entry in matches)
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => _select(entry),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 11,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(entry.icon, size: 19, color: c.accent),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      entry.label,
+                                      style: TextStyle(
+                                        fontFamily: 'Vazirmatn',
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: c.text,
+                                      ),
+                                    ),
+                                  ),
+                                  if (entry.hint != null)
+                                    Text(
+                                      entry.hint!,
+                                      style: TextStyle(
+                                        fontFamily: 'Vazirmatn',
+                                        fontSize: 11.5,
+                                        color: c.muted,
+                                      ),
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    l.isFa
+                                        ? Icons.arrow_back_rounded
+                                        : Icons.arrow_forward_rounded,
+                                    size: 15,
+                                    color: c.muted,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.keyboard_rounded, size: 14, color: c.muted),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      l.t(
+                        'Enter to open · Esc to close',
+                        'Enter برای باز کردن · Esc برای بستن',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+List<_DrawerEntry> _navSections(L10n l10n) {
+  _DrawerEntry soon(int index, IconData icon, String en, String fa) =>
+      _DrawerEntry.link(index: index, icon: icon, label: l10n.t(en, fa));
+
+  // An implemented curriculum slot.  It looks like a normal link because the
+  // workbench behind it is ready, not a reserved placeholder.
+  _DrawerEntry topic(int index, IconData icon, String en, String fa) =>
+      _DrawerEntry.link(index: index, icon: icon, label: l10n.t(en, fa));
+
+  return <_DrawerEntry>[
+    _DrawerEntry.link(
+      index: 0,
+      icon: Icons.home_rounded,
+      label: l10n.t('Home', 'خانه'),
+    ),
+    _DrawerEntry.group(
+      icon: Icons.functions_rounded,
+      label: l10n.t('Differential equations', 'معادلات دیفرانسیل'),
+      hint: l10n.t('Solve, apply, transform', 'حل، کاربرد، تبدیل'),
+      children: [
+        _DrawerEntry.link(
+          index: 2,
+          icon: Icons.functions_rounded,
+          label: l10n.t('Solve an equation', 'حل معادله'),
+          hint: l10n.t('Forms', 'فرم‌ها'),
+        ),
+        _DrawerEntry.group(
+          icon: Icons.science_rounded,
+          label: l10n.t('Applications', 'کاربردها'),
+          children: [
+            _DrawerEntry.link(
+              index: 3,
+              icon: Icons.grid_on_rounded,
+              label: l10n.t('Wronskian', 'رونسکی'),
+            ),
+            _DrawerEntry.link(
+              index: 4,
+              icon: Icons.join_inner_rounded,
+              label: l10n.t('Envelope', 'پوش خانواده'),
+            ),
+            _DrawerEntry.link(
+              index: 20,
+              icon: Icons.swap_calls_rounded,
+              label: l10n.t('Orthogonal trajectories', 'مسیرهای قائم'),
+              hint: l10n.t('Right angles', 'زاویهٔ قائمه'),
+            ),
+            _DrawerEntry.link(
+              index: 21,
+              icon: Icons.straighten_rounded,
+              label: l10n.t('Oblique trajectories', 'مسیرهای مایل'),
+              hint: l10n.t('Constant angle', 'زاویهٔ ثابت'),
+            ),
+            topic(
+              46,
+              Icons.trending_up_rounded,
+              'Growth & decay',
+              'رشد و واپاشی',
+            ),
+            topic(
+              47,
+              Icons.thermostat_rounded,
+              "Newton's law of cooling",
+              'قانون سرد شدن نیوتن',
+            ),
+            topic(
+              48,
+              Icons.groups_rounded,
+              'Logistic population',
+              'جمعیت لجستیک',
+            ),
+            topic(49, Icons.science_rounded, 'Mixing problems', 'مسایل اختلاط'),
+            topic(
+              50,
+              Icons.architecture_rounded,
+              'Spring–mass systems',
+              'سیستم جرم و فنر',
+            ),
+            topic(
+              51,
+              Icons.vibration_rounded,
+              'Damped & forced oscillations',
+              'نوسان‌های میرا و اجباری',
+            ),
+            topic(
+              52,
+              Icons.electrical_services_rounded,
+              'Electrical circuits',
+              'مدارهای الکتریکی',
+            ),
+            topic(
+              53,
+              Icons.arrow_downward_rounded,
+              'Falling bodies with drag',
+              'سقوط با مقاومت هوا',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.auto_graph_rounded,
+          label: l10n.t('Series & special functions', 'سری‌ها و توابع خاص'),
+          children: [
+            soon(
+              32,
+              Icons.auto_graph_rounded,
+              'Power series solutions',
+              'جواب‌های سری توانی',
+            ),
+            soon(
+              33,
+              Icons.adjust_rounded,
+              'Ordinary & singular points',
+              'نقاط عادی و تکین',
+            ),
+            soon(
+              34,
+              Icons.account_tree_rounded,
+              'Frobenius method',
+              'روش فروبنیوس',
+            ),
+            soon(
+              35,
+              Icons.stacked_line_chart_rounded,
+              'Legendre equations & polynomials',
+              'معادلات و چندجمله‌ای‌های لژاندر',
+            ),
+            soon(
+              36,
+              Icons.cyclone_rounded,
+              'Bessel equations & functions',
+              'معادلات و توابع بسل',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.transform_rounded,
+          label: l10n.t('Transforms', 'تبدیل‌ها'),
+          children: [
+            topic(
+              37,
+              Icons.transform_rounded,
+              'Laplace transform',
+              'تبدیل لاپلاس',
+            ),
+            topic(
+              38,
+              Icons.u_turn_left_rounded,
+              'Inverse Laplace transform',
+              'تبدیل معکوس لاپلاس',
+            ),
+            soon(39, Icons.join_full_rounded, 'Convolution', 'کانولوشن'),
+            topic(
+              40,
+              Icons.multiline_chart_rounded,
+              'Fourier series',
+              'سری فوریه',
+            ),
+            soon(
+              41,
+              Icons.ssid_chart_rounded,
+              'Fourier transform',
+              'تبدیل فوریه',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.calculate_rounded,
+          label: l10n.t('Numerical methods', 'روش‌های عددی'),
+          children: [
+            topic(42, Icons.straighten_rounded, 'Euler method', 'روش اویلر'),
+            topic(
+              65,
+              Icons.linear_scale_rounded,
+              'Improved Euler (Heun)',
+              'اویلر بهبودیافته (هیون)',
+            ),
+            topic(
+              43,
+              Icons.stacked_line_chart_rounded,
+              'Runge–Kutta (RK4)',
+              'رانگ–کوتا (RK4)',
+            ),
+            soon(
+              44,
+              Icons.format_list_numbered_rounded,
+              'Multistep methods',
+              'روش‌های چندگامی',
+            ),
+            soon(
+              45,
+              Icons.error_outline_rounded,
+              'Error & convergence',
+              'خطا و همگرایی',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.grid_on_rounded,
+          label: l10n.t(
+            'Partial differential equations',
+            'معادلات دیفرانسیل جزئی',
+          ),
+          children: [
+            soon(
+              54,
+              Icons.looks_one_rounded,
+              'First-order PDEs',
+              'معادلات دیفرانسیل جزئی مرتبهٔ اول',
+            ),
+            soon(
+              55,
+              Icons.category_rounded,
+              'Classification of PDEs',
+              'طبقه‌بندی معادلات دیفرانسیل جزئی',
+            ),
+            soon(
+              56,
+              Icons.alt_route_rounded,
+              'Method of characteristics',
+              'روش مشخصه‌ها',
+            ),
+            soon(
+              57,
+              Icons.call_split_rounded,
+              'Separation of variables',
+              'جداسازی متغیرها',
+            ),
+            topic(
+              58,
+              Icons.local_fire_department_rounded,
+              'Heat equation',
+              'معادلهٔ گرما',
+            ),
+            topic(59, Icons.waves_rounded, 'Wave equation', 'معادلهٔ موج'),
+            topic(
+              60,
+              Icons.blur_circular_rounded,
+              'Laplace equation',
+              'معادلهٔ لاپلاس',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.hub_rounded,
+          label: l10n.t('Systems & stability', 'دستگاه‌ها و پایداری'),
+          children: [
+            topic(
+              27,
+              Icons.hub_rounded,
+              'Systems of ODEs',
+              'دستگاه‌های معادلات دیفرانسیل',
+            ),
+            soon(
+              28,
+              Icons.grid_4x4_rounded,
+              'Matrix & eigenvalue methods',
+              'روش‌های ماتریسی و مقدار ویژه',
+            ),
+            soon(
+              29,
+              Icons.scatter_plot_rounded,
+              'Phase portraits',
+              'تصویر فاز',
+            ),
+            soon(
+              30,
+              Icons.place_rounded,
+              'Critical points & stability',
+              'نقاط بحرانی و پایداری',
+            ),
+            soon(
+              31,
+              Icons.pets_rounded,
+              'Predator–prey models',
+              'مدل‌های شکار و شکارچی',
+            ),
+          ],
+        ),
+      ],
+    ),
+    _DrawerEntry.group(
+      icon: Icons.calculate_rounded,
+      label: l10n.t('Differential & integral', 'حساب دیفرانسیل و انتگرال'),
+      hint: l10n.t('Limits, derivatives, integrals', 'حد، مشتق، انتگرال'),
+      children: [
+        _DrawerEntry.link(
+          index: 5,
+          icon: Icons.drive_file_rename_outline_rounded,
+          label: l10n.t('Derivative', 'مشتق'),
+          hint: l10n.t('1st–10th order', 'مرتبهٔ ۱ تا ۱۰'),
+        ),
+        _DrawerEntry.link(
+          index: 6,
+          icon: Icons.integration_instructions_rounded,
+          label: l10n.t('Integral', 'انتگرال'),
+          hint: l10n.t('1D / 2D / 3D', 'یگانه / دوگانه / سه‌گانه'),
+        ),
+        _DrawerEntry.link(
+          index: 7,
+          icon: Icons.linear_scale_rounded,
+          label: l10n.t('Limit', 'حد'),
+          hint: l10n.t('Both sides', 'دوطرفه'),
+        ),
+        _DrawerEntry.link(
+          index: 8,
+          icon: Icons.timeline_rounded,
+          label: l10n.t('Continuity', 'پیوستگی'),
+        ),
+        _DrawerEntry.link(
+          index: 9,
+          icon: Icons.explore_rounded,
+          label: l10n.t('Domain & range', 'دامنه و برد'),
+          hint: l10n.t('Plot', 'نمودار'),
+        ),
+        _DrawerEntry.link(
+          index: 23,
+          icon: Icons.polyline_rounded,
+          label: l10n.t('Taylor & Maclaurin', 'تیلور و مکلورن'),
+          hint: l10n.t('Polynomial', 'چندجمله‌ای'),
+        ),
+        _DrawerEntry.link(
+          index: 24,
+          icon: Icons.architecture_rounded,
+          label: l10n.t('Integral applications', 'کاربردهای انتگرال'),
+          hint: l10n.t('Area / volume', 'مساحت / حجم'),
+        ),
+        _DrawerEntry.link(
+          index: 25,
+          icon: Icons.grid_4x4_rounded,
+          label: l10n.t('Partial derivatives', 'مشتق‌های جزئی'),
+          hint: l10n.t('Gradient', 'گرادیان'),
+        ),
+        _DrawerEntry.link(
+          index: 26,
+          icon: Icons.waves_rounded,
+          label: l10n.t('Series & convergence', 'سری و همگرایی'),
+          hint: l10n.t('Tests', 'آزمون‌ها'),
+        ),
         _DrawerEntry.group(
           icon: Icons.insights_rounded,
           label: l10n.t('Applications of the derivative', 'کاربردهای مشتق'),
@@ -525,85 +1624,48 @@ class _AppDrawer extends StatelessWidget {
             ),
           ],
         ),
-        ],
-      ),
-      _DrawerEntry.group(
-        icon: Icons.auto_stories_rounded,
-        label: l10n.t('Educational explanations', 'توضیحات آموزشی'),
-        children: const [],
-      ),
-      _DrawerEntry.link(
-        index: 22,
-        icon: Icons.settings_rounded,
-        label: l10n.t('Settings', 'تنظیمات'),
-        hint: l10n.t('Language & theme', 'زبان و پوسته'),
-      ),
-    ];
-
-    return Drawer(
-      backgroundColor: c.card,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-              child: Row(
-                children: [
-                  const InfinitMark(size: 34),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Infinit Lab',
-                          maxLines: 1,
-                          softWrap: false,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontFamily: 'SpaceGrotesk',
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.2,
-                              ),
-                        ),
-                        Text(
-                          l10n.t('Modules', 'ماژول‌ها'),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(color: c.line, height: 1),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 12,
-                ),
-                children: [
-                  for (var i = 0; i < sections.length; i++) ...[
-                    if (i > 0 && sections[i].isGroup) const SizedBox(height: 4),
-                    _DrawerNode(
-                      entry: sections[i],
-                      l10n: l10n,
-                      selected: selected,
-                      onSelected: onSelected,
-                      depth: 0,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
+      ],
+    ),
+    _DrawerEntry.link(
+      index: 1,
+      icon: Icons.view_in_ar_rounded,
+      label: l10n.t('Linear algebra', 'جبر خطی'),
+      hint: l10n.t('Matrices & eigenvalues', 'ماتریس و مقدار ویژه'),
+    ),
+    _DrawerEntry.group(
+      icon: Icons.auto_stories_rounded,
+      label: l10n.t('Educational explanations', 'توضیحات آموزشی'),
+      hint: l10n.t('Study notes', 'یادداشت‌های آموزشی'),
+      children: [
+        _DrawerEntry.link(
+          index: 61,
+          icon: Icons.drive_file_rename_outline_rounded,
+          label: l10n.t('Derivative', 'مشتق'),
         ),
-      ),
-    );
-  }
+        _DrawerEntry.link(
+          index: 62,
+          icon: Icons.integration_instructions_rounded,
+          label: l10n.t('Integral', 'انتگرال'),
+        ),
+        _DrawerEntry.link(
+          index: 63,
+          icon: Icons.category_rounded,
+          label: l10n.t(
+            'Types of differential equations',
+            'انواع معادلات دیفرانسیل',
+          ),
+        ),
+        _DrawerEntry.link(
+          index: 64,
+          icon: Icons.science_rounded,
+          label: l10n.t(
+            'Applications of differential equations',
+            'کاربردهای معادلات دیفرانسیل',
+          ),
+        ),
+      ],
+    ),
+  ];
 }
 
 /// Renders either a single drawer row or a collapsible group, at any depth.
@@ -631,6 +1693,7 @@ class _DrawerNode extends StatelessWidget {
         hint: entry.hint,
         selected: selected == entry.index,
         onTap: () => onSelected(entry.index!),
+        depth: depth,
       );
     }
     return _DrawerGroupNode(
@@ -668,17 +1731,16 @@ class _DrawerGroupNode extends StatefulWidget {
 class _DrawerGroupNodeState extends State<_DrawerGroupNode> {
   late bool _open = _containsSelected();
 
-  bool _containsSelected() {
-    bool search(List<_DrawerEntry> items) {
-      for (final item in items) {
-        if (item.index == widget.selected) return true;
-        if (item.children.isNotEmpty && search(item.children)) return true;
-      }
-      return false;
+  @override
+  void didUpdateWidget(covariant _DrawerGroupNode oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A command-palette jump can land inside a group the user had collapsed.
+    if (widget.selected != oldWidget.selected && _containsSelected()) {
+      _open = true;
     }
-
-    return search(widget.entry.children);
   }
+
+  bool _containsSelected() => _containsIndex(widget.entry, widget.selected);
 
   bool get _active => _containsSelected();
 
@@ -686,97 +1748,156 @@ class _DrawerGroupNodeState extends State<_DrawerGroupNode> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final empty = widget.entry.children.isEmpty;
-    final titleSize = widget.depth == 0 ? 13.0 : 12.5;
+    final count = _leafCount(widget.entry);
+    final titleSize = widget.depth == 0 ? 13.5 : 12.5;
+    final indent = widget.depth * 12.0;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Material(
-          color: _active && !_open ? c.accentSoft : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
+        Semantics(
+          button: true,
+          expanded: _open,
+          child: Material(
+            color: _active && !_open ? c.accentSoft : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            onTap: () => setState(() => _open = !_open),
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 13,
-                vertical: widget.depth == 0 ? 12 : 10,
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    widget.entry.icon,
-                    size: widget.depth == 0 ? 19 : 17,
-                    color: _active ? c.accent : c.muted,
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    child: Text(
-                      widget.entry.label,
-                      style: TextStyle(
-                        fontFamily: 'Vazirmatn',
-                        fontSize: titleSize,
-                        fontWeight: _active ? FontWeight.w700 : FontWeight.w600,
-                        color: _active ? c.accent : c.text,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  AnimatedRotation(
-                    turns: _open ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 180),
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 21,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => setState(() => _open = !_open),
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start: 13 + indent,
+                  end: 13,
+                  top: widget.depth == 0 ? 12 : 10,
+                  bottom: widget.depth == 0 ? 12 : 10,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      widget.entry.icon,
+                      size: widget.depth == 0 ? 19 : 17,
                       color: _active ? c.accent : c.muted,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.entry.label,
+                            style: TextStyle(
+                              fontFamily: 'Vazirmatn',
+                              fontSize: titleSize,
+                              fontWeight: _active
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
+                              color: _active ? c.accent : c.text,
+                            ),
+                          ),
+                          if (widget.depth == 0 &&
+                              widget.entry.hint != null &&
+                              widget.entry.hint!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                widget.entry.hint!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontFamily: 'Vazirmatn',
+                                  fontSize: 11,
+                                  color: c.muted,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (count > 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _active ? c.accentSoft : c.cardAlt,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: c.line),
+                        ),
+                        child: Text(
+                          '$count',
+                          style: TextStyle(
+                            fontFamily: 'SpaceGrotesk',
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: _active ? c.accent : c.muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 4),
+                    AnimatedRotation(
+                      turns: _open ? 0.5 : 0.0,
+                      duration: reduceMotion
+                          ? Duration.zero
+                          : const Duration(milliseconds: 180),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 21,
+                        color: _active ? c.accent : c.muted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-        AnimatedCrossFade(
-          duration: const Duration(milliseconds: 190),
-          crossFadeState: _open
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          sizeCurve: Curves.easeOutCubic,
-          firstChild: const SizedBox(width: double.infinity, height: 0),
-          secondChild: Padding(
-            padding: EdgeInsetsDirectional.only(
-              start: widget.depth == 0 ? 16 : 12,
-              top: 2,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (empty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(13, 6, 13, 10),
-                    child: Text(
-                      widget.l10n.t(
-                        'Nothing has been added to this section yet.',
-                        'هنوز مطلبی به این بخش اضافه نشده است.',
+        AnimatedSize(
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 190),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: _open
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (empty)
+                      Padding(
+                        padding: EdgeInsetsDirectional.fromSTEB(
+                          13 + indent,
+                          6,
+                          13,
+                          10,
+                        ),
+                        child: Text(
+                          widget.l10n.t(
+                            'Nothing has been added to this section yet.',
+                            'هنوز مطلبی به این بخش اضافه نشده است.',
+                          ),
+                          style: TextStyle(
+                            fontFamily: 'Vazirmatn',
+                            fontSize: 12,
+                            height: 1.7,
+                            color: c.muted,
+                          ),
+                        ),
                       ),
-                      style: TextStyle(
-                        fontFamily: 'Vazirmatn',
-                        fontSize: 12,
-                        height: 1.7,
-                        color: c.muted,
+                    for (final child in widget.entry.children)
+                      _DrawerNode(
+                        entry: child,
+                        l10n: widget.l10n,
+                        selected: widget.selected,
+                        onSelected: widget.onSelected,
+                        depth: widget.depth + 1,
                       ),
-                    ),
-                  ),
-                for (final child in widget.entry.children)
-                  _DrawerNode(
-                    entry: child,
-                    l10n: widget.l10n,
-                    selected: widget.selected,
-                    onSelected: widget.onSelected,
-                    depth: widget.depth + 1,
-                  ),
-              ],
-            ),
-          ),
+                  ],
+                )
+              : const SizedBox(width: double.infinity, height: 0),
         ),
       ],
     );
@@ -790,19 +1911,27 @@ class _DrawerTile extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.hint,
+    this.subtitle,
+    this.depth = 0,
   });
 
   final IconData icon;
   final String label;
   final String? hint;
+  final String? subtitle;
   final bool selected;
   final VoidCallback onTap;
+  final int depth;
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: EdgeInsetsDirectional.only(
+        start: depth * 12.0,
+        top: 2,
+        bottom: 2,
+      ),
       child: Material(
         color: selected ? c.accentSoft : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
@@ -816,14 +1945,35 @@ class _DrawerTile extends StatelessWidget {
                 Icon(icon, size: 19, color: selected ? c.accent : c.muted),
                 const SizedBox(width: 11),
                 Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontFamily: 'Vazirmatn',
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected ? c.accent : c.text,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontFamily: 'Vazirmatn',
+                          fontSize: 13,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: selected ? c.accent : c.text,
+                        ),
+                      ),
+                      if (subtitle != null && subtitle!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Vazirmatn',
+                              fontSize: 11,
+                              color: c.muted,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (selected)
@@ -861,152 +2011,83 @@ class _DrawerTile extends StatelessWidget {
   }
 }
 
-
-/// The Infinit Lab logo: a slightly tilted infinity with 0 in the left loop and
-/// 1 in the right one, drawn with the same geometry as the packaged app icons.
+/// The Infinit Lab mark: the same artwork as the launcher icon, tinted with the
+/// active palette. Using the real drawing instead of a tiny hand-built path
+/// keeps the loops and the 0/1 counters smooth at header sizes.
 class InfinitMark extends StatelessWidget {
-  const InfinitMark({super.key, this.size = 42});
+  const InfinitMark({super.key, this.size = 42, this.tilt = 0});
 
-  /// Height of the mark; the widget is a little wider than it is tall.
+  /// Height of the mark; the artwork is a little wider than it is tall.
   final double size;
+
+  /// Optional lean in degrees. The header leaves it at 0 so the mark sits
+  /// square with the title and menu button.
+  final double tilt;
+
+  static const _aspect = 878 / 513;
 
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    // The 0/1 counters are only a few pixels tall on the header mark. Drawing
-    // them there just adds noise, so keep them for hero-sized marks.
-    final showDigits = size >= 56;
-    return SizedBox(
-      width: size * 1.55,
+    final c = context.colors;
+    final mark = SizedBox(
+      width: size * _aspect,
       height: size,
-      child: CustomPaint(
-        painter: _InfinitMarkPainter(
-          glow: dark && showDigits ? 0.18 : 0,
-          showDigits: showDigits,
+      child: ShaderMask(
+        blendMode: BlendMode.srcIn,
+        shaderCallback: (rect) => LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            c.accent,
+            Color.lerp(c.accent, c.accentAlt, 0.55)!,
+            c.accentAlt,
+          ],
+        ).createShader(rect),
+        child: Image.asset(
+          'assets/branding/infinit-mark.png',
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          excludeFromSemantics: true,
         ),
       ),
     );
+    if (tilt == 0) return mark;
+    return Transform.rotate(angle: tilt * math.pi / 180, child: mark);
   }
-}
-
-class _InfinitMarkPainter extends CustomPainter {
-  const _InfinitMarkPainter({required this.glow, required this.showDigits});
-
-  final double glow;
-  final bool showDigits;
-
-  static const _gradient = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [Color(0xFF38BDF8), Color(0xFF3B82F6), Color(0xFF4F46E5)],
-  );
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final a = w * 0.395;
-    final stroke = w * 0.070;
-    const yScale = 1.30;
-    final tilt = -8 * math.pi / 180;
-    final center = Offset(w / 2, h / 2);
-
-    final path = Path();
-    const steps = 240;
-    for (var i = 0; i <= steps; i++) {
-      final t = 2 * math.pi * i / steps;
-      final d = 1 + math.pow(math.sin(t), 2).toDouble();
-      final x = a * math.cos(t) / d;
-      final y = a * math.sin(t) * math.cos(t) / d * yScale;
-      final px = center.dx + x * math.cos(tilt) - y * math.sin(tilt);
-      final py = center.dy + x * math.sin(tilt) + y * math.cos(tilt);
-      if (i == 0) {
-        path.moveTo(px, py);
-      } else {
-        path.lineTo(px, py);
-      }
-    }
-
-    final shader = _gradient.createShader(Rect.fromLTWH(0, 0, w, h));
-
-    if (glow > 0) {
-      canvas.drawPath(
-        path,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = stroke * 1.7
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..color = const Color(0xFF3B82F6).withValues(alpha: glow)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, stroke * 0.8),
-      );
-    }
-
-    canvas.drawPath(
-      path,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..shader = shader,
-    );
-
-    if (showDigits) {
-      final fontSize = w * 0.140;
-      for (final entry in const [('0', -1.0), ('1', 1.0)]) {
-        final painter = TextPainter(
-          text: TextSpan(
-            text: entry.$1,
-            style: TextStyle(
-              fontFamily: 'SpaceGrotesk',
-              fontSize: fontSize,
-              fontWeight: FontWeight.w700,
-              height: 1,
-              foreground: Paint()..shader = shader,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        final dx = entry.$2 * 0.43 * a;
-        final px = center.dx + dx * math.cos(tilt);
-        final py = center.dy + dx * math.sin(tilt);
-        painter.paint(
-          canvas,
-          Offset(px - painter.width / 2, py - painter.height / 2),
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _InfinitMarkPainter oldDelegate) =>
-      oldDelegate.glow != glow || oldDelegate.showDigits != showDigits;
 }
 
 class _Header extends StatelessWidget {
   const _Header({
     required this.l10n,
+    required this.showMenu,
     required this.onMenu,
+    required this.onSearch,
     required this.onSettings,
   });
 
   final L10n l10n;
+  final bool showMenu;
   final VoidCallback onMenu;
+  final VoidCallback onSearch;
   final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
+    // The header is shared by desktop and phones; the mark needs to stay
+    // proportionate to the title on a narrow screen instead of dominating it.
+    final compact = MediaQuery.sizeOf(context).width < 700;
     return Row(
       children: [
-        _RoundIconButton(
-          tooltip: l10n.t('Open menu', 'باز کردن منو'),
-          icon: Icons.menu_rounded,
-          onPressed: onMenu,
-        ),
-        const SizedBox(width: 12),
-        const InfinitMark(size: 40),
-        const SizedBox(width: 12),
+        if (showMenu) ...[
+          _RoundIconButton(
+            tooltip: l10n.t('Open menu', 'باز کردن منو'),
+            icon: Icons.menu_rounded,
+            onPressed: onMenu,
+          ),
+          const SizedBox(width: 14),
+        ],
+        InfinitMark(size: compact ? 34 : 42, tilt: 0),
+        const SizedBox(width: 14),
         Expanded(
           child: Align(
             alignment: AlignmentDirectional.centerStart,
@@ -1030,8 +2111,17 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         _RoundIconButton(
-          tooltip: l10n.t('Settings', 'تنظیمات'),
-          icon: Icons.tune_rounded,
+          tooltip: l10n.t(
+            'Search modules (Ctrl K)',
+            'جستجوی ماژول‌ها (Ctrl K)',
+          ),
+          icon: Icons.search_rounded,
+          onPressed: onSearch,
+        ),
+        const SizedBox(width: 8),
+        _RoundIconButton(
+          tooltip: l10n.t('Settings (Ctrl ,)', 'تنظیمات (Ctrl ,)'),
+          icon: Icons.settings_rounded,
           onPressed: onSettings,
         ),
       ],
@@ -1059,9 +2149,9 @@ class _RoundIconButton extends StatelessWidget {
       style: IconButton.styleFrom(
         backgroundColor: c.card,
         side: BorderSide(color: c.line),
-        padding: const EdgeInsets.all(11),
+        padding: const EdgeInsets.all(12),
       ),
-      icon: Icon(icon, size: 19, color: c.muted),
+      icon: Icon(icon, size: 20, color: c.muted),
     );
   }
 }
@@ -1172,16 +2262,9 @@ const _forms = <_OdeForm>[
 ];
 
 class _HomePage extends StatefulWidget {
-  const _HomePage({
-    required this.l10n,
-    required this.engineReady,
-    required this.onOpen,
-    this.engineError,
-  });
+  const _HomePage({required this.l10n, required this.onOpen});
 
   final L10n l10n;
-  final bool engineReady;
-  final String? engineError;
   final void Function(int index, {String? seed}) onOpen;
 
   @override
@@ -1200,10 +2283,6 @@ class _HomePageState extends State<_HomePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!widget.engineReady) ...[
-          _engineBanner(context, l),
-          const SizedBox(height: 14),
-        ],
         _hero(context, l),
         const SizedBox(height: 14),
         LearningCard(
@@ -1366,101 +2445,94 @@ class _HomePageState extends State<_HomePage> {
     );
   }
 
-  Widget _engineBanner(BuildContext context, L10n l) {
-    final c = context.colors;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: c.warningSoft,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: c.warning.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.warning_amber_rounded, size: 19, color: c.warning),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              l.t(
-                'The native engine could not be loaded, so computations will fail. '
-                    'On Android the APK must contain libodecore.so; on desktop check that '
-                    'it sits next to the executable.',
-                'موتور بومی بارگذاری نشد؛ محاسبات انجام نمی‌شوند. در اندروید فایل '
-                    'libodecore.so باید داخل خود APK باشد؛ در دسکتاپ آن را کنار فایل اجرایی بررسی کنید.',
-              ),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _hero(BuildContext context, L10n l) {
     final c = context.colors;
+    // The accent wash marks the hero as the single focal point of the page.
+    // Everything below it uses flat card surfaces.
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          l.t('Every equation has a form.', 'هر معادله‌ای یک فرم دارد.'),
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontSize: 27,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+            letterSpacing: -0.4,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          l.t(
+            'Enter an ordinary differential equation; Infinit Lab recognises its form, shows the standard shape and solves it step by step.',
+            'یک معادلهٔ دیفرانسیل معمولی وارد کنید؛ Infinit Lab فرم آن را تشخیص می‌دهد، شکل استاندارد را نشان می‌دهد و قدم‌به‌قدم حل می‌کند.',
+          ),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.65),
+        ),
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          onPressed: () => widget.onOpen(2, seed: "y' + y/x = x^2"),
+          icon: const Icon(Icons.play_arrow_rounded, size: 20),
+          label: Text(l.t('Solve an equation', 'حل یک معادله')),
+        ),
+        const SizedBox(height: 18),
+        Wrap(
+          spacing: 16,
+          runSpacing: 8,
+          children: [
+            _HeroFeature(
+              icon: Icons.check_circle_outline_rounded,
+              label: l.t(
+                'Exact rational arithmetic',
+                'محاسبات دقیق اعداد گویا',
+              ),
+            ),
+            _HeroFeature(
+              icon: Icons.route_outlined,
+              label: l.t('Every step explained', 'توضیح کامل هر مرحله'),
+            ),
+            _HeroFeature(
+              icon: Icons.cloud_off_rounded,
+              label: l.t('Works fully offline', 'کاملاً آفلاین'),
+            ),
+          ],
+        ),
+      ],
+    );
+
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: AlignmentDirectional.topStart,
           end: AlignmentDirectional.bottomEnd,
-          colors: [c.accent.withValues(alpha: 0.16), c.card, c.card],
+          colors: [c.accent.withValues(alpha: 0.10), c.card],
         ),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: c.accent.withValues(alpha: 0.22)),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: c.accent.withValues(alpha: 0.20)),
       ),
-      child: Stack(
-        children: [
-          PositionedDirectional(
-            end: -18,
-            bottom: -34,
-            child: Text(
-              '∞',
-              textDirection: TextDirection.ltr,
-              style: TextStyle(
-                fontSize: 130,
-                height: 1,
-                fontFamily: 'SpaceGrotesk',
-                color: c.accent.withValues(alpha: 0.10),
-              ),
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 780) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                copy,
+                const SizedBox(height: 22),
+                _HeroPreview(l10n: l),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                l.t('Every equation has a form.', 'هر معادله‌ای یک فرم دارد.'),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w700,
-                  height: 1.25,
-                  letterSpacing: -0.4,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Text(
-                  l.t(
-                    'Enter an ordinary differential equation; Infinit Lab recognises its form, shows the standard shape and solves it step by step.',
-                    'یک معادلهٔ دیفرانسیل معمولی وارد کنید؛ Infinit Lab فرم آن را تشخیص می‌دهد، شکل استاندارد را نشان می‌دهد و قدم‌به‌قدم حل می‌کند.',
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall
-                      ?.copyWith(height: 1.6),
-                ),
-              ),
-              const SizedBox(height: 18),
-              _HeroMath(),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: () => widget.onOpen(2, seed: "y' + y/x = x^2"),
-                icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                label: Text(l.t('Solve an equation', 'حل یک معادله')),
-              ),
+              Expanded(flex: 6, child: copy),
+              const SizedBox(width: 28),
+              Expanded(flex: 5, child: _HeroPreview(l10n: l)),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1520,35 +2592,221 @@ class _HomePageState extends State<_HomePage> {
   }
 }
 
-class _HeroMath extends StatelessWidget {
+class _HeroFeature extends StatelessWidget {
+  const _HeroFeature({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: c.accent),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Vazirmatn',
+            fontSize: 11.5,
+            fontWeight: FontWeight.w500,
+            color: c.muted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroPreview extends StatelessWidget {
+  const _HeroPreview({required this.l10n});
+
+  final L10n l10n;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: c.cardAlt.withValues(alpha: 0.75),
-        borderRadius: BorderRadius.circular(14),
+        color: c.background.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: c.line),
       ),
-      child: Directionality(
-        textDirection: TextDirection.ltr,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.functions_rounded, size: 15, color: c.accent),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  l10n.t('Worked example', 'نمونهٔ حل'),
+                  style: TextStyle(
+                    fontFamily: 'Vazirmatn',
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                    color: c.muted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _MathLine(
+            latex: r"y' + \frac{y}{x} = x^2",
+            color: c.text,
+            fontSize: 17,
+          ),
+          const SizedBox(height: 12),
+          Divider(height: 1, color: c.line),
+          const SizedBox(height: 12),
+          _SolutionStep(
+            index: '1',
+            label: l10n.t('Linear first-order', 'خطی مرتبهٔ اول'),
+            latex: r"y' + P(x)\,y = Q(x)",
+          ),
+          const SizedBox(height: 10),
+          _SolutionStep(
+            index: '2',
+            label: l10n.t('Integrating factor', 'عامل انتگرال‌گیر'),
+            latex: r"\mu(x) = x",
+          ),
+          const SizedBox(height: 10),
+          _SolutionStep(
+            index: '3',
+            label: l10n.t('Substitute back', 'جای‌گذاری در معادله'),
+            latex: r"y = \frac{x^3}{4} + \frac{C}{x}",
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: c.successSoft,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.check_circle_rounded, size: 14, color: c.success),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    l10n.t('Validate the answer', 'اعتبارسنجی پاسخ'),
+                    style: TextStyle(
+                      fontFamily: 'Vazirmatn',
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: c.success,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SolutionStep extends StatelessWidget {
+  const _SolutionStep({
+    required this.index,
+    required this.label,
+    required this.latex,
+  });
+
+  final String index;
+  final String label;
+  final String latex;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: c.accent.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            index,
+            textDirection: TextDirection.ltr,
+            style: TextStyle(
+              fontFamily: 'SpaceGrotesk',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: c.accent,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Vazirmatn',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: c.text,
+                ),
+              ),
+              const SizedBox(height: 3),
+              _MathLine(latex: latex, color: c.muted, fontSize: 13),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MathLine extends StatelessWidget {
+  const _MathLine({
+    required this.latex,
+    required this.color,
+    this.fontSize = 14,
+  });
+
+  final String latex;
+  final Color color;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Align(
+        alignment: AlignmentDirectional.centerStart,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Math.tex(
-            r"y' + P(x)\,y = Q(x) \quad\Longrightarrow\quad y = e^{-\int P\,dx}\left(\int Q\,e^{\int P\,dx}dx + C\right)",
-            mathStyle: MathStyle.display,
+            latex,
             textStyle: TextStyle(
               fontFamily: 'Vazirmatn',
-              fontSize: 16,
-              color: c.text.withValues(alpha: 0.92),
+              fontSize: fontSize,
+              color: color,
             ),
             onErrorFallback: (error) => Text(
-              "y' + P(x)y = Q(x)",
+              latex,
               style: TextStyle(
                 fontFamily: 'DejaVu Sans Mono',
-                fontSize: 15,
-                color: c.text,
+                fontSize: fontSize - 1,
+                color: color,
               ),
             ),
           ),
@@ -1572,67 +2830,46 @@ class _FormCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-          decoration: BoxDecoration(
-            color: c.card,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: c.line),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Vazirmatn',
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: c.text,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    l10nDirection(context) == TextDirection.rtl
-                        ? Icons.arrow_back_rounded
-                        : Icons.arrow_forward_rounded,
-                    size: 15,
-                    color: c.muted,
-                  ),
-                ],
+    return _HoverSurface(
+      onTap: onTap,
+      radius: 16,
+      childBuilder: (context, hovered) => Padding(
+        padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Vazirmatn',
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: hovered ? c.accent : c.text,
               ),
-              const SizedBox(height: 6),
-              Directionality(
-                textDirection: TextDirection.ltr,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Math.tex(
+            ),
+            const SizedBox(height: 6),
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Math.tex(
+                  latex,
+                  textStyle: TextStyle(fontSize: 13.5, color: c.muted),
+                  onErrorFallback: (error) => Text(
                     latex,
-                    textStyle: TextStyle(fontSize: 13.5, color: c.muted),
-                    onErrorFallback: (error) => Text(
-                      latex,
-                      style: TextStyle(
-                        fontFamily: 'DejaVu Sans Mono',
-                        fontSize: 12,
-                        color: c.muted,
-                      ),
+                    style: TextStyle(
+                      fontFamily: 'DejaVu Sans Mono',
+                      fontSize: 12,
+                      color: c.muted,
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1655,55 +2892,118 @@ class _WideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 15, 14, 15),
-          decoration: BoxDecoration(
-            color: c.card,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: c.line),
+    return _HoverSurface(
+      onTap: onTap,
+      radius: 18,
+      childBuilder: (context, hovered) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 15, 14, 15),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: hovered ? c.accentSoft : c.cardAlt,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: hovered
+                      ? c.accent.withValues(alpha: 0.4)
+                      : c.accent.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Icon(icon, color: c.accent, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: hovered ? c.accent : c.text,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              l10nDirection(context) == TextDirection.rtl
+                  ? Icons.arrow_back_rounded
+                  : Icons.arrow_forward_rounded,
+              size: 16,
+              color: hovered ? c.accent : c.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A card that lifts and glows slightly on pointer hover. Pointer hover is a
+/// desktop affordance, so touch devices simply get the resting state.
+class _HoverSurface extends StatefulWidget {
+  const _HoverSurface({
+    required this.onTap,
+    required this.radius,
+    required this.childBuilder,
+  });
+
+  final VoidCallback onTap;
+  final double radius;
+  final Widget Function(BuildContext context, bool hovered) childBuilder;
+
+  @override
+  State<_HoverSurface> createState() => _HoverSurfaceState();
+}
+
+class _HoverSurfaceState extends State<_HoverSurface> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: reduceMotion
+            ? Duration.zero
+            : const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(
+          0,
+          _hovered && !reduceMotion ? -1 : 0,
+          0,
+        ),
+        decoration: BoxDecoration(
+          color: _hovered ? c.cardAlt : c.card,
+          borderRadius: BorderRadius.circular(widget.radius),
+          border: Border.all(
+            color: _hovered ? c.accent.withValues(alpha: 0.42) : c.line,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: c.accentSoft,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: c.accent.withValues(alpha: 0.22)),
-                ),
-                child: Icon(icon, color: c.accent, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(widget.radius),
+            child: widget.childBuilder(context, _hovered),
           ),
         ),
       ),
@@ -1711,7 +3011,4 @@ class _WideCard extends StatelessWidget {
   }
 }
 
-TextDirection l10nDirection(BuildContext context) =>
-    Localizations.localeOf(context).languageCode == 'fa'
-    ? TextDirection.rtl
-    : TextDirection.ltr;
+TextDirection l10nDirection(BuildContext context) => Directionality.of(context);

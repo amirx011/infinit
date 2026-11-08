@@ -21,7 +21,9 @@ set(ODE_SOURCES
     src/api.cpp
     src/calculus_api.cpp
     src/calculus_apps.cpp
+    src/calculus_more.cpp
     src/limits.cpp
+    src/topics.cpp
 )
 
 option(ODE_BUILD_TESTS "Build native test executables" ON)
@@ -72,6 +74,9 @@ if(ODE_BUILD_TESTS)
   add_executable(odetest_calculus_apps test/test_calculus_apps.cpp)
   target_link_libraries(odetest_calculus_apps PRIVATE odecore)
 
+  add_executable(odetest_calculus_more test/test_calculus_more.cpp)
+  target_link_libraries(odetest_calculus_more PRIVATE odecore)
+
   enable_testing()
   add_test(NAME algebra COMMAND odetest)
   add_test(NAME ode COMMAND odetest_ode)
@@ -79,4 +84,5 @@ if(ODE_BUILD_TESTS)
   add_test(NAME calculus COMMAND odetest_calculus)
   add_test(NAME limits COMMAND odetest_limits)
   add_test(NAME calculus_apps COMMAND odetest_calculus_apps)
+  add_test(NAME calculus_more COMMAND odetest_calculus_more)
 endif()

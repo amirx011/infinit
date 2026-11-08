@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "expr.hpp"
 #include "poly.hpp"
+#include "numeric.hpp"
 #include <functional>
 #include <set>
 
@@ -209,6 +210,11 @@ struct Integrator {
         // rational function
         {
             Ex g = tryRational(f);
+            if (g) { method = "rational"; return g; }
+        }
+        // rational function with symbolic constants (e.g. √3 coefficients)
+        {
+            Ex g = trySymbolicQuadratic(f);
             if (g) { method = "rational"; return g; }
         }
 
@@ -480,6 +486,79 @@ struct Integrator {
         Ex r = integrateRational(num, den, x);
         if (r && !hasIntegral(r)) return r;
         return nullptr;
+    }
+
+    // ∫ (A + B v)/(a + b v + c v²) dv with coefficients that may contain
+    // constants such as √3.  The numeric Poly path rejects those coefficients,
+    // which used to leave the oblique-trajectory answers as an unevaluated
+    // Integral.
+    Ex trySymbolicQuadratic(const Ex& f) {
+        Ex t = together(f);
+        Ex num = t, den = Num(1);
+        if (t->isMul()) {
+            std::vector<Ex> nn, dd;
+            for (auto& q : t->args) {
+                if (q->isPow() && q->args[1]->isNum() && q->args[1]->num.isNeg())
+                    dd.push_back(Pow(q->args[0], Num(-q->args[1]->num)));
+                else nn.push_back(q);
+            }
+            if (!dd.empty()) {
+                num = nn.empty() ? Num(1) : Mul(nn);
+                den = dd.size() == 1 ? dd[0] : Mul(dd);
+            }
+        } else if (t->isPow() && t->args[1]->isNum() && t->args[1]->num.isNeg()) {
+            num = Num(1);
+            den = Pow(t->args[0], Num(-t->args[1]->num));
+        }
+        std::vector<Ex> N, D;
+        if (!polyCoeffs(expand(num), x, N)) return nullptr;
+        if (!polyCoeffs(expand(den), x, D)) return nullptr;
+        if (D.size() < 2 || D.size() > 3 || D.back()->isZero()) return nullptr;
+        if (N.size() > 2) return nullptr;
+        bool symbolic = false;
+        for (auto& c : N) if (!c->isNum()) symbolic = true;
+        for (auto& c : D) if (!c->isNum()) symbolic = true;
+        if (!symbolic) return nullptr;
+        Ex A = N.empty() ? Num(0) : N[0];
+        Ex B = N.size() > 1 ? N[1] : Num(0);
+        Ex v = Sym(x);
+        if (D.size() == 2) {
+            // ∫ (A + B v)/(a + b v) dv = (B/b) v + ((A − B a/b)/b) ln|a + b v|.
+            Ex b1 = D[1], a0 = D[0];
+            Ex lin = Add(a0, Mul(b1, v));
+            Ex k = simplify(Add(A, Mul(Num(-1), B, a0, Pow(b1, Num(-1)))));
+            return simplify(Add(Mul(B, Pow(b1, Num(-1)), v),
+                                Mul(k, Pow(b1, Num(-1)), lnAbs(lin))));
+        }
+        Ex c2 = D[2], b1 = D[1], a0 = D[0];
+        Ex Q = Add({a0, Mul(b1, v), Mul(c2, Pow(v, Num(2)))});
+        Ex twoC = Mul(Num(2), c2);
+        Ex disc = simplify(Add({Mul(Num(4), a0, c2), Mul(Num(-1), Pow(b1, Num(2)))}));
+        Ex K = simplify(Add({A, Mul(Num(-1), B, b1, Pow(twoC, Num(-1)))}));
+        Ex logPart = Mul(B, Pow(twoC, Num(-1)), lnAbs(Q));
+        double discVal = 0.0;
+        bool numericDisc = false;
+        {
+            bool ok = false;
+            discVal = evalReal(disc, {}, &ok);
+            numericDisc = ok && std::isfinite(discVal);
+        }
+        Ex invQ;
+        if (numericDisc && std::fabs(discVal) < 1e-12) {
+            Ex root = Mul(Num(-1), b1, Pow(twoC, Num(-1)));
+            Ex lin = Add(v, Mul(Num(-1), root));
+            invQ = Mul(Num(-1), Pow(c2, Num(-1)), Pow(lin, Num(-1)));
+        } else if (numericDisc && discVal < 0) {
+            Ex root = Sqrt(Mul(Num(-1), disc));
+            Ex u = Add(Mul(twoC, v), b1);
+            Ex ratio = Mul(Add(u, Mul(Num(-1), root)), Pow(Add(u, root), Num(-1)));
+            invQ = Mul(lnAbs(ratio), Pow(root, Num(-1)));
+        } else {
+            Ex s = Sqrt(disc);
+            Ex u = Add(Mul(twoC, v), b1);
+            invQ = Mul(Num(2), Pow(s, Num(-1)), Fn("atan", {Mul(u, Pow(s, Num(-1)))}));
+        }
+        return simplify(Add({logPart, Mul(K, invQ)}));
     }
 
     Ex trySubstitution(const Ex& f) {

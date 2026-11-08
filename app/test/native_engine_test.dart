@@ -165,4 +165,129 @@ void main() {
       isNotEmpty,
     );
   });
+
+  test('topic workbench solves growth, systems and transforms', () {
+    final growth = engine.solve({
+      'mode': 'topic',
+      'topic': 'growth_decay',
+      'k': 0.2,
+      'y0': 100,
+      't': 5,
+    });
+    expect(growth.ok, isTrue);
+    expect(growth.solution?.pretty, contains('exp'));
+    expect(growth.steps, isNotEmpty);
+
+    final system = engine.solve({
+      'mode': 'topic',
+      'topic': 'linear_system',
+      'a': 0,
+      'b': 1,
+      'c': -1,
+      'd': 0,
+    });
+    expect(system.ok, isTrue);
+    expect(system.solution?.pretty, contains('cos'));
+    expect(system.checks, isNotEmpty);
+
+    final laplace = engine.solve({
+      'mode': 'topic',
+      'topic': 'laplace',
+      'f': 'exp(2*t)*sin(3*t)',
+    });
+    expect(laplace.ok, isTrue);
+    expect(laplace.solution?.pretty, contains('s'));
+  });
+
+  test('C++ fallback handles linear and stiff ODE topics', () {
+    final linear = engine.solve({
+      'mode': 'topic',
+      'topic': 'ode_linear',
+      'coeffs': '1, 0, 1',
+      'ics': '1, 0',
+    });
+    expect(linear.ok, isTrue);
+    expect(linear.solution?.pretty, contains('cos'));
+    expect(linear.steps.length, greaterThanOrEqualTo(4));
+
+    final stiff = engine.solve({
+      'mode': 'topic',
+      'topic': 'ode_stiff',
+      'f': '-50*(y - cos(x))',
+      'x0': 0,
+      'y0': 0,
+      'xend': 1,
+      'h': 0.01,
+    });
+    expect(stiff.ok, isTrue);
+    expect(stiff.hasNumeric, isTrue);
+    expect(stiff.numericValue, closeTo(0.54, 0.1));
+  });
+
+  test(
+    'async topic routing returns the same answer with or without Julia',
+    () async {
+      final result = await engine.topicAsync(
+        'ode_linear',
+        params: {'coeffs': '1, 0, 1', 'ics': '1, 0'},
+      );
+      expect(result.ok, isTrue);
+      expect(result.solution?.pretty, contains('cos'));
+      expect(result.steps, isNotEmpty);
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
+  test('Heun and RK4 both advance the same initial-value problem', () {
+    Map<String, dynamic> request(String topic) => {
+      'mode': 'topic',
+      'topic': topic,
+      'f': 'x + y',
+      'x0': 0,
+      'y0': 1,
+      'h': 0.1,
+      'n': 10,
+    };
+
+    final heun = engine.solve(request('heun'));
+    final rk4 = engine.solve(request('rk4'));
+    expect(heun.ok, isTrue);
+    expect(rk4.ok, isTrue);
+    expect(heun.hasNumeric, isTrue);
+    expect(rk4.hasNumeric, isTrue);
+    // RK4 is more accurate than Heun on the same step count.
+    expect(
+      (rk4.numericValue - 3.43656).abs(),
+      lessThan((heun.numericValue - 3.43656).abs()),
+    );
+  });
+
+  test('application topics keep the correct sign and readable constants', () {
+    final falling = engine.solve({
+      'mode': 'topic',
+      'topic': 'falling_body',
+      'm': 1,
+      'k': 0.5,
+      'g': 9.81,
+      'v0': 0,
+      't': 5,
+    });
+    expect(falling.ok, isTrue);
+    // v(t) = mg/k - (mg/k)e^(-kt/m).  The exponential term must be negative.
+    expect(falling.solution?.plain, contains('-981/50*exp'));
+    expect(falling.numericValue, closeTo(18.0095, 0.001));
+
+    final pde = engine.solve({
+      'mode': 'topic',
+      'topic': 'laplace_pde',
+      'a': 3.141592653589793,
+      'b': 3.141592653589793,
+      'n': 3,
+      'f': 'sin(pi*x/a)',
+    });
+    expect(pde.ok, isTrue);
+    // sinh(pi) is shown as a short decimal, never as a huge rational.
+    expect(pde.solution?.plain, isNot(contains('80143857')));
+    expect(pde.solution?.plain, contains('sinh'));
+  });
 }

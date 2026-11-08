@@ -100,6 +100,12 @@ static Frac asFrac(const Ex& a) {
 
 Ex cancelCommon(const Ex& a);
 
+// factor map of a product: base -> exponent
+struct ExCmp2 {
+    bool operator()(const Ex& a, const Ex& b) const { return compareExpr(a, b) < 0; }
+};
+static void factorMap(const Ex& a, std::map<Ex, Ex, ExCmp2>& m, Ex& coeff);
+
 Ex together(const Ex& a) {
     if (!a || !a->isAdd()) {
         if (a && a->isMul()) {
@@ -124,8 +130,32 @@ Ex together(const Ex& a) {
     if (!anyDen) {
         return Add(std::vector<Ex>(a->args.begin(), a->args.end()));
     }
-    Ex D = Num(1);
-    for (auto& f : fs) if (!f.den->isOne()) D = Mul(D, f.den);
+    // Least common denominator: multiplying every denominator repeats shared
+    // factors (two terms over (v√3−3) would give (v√3−3)²) and hides the
+    // rational structure from later integration.
+    std::map<Ex, Ex, ExCmp2> dmap;
+    Ex dcoeff = Num(1);
+    for (auto& f : fs) {
+        if (f.den->isOne()) continue;
+        std::map<Ex, Ex, ExCmp2> m;
+        Ex c = Num(1);
+        factorMap(f.den, m, c);
+        dcoeff = Mul(dcoeff, c);
+        for (auto& kv : m) {
+            auto it = dmap.find(kv.first);
+            if (it == dmap.end()) dmap.emplace(kv.first, kv.second);
+            else if (kv.second->isNum() && it->second->isNum() &&
+                     kv.second->num.n > it->second->num.n)
+                it->second = kv.second;
+        }
+    }
+    std::vector<Ex> dfacs;
+    if (!dcoeff->isOne()) dfacs.push_back(dcoeff);
+    for (auto& kv : dmap) {
+        if (kv.second->isZero()) continue;
+        dfacs.push_back(kv.second->isOne() ? kv.first : Pow(kv.first, kv.second));
+    }
+    Ex D = dfacs.empty() ? Num(1) : Mul(dfacs);
     if (sizeOf(D) > 400) return a;
     std::vector<Ex> nums;
     for (auto& f : fs) {
@@ -136,12 +166,6 @@ Ex together(const Ex& a) {
     Ex N = Add(nums);
     return cancelCommon(Mul(N, Pow(D, Num(-1))));
 }
-
-// factor map of a product: base -> exponent
-static void factorMap(const Ex& a, std::map<Ex, Ex, struct ExCmp2>& m, Ex& coeff);
-struct ExCmp2 {
-    bool operator()(const Ex& a, const Ex& b) const { return compareExpr(a, b) < 0; }
-};
 
 static void factorMap(const Ex& a, std::map<Ex, Ex, ExCmp2>& m, Ex& coeff) {
     if (a->isNum()) { coeff = Mul(coeff, a); return; }
@@ -326,6 +350,48 @@ Ex cancelCommon(const Ex& a) {
             }
             if (!cancelled) ++it;
         }
+        // Factorial ratio: fact(u+k)/fact(u) = (u+1)...(u+k) for a small
+        // positive integer k.  This keeps the ratio test symbolic for terms
+        // such as 1/n! instead of evaluating huge factorials numerically.
+        auto factorialArg = [](const Ex& f) -> Ex {
+            if (f->isFunc("fact") && f->args.size() == 1) return f->args[0];
+            return nullptr;
+        };
+        auto integerGap = [](const Ex& big, const Ex& small, long long* k) -> bool {
+            Ex d = Add(big, Mul(Num(-1), small));
+            if (!d->isNum() || !d->num.isInt() || d->num.n < 1 || d->num.n > 8) return false;
+            *k = d->num.n;
+            return true;
+        };
+        for (auto pit = pos.begin(); pit != pos.end();) {
+            Ex a = factorialArg(pit->first);
+            if (!a || !equals(pit->second, Num(1))) { ++pit; continue; }
+            bool matched = false;
+            for (auto nit = neg.begin(); nit != neg.end(); ++nit) {
+                Ex b = factorialArg(nit->first);
+                if (!b || !equals(nit->second, Num(1))) continue;
+                long long k = 0;
+                if (integerGap(b, a, &k)) {
+                    // fact(a)/fact(b) with b = a + k.
+                    Ex product = Num(1);
+                    for (long long j = 1; j <= k; ++j) product = Mul(product, Add(a, Num(j)));
+                    coeff = Mul(coeff, Pow(product, Num(-1)));
+                } else if (integerGap(a, b, &k)) {
+                    // fact(a)/fact(b) with a = b + k.
+                    Ex product = Num(1);
+                    for (long long j = 1; j <= k; ++j) product = Mul(product, Add(b, Num(j)));
+                    coeff = Mul(coeff, product);
+                } else {
+                    continue;
+                }
+                neg.erase(nit);
+                pit = pos.erase(pit);
+                matched = true;
+                break;
+            }
+            if (!matched) ++pit;
+        }
+
         std::vector<Ex> out;
         if (!coeff->isOne()) out.push_back(coeff);
         std::set<Ex, ExCmp2> used;
@@ -451,6 +517,14 @@ Ex simplify(const Ex& a) {
         std::vector<Ex> v;
         for (auto& f : a->args) v.push_back(simplify(f));
         Ex f = Fn(a->name, v);
+        if (f->isFunc("fact") && f->args.size() == 1 && f->args[0]->isNum()) {
+            const Rational& q = f->args[0]->num;
+            if (q.isInt() && q.n >= 0 && q.n <= 20) {
+                long long r = 1;
+                for (long long i = 2; i <= q.n; ++i) r *= i;
+                return Num(r);
+            }
+        }
         return f;
     }
     return a;

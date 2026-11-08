@@ -6,6 +6,7 @@
 #include "calculus_ext.hpp"
 #include "limits.hpp"
 #include "localize.hpp"
+#include "poles.hpp"
 #include "solver.hpp"
 
 #include <algorithm>
@@ -155,12 +156,6 @@ namespace {
 // divergent ones are reported as divergent instead of returning a finite wrong
 // number.
 
-struct PolePoint {
-    Ex at;                 // exact point when available
-    double numericAt = 0;  // always usable
-    bool exact = false;
-};
-
 struct EdgeValue {
     bool divergent = false;
     bool exact = false;
@@ -227,6 +222,7 @@ void collectPoleBases(const Ex& e, const std::string& x, std::vector<Ex>& out) {
         const std::string& n = e->name;
         if (n == "tan" || n == "sec") out.push_back(Fn("cos", {e->args[0]}));
         else if (n == "cot" || n == "csc") out.push_back(Fn("sin", {e->args[0]}));
+        else if (n == "ln" || n == "log") out.push_back(e->args[0]);
     }
     for (const auto& a : e->args) collectPoleBases(a, x, out);
 }
@@ -266,7 +262,10 @@ bool growsWithoutBound(const Ex& f, const std::string& x, double at, int dir) {
     for (double d : {1e-2, 1e-4, 1e-6, 1e-8}) {
         bool ok = false;
         const double v = evalPoint(f, x, at + dir * d, &ok);
-        if (!ok) return true;
+        // A failed evaluation here usually means the point is a domain
+        // boundary, not a pole.  Treating it as growth produced phantom
+        // asymptotes along the edge of a domain such as ln(x) for x < 0.
+        if (!ok) return false;
         const double a = std::fabs(v);
         if (count > 0 && a > 5.0 * std::max(prev, 1.0)) ++growth;
         prev = a;
@@ -336,8 +335,8 @@ void dedupePoles(std::vector<PolePoint>& poles) {
     poles.swap(out);
 }
 
-std::vector<PolePoint> findPoles(const Ex& f, const std::string& x, double lo, double hi,
-                                 bool scanNumeric) {
+std::vector<PolePoint> findPolesImpl(const Ex& f, const std::string& x, double lo, double hi,
+                                     bool scanNumeric) {
     std::vector<PolePoint> poles;
     addSymbolicPoles(f, x, lo, hi, poles);
     if (scanNumeric) addNumericPoles(f, x, lo, hi, poles);
@@ -347,7 +346,7 @@ std::vector<PolePoint> findPoles(const Ex& f, const std::string& x, double lo, d
 
 // A removable singularity (for example sin(x)/x at 0) has a finite limit and
 // does not make the integral improper.
-bool hasFiniteLimit(const Ex& f, const std::string& x, const Ex& at, int dir) {
+bool hasFiniteLimitImpl(const Ex& f, const std::string& x, const Ex& at, int dir) {
     try {
         LimitOutcome l = limitOf(f, x, at, dir, nullptr);
         if (l.kind != LimitOutcome::Finite) return false;
@@ -576,7 +575,7 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
         if (F) {
             const double scanLo = loInf ? -50.0 : loNum;
             const double scanHi = hiInf ? 50.0 : hiNum;
-            poles = findPoles(f, x, scanLo, scanHi, finiteBounds);
+            poles = findPolesImpl(f, x, scanLo, scanHi, finiteBounds);
         }
 
         std::vector<PolePoint> interior;
@@ -597,7 +596,7 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                 int dir = 0;
                 if (!loInf && std::fabs(p.numericAt - loNum) < 1e-7) dir = 1;
                 else if (!hiInf && std::fabs(p.numericAt - hiNum) < 1e-7) dir = -1;
-                if (p.exact && p.at && hasFiniteLimit(f, x, p.at, dir)) continue;
+                if (p.exact && p.at && hasFiniteLimitImpl(f, x, p.at, dir)) continue;
                 kept.push_back(p);
             }
             if (kept.size() != poles.size()) {
@@ -632,11 +631,11 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
             bool ok1 = false, ok2 = false;
             evalPoint(f, x, loNum, &ok1);
             evalPoint(f, x, hiNum, &ok2);
-            if (!ok1 && !hasFiniteLimit(f, x, lo, +1)) {
+            if (!ok1 && !hasFiniteLimitImpl(f, x, lo, +1)) {
                 improper = true;
                 integrandSingularLo = true;
             }
-            if (!ok2 && !hasFiniteLimit(f, x, hi, -1)) {
+            if (!ok2 && !hasFiniteLimitImpl(f, x, hi, -1)) {
                 improper = true;
                 integrandSingularHi = true;
             }
@@ -887,6 +886,15 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
 }
 
 } // namespace
+
+std::vector<PolePoint> findPoles(const Ex& f, const std::string& x, double lo, double hi,
+                                 bool scanNumeric) {
+    return findPolesImpl(f, x, lo, hi, scanNumeric);
+}
+
+bool hasFiniteLimitAt(const Ex& f, const std::string& x, const Ex& at, int dir) {
+    return hasFiniteLimitImpl(f, x, at, dir);
+}
 
 Result integrateMulti(const std::string& input, const std::vector<std::string>& vars,
                       bool definite, const std::vector<std::string>& lower,

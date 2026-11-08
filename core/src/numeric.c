@@ -17,7 +17,7 @@ double ode_eval_rpn(const OdeInstr* code, int n, const double* vars) {
         } else if (op == ODE_NEG) {
             if (sp < 1) return NAN;
             st[sp - 1] = -st[sp - 1];
-        } else if (op >= ODE_SIN && op <= ODE_ERFC) {
+        } else if (op >= ODE_SIN && op <= ODE_FACT) {
             double u;
             if (sp < 1) return NAN;
             u = st[sp - 1];
@@ -43,6 +43,11 @@ double ode_eval_rpn(const OdeInstr* code, int n, const double* vars) {
                 case ODE_COT: st[sp - 1] = cos(u) / sin(u); break;
                 case ODE_ERF: st[sp - 1] = erf(u); break;
                 case ODE_ERFC: st[sp - 1] = erfc(u); break;
+                case ODE_FACT:
+                    /* factorial for non-negative integers, Gamma(u+1) otherwise */
+                    if (u < 0.0 && u == floor(u)) st[sp - 1] = NAN;
+                    else st[sp - 1] = tgamma(u + 1.0);
+                    break;
                 default: break;
             }
         } else {

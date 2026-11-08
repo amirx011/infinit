@@ -112,6 +112,33 @@ static void obliqueApiCase() {
            "oblique API request echoes the crossing angle");
     expect(s.find("\"trajectory_mode\":\"oblique\"") != std::string::npos,
            "oblique API request reports the trajectory mode");
+
+    // 120 and -60 degrees share tan = -sqrt(3); the exact surd must survive
+    // instead of collapsing to a decimal rational approximation.
+    for (int angle : {120, -60}) {
+        const std::string t = api(
+            "{\"mode\":\"oblique\",\"input\":\"y - c*x\",\"c\":\"c\",\"angle\":" +
+            std::to_string(angle) + ",\"x\":\"x\",\"y\":\"y\",\"lang\":\"en\"}");
+        expect(t.find("\"ok\":true") != std::string::npos,
+               "oblique negative-angle request succeeds");
+        expect(t.find("sqrt(3)") != std::string::npos,
+               "oblique angle keeps the exact sqrt(3) slope");
+        expect(t.find("1732/1000") == std::string::npos && t.find("1.732") == std::string::npos,
+               "oblique angle does not use a decimal approximation");
+    }
+}
+
+static void domainCase() {
+    // 1/cos(x) is trigonometric, with poles at pi/2 + k*pi.  The reciprocal
+    // must not be classified as rational, and the pole must be refined to
+    // pi/2 instead of left at a grid approximation.
+    DomainOutput d = analyseDomain("1/cos(x)", "x", 0.0, 3.0, 1201);
+    expect(d.error.empty(), "domain: 1/cos(x) succeeds");
+    expect(d.kind == "trigonometric", "domain: 1/cos(x) is trigonometric");
+    expect(d.asymptotes.size() == 1, "domain: 1/cos(x) has one pole in (0,3)");
+    if (d.asymptotes.size() == 1)
+        expect(std::fabs(d.asymptotes[0] - 1.5707963267948966) < 1e-4,
+               "domain: the pole is refined to pi/2");
 }
 
 static void behaviourCase() {
@@ -135,7 +162,7 @@ static void behaviourCase() {
         if (p.sign < 0) falling = true;
     }
     expect(rising && falling, "behaviour: both trends detected");
-    expect(r.steps.size() == 4, "behaviour: solution path has 4 steps");
+    expect(r.steps.size() == 6, "behaviour: solution path has 6 steps");
 }
 
 static void tangentCase() {
@@ -296,6 +323,7 @@ int main() {
     fieldCases();
     orthogonalApiCase();
     obliqueApiCase();
+    domainCase();
     behaviourCase();
     tangentCase();
     optimisationCase();

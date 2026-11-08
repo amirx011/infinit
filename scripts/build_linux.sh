@@ -26,6 +26,14 @@ fi
 flutter build linux "--$MODE" --no-pub
 
 BUNDLE="$ROOT/app/build/linux/x64/$MODE/bundle"
+
+# Ship the tiny Julia bridge source next to the executable.  The Julia runtime
+# itself is never bundled: if `julia` is not installed the app silently uses the
+# C++ core.
+mkdir -p "$BUNDLE/julia/src"
+cp "$ROOT/julia/Project.toml" "$BUNDLE/julia/"
+cp "$ROOT/julia/src/"*.jl "$BUNDLE/julia/src/"
+
 echo
 echo "Bundle: $BUNDLE"
 echo "Run:    $BUNDLE/infinit"

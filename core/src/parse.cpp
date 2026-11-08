@@ -10,7 +10,7 @@ namespace ode {
 
 namespace {
 
-enum class Tok { End, Num, Ident, Plus, Minus, Star, Slash, Caret, LParen, RParen, Comma, Pipe, Eq, Prime };
+enum class Tok { End, Num, Ident, Plus, Minus, Star, Slash, Caret, LParen, RParen, Comma, Pipe, Eq, Prime, Bang };
 
 struct Token {
     Tok t = Tok::End;
@@ -96,6 +96,9 @@ struct Lexer {
             case '=': tk.t = Tok::Eq; if (i < s.size() && s[i] == '=') ++i; break;
             case '\'': {
                 tk.t = Tok::Prime; break;
+            }
+            case '!': {
+                tk.t = Tok::Bang; break;
             }
             default:
                 throw std::runtime_error(std::string("نویسه ناشناخته: '") + c + "'");
@@ -228,6 +231,8 @@ struct Parser {
         } else {
             throw std::runtime_error("عبارت نامعتبر است");
         }
+        // Postfix factorial binds tighter than a power: n! is fact(n).
+        while (accept(Tok::Bang)) out = Fn("fact", {out});
         --depth;
         return out;
     }

@@ -52,6 +52,229 @@ static void my_application_set_brand_icon(GtkWindow* window) {
   }
 }
 
+// Modern, borderless window buttons for the custom header bar.  The system
+// decorations are replaced so the title bar matches the app instead of the
+// desktop theme, while the icons stay symbolic and follow the GTK theme.
+static void my_application_install_window_css(void) {
+  static gboolean installed = FALSE;
+  if (installed) {
+    return;
+  }
+  installed = TRUE;
+
+  GtkCssProvider* provider = gtk_css_provider_new();
+  const gchar* css =
+      "headerbar.infinit-header {"
+      "  min-height: 48px;"
+      "  padding: 0 6px;"
+      "  border-radius: 0;"
+      "  box-shadow: none;"
+      "}"
+      ".infinit-window-button {"
+      "  min-width: 32px;"
+      "  min-height: 32px;"
+      "  padding: 0;"
+      "  margin: 0 1px;"
+      "  border-radius: 9px;"
+      "  background-image: none;"
+      "  background-color: transparent;"
+      "  border: 1px solid transparent;"
+      "  box-shadow: none;"
+      "}"
+      ".infinit-window-button:hover {"
+      "  background-color: rgba(127, 127, 127, 0.18);"
+      "  border-color: rgba(127, 127, 127, 0.12);"
+      "}"
+      ".infinit-window-button:active {"
+      "  background-color: rgba(127, 127, 127, 0.28);"
+      "}"
+      ".infinit-window-button.close:hover {"
+      "  background-color: #e01b24;"
+      "  border-color: #c01c28;"
+      "  color: #ffffff;"
+      "}"
+      ".infinit-window-button.close:active {"
+      "  background-color: #c01c28;"
+      "  color: #ffffff;"
+      "}";
+  gtk_css_provider_load_from_data(provider, css, -1, nullptr);
+  gtk_style_context_add_provider_for_screen(
+      gdk_screen_get_default(), GTK_STYLE_PROVIDER(provider),
+      GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  g_object_unref(provider);
+}
+
+typedef enum {
+  INFINIT_WINDOW_ICON_MINIMIZE,
+  INFINIT_WINDOW_ICON_MAXIMIZE,
+  INFINIT_WINDOW_ICON_RESTORE,
+  INFINIT_WINDOW_ICON_CLOSE
+} InfinitWindowIcon;
+
+// Draw the window controls with Cairo instead of loading them from the icon
+// theme.  Symbolic names such as window-minimize-symbolic are absent on many
+// desktops, which left the buttons blank.
+static gboolean my_application_draw_window_icon(GtkWidget* widget,
+                                                cairo_t* cr,
+                                                gpointer data) {
+  (void)data;
+  GtkWidget* owner = gtk_widget_get_parent(widget);
+  if (owner == nullptr) {
+    owner = widget;
+  }
+  GtkStyleContext* context = gtk_widget_get_style_context(owner);
+  GdkRGBA color;
+  gtk_style_context_get_color(context, gtk_widget_get_state_flags(owner),
+                              &color);
+  gdk_cairo_set_source_rgba(cr, &color);
+
+  const InfinitWindowIcon icon = (InfinitWindowIcon)GPOINTER_TO_INT(
+      g_object_get_data(G_OBJECT(widget), "infinit-window-icon"));
+  const double width = gtk_widget_get_allocated_width(widget);
+  const double height = gtk_widget_get_allocated_height(widget);
+  const double cx = width / 2.0;
+  const double cy = height / 2.0;
+  const double half = 4.6;
+  cairo_set_line_width(cr, 1.9);
+  cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+  cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
+
+  switch (icon) {
+    case INFINIT_WINDOW_ICON_MINIMIZE:
+      cairo_move_to(cr, cx - half, cy);
+      cairo_line_to(cr, cx + half, cy);
+      break;
+    case INFINIT_WINDOW_ICON_MAXIMIZE:
+      cairo_rectangle(cr, cx - half, cy - half, 2 * half, 2 * half);
+      break;
+    case INFINIT_WINDOW_ICON_RESTORE:
+      cairo_rectangle(cr, cx - half, cy - half + 2, 2 * half - 2,
+                      2 * half - 2);
+      cairo_rectangle(cr, cx - half + 2, cy - half, 2 * half - 2,
+                      2 * half - 2);
+      break;
+    case INFINIT_WINDOW_ICON_CLOSE:
+      cairo_move_to(cr, cx - half, cy - half);
+      cairo_line_to(cr, cx + half, cy + half);
+      cairo_move_to(cr, cx + half, cy - half);
+      cairo_line_to(cr, cx - half, cy + half);
+      break;
+  }
+  cairo_stroke(cr);
+  return FALSE;
+}
+
+static GtkButton* my_application_window_button(InfinitWindowIcon icon,
+                                               const gchar* tooltip,
+                                               const gchar* css_class) {
+  GtkButton* button = GTK_BUTTON(gtk_button_new());
+  GtkWidget* drawing = gtk_drawing_area_new();
+  gtk_widget_set_size_request(drawing, 20, 20);
+  g_object_set_data(G_OBJECT(drawing), "infinit-window-icon",
+                    GINT_TO_POINTER((gint)icon));
+  g_signal_connect(drawing, "draw",
+                   G_CALLBACK(my_application_draw_window_icon), nullptr);
+  gtk_widget_show(drawing);
+  gtk_button_set_image(button, drawing);
+  gtk_button_set_relief(button, GTK_RELIEF_NONE);
+  gtk_widget_set_tooltip_text(GTK_WIDGET(button), tooltip);
+  gtk_widget_set_valign(GTK_WIDGET(button), GTK_ALIGN_CENTER);
+  gtk_widget_set_focus_on_click(GTK_WIDGET(button), FALSE);
+  GtkStyleContext* context = gtk_widget_get_style_context(GTK_WIDGET(button));
+  gtk_style_context_add_class(context, "infinit-window-button");
+  if (css_class != nullptr) {
+    gtk_style_context_add_class(context, css_class);
+  }
+  return button;
+}
+
+static void my_application_minimize(GtkButton* button, gpointer data) {
+  (void)button;
+  gtk_window_iconify(GTK_WINDOW(data));
+}
+
+static void my_application_update_maximize_icon(GtkWindow* window) {
+  GtkWidget* drawing = GTK_WIDGET(
+      g_object_get_data(G_OBJECT(window), "infinit-maximize-image"));
+  if (drawing == nullptr) {
+    return;
+  }
+  g_object_set_data(
+      G_OBJECT(drawing), "infinit-window-icon",
+      GINT_TO_POINTER((gint)(gtk_window_is_maximized(window)
+                                 ? INFINIT_WINDOW_ICON_RESTORE
+                                 : INFINIT_WINDOW_ICON_MAXIMIZE)));
+  gtk_widget_queue_draw(drawing);
+}
+
+static void my_application_toggle_maximize(GtkButton* button, gpointer data) {
+  (void)button;
+  GtkWindow* window = GTK_WINDOW(data);
+  if (gtk_window_is_maximized(window)) {
+    gtk_window_unmaximize(window);
+  } else {
+    gtk_window_maximize(window);
+  }
+  my_application_update_maximize_icon(window);
+}
+
+static gboolean my_application_window_state_changed(GtkWidget* widget,
+                                                     GdkEventWindowState* event,
+                                                     gpointer data) {
+  (void)event;
+  (void)data;
+  my_application_update_maximize_icon(GTK_WINDOW(widget));
+  return FALSE;
+}
+
+static void my_application_close(GtkButton* button, gpointer data) {
+  (void)button;
+  gtk_window_close(GTK_WINDOW(data));
+}
+
+static GtkHeaderBar* my_application_build_header_bar(GtkWindow* window) {
+  GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
+  gtk_widget_show(GTK_WIDGET(header_bar));
+  gtk_style_context_add_class(gtk_widget_get_style_context(GTK_WIDGET(header_bar)),
+                              "infinit-header");
+  gtk_header_bar_set_title(header_bar, "Infinit Lab");
+  gtk_header_bar_set_subtitle(header_bar, "Differential equations & calculus");
+  gtk_header_bar_set_show_close_button(header_bar, FALSE);
+  gtk_header_bar_set_decoration_layout(header_bar, "");
+
+  GtkWidget* controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+  gtk_widget_set_valign(controls, GTK_ALIGN_CENTER);
+  gtk_widget_show(controls);
+
+  GtkButton* minimize = my_application_window_button(
+      INFINIT_WINDOW_ICON_MINIMIZE, "Minimize", nullptr);
+  GtkButton* maximize = my_application_window_button(
+      INFINIT_WINDOW_ICON_MAXIMIZE, "Maximize", nullptr);
+  GtkButton* close = my_application_window_button(
+      INFINIT_WINDOW_ICON_CLOSE, "Close", "close");
+
+  g_object_set_data(G_OBJECT(window), "infinit-maximize-image",
+                    gtk_button_get_image(maximize));
+
+  g_signal_connect(minimize, "clicked",
+                   G_CALLBACK(my_application_minimize), window);
+  g_signal_connect(maximize, "clicked",
+                   G_CALLBACK(my_application_toggle_maximize), window);
+  g_signal_connect(close, "clicked", G_CALLBACK(my_application_close), window);
+
+  gtk_box_pack_start(GTK_BOX(controls), GTK_WIDGET(minimize), FALSE, FALSE, 0);
+  gtk_box_pack_start(GTK_BOX(controls), GTK_WIDGET(maximize), FALSE, FALSE, 0);
+  gtk_box_pack_start(GTK_BOX(controls), GTK_WIDGET(close), FALSE, FALSE, 0);
+  gtk_widget_show(GTK_WIDGET(minimize));
+  gtk_widget_show(GTK_WIDGET(maximize));
+  gtk_widget_show(GTK_WIDGET(close));
+  gtk_header_bar_pack_end(header_bar, controls);
+
+  g_signal_connect(window, "window-state-event",
+                   G_CALLBACK(my_application_window_state_changed), nullptr);
+  return header_bar;
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -63,32 +286,13 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Use a header bar when running in GNOME as this is the common style used
-  // by applications and is the setup most users will be using (e.g. Ubuntu
-  // desktop).
-  // If running on X and not using GNOME then just use a traditional title bar
-  // in case the window manager does more exotic layout, e.g. tiling.
-  // If running on Wayland assume the header bar will work (may need changing
-  // if future cases occur).
-  gboolean use_header_bar = TRUE;
-#ifdef GDK_WINDOWING_X11
-  GdkScreen* screen = gtk_window_get_screen(window);
-  if (GDK_IS_X11_SCREEN(screen)) {
-    const gchar* wm_name = gdk_x11_screen_get_window_manager_name(screen);
-    if (g_strcmp0(wm_name, "GNOME Shell") != 0) {
-      use_header_bar = FALSE;
-    }
-  }
-#endif
-  if (use_header_bar) {
-    GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
-    gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "Infinit Lab");
-    gtk_header_bar_set_show_close_button(header_bar, TRUE);
-    gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
-  } else {
-    gtk_window_set_title(window, "Infinit Lab");
-  }
+  // A custom header bar gives every desktop the same three modern window
+  // controls (minimize, maximize/restore, close) instead of the toolkit or
+  // window-manager defaults.  The bar also keeps the drag area and title.
+  my_application_install_window_css();
+  GtkHeaderBar* header_bar = my_application_build_header_bar(window);
+  gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
+  gtk_window_set_title(window, "Infinit Lab");
 
   gtk_window_set_default_size(window, 1280, 720);
   my_application_set_brand_icon(window);

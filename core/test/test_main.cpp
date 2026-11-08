@@ -52,6 +52,37 @@ int main() {
     check("int 1/cos(x)", toPlain(simplify(integrate(parseExpr("1/cos(x)"), "x"))),
           "ln(abs(sec(x) + tan(x)))");
     check("int 1/tan(x)", toPlain(simplify(integrate(parseExpr("1/tan(x)"), "x"))), "ln(abs(sin(x)))");
+
+    // Least common denominator: a repeated denominator must stay a single
+    // factor instead of being squared by multiplying the denominators.
+    check("together repeated denominator",
+          toPlain(simplify(parseExpr("1/(x+1) + 1/(x+1)^2"))), "(x + 2)/(x + 1)^2");
+    check("together repeated denominator x",
+          toPlain(simplify(parseExpr("1/x + 1/x^2"))), "(x + 1)/x^2");
+    check("together symbolic denominator",
+          toPlain(simplify(parseExpr("1/(v*sqrt(3)-3) + 1/(v*sqrt(3)-3)^2"))),
+          "(v*sqrt(3) - 2)/(v*sqrt(3) - 3)^2");
+    {
+        // Symbolic numerator over a linear denominator.
+        Ex F = integrate(parseExpr("(a+b*x)/(x+1)"), "x");
+        Ex res = simplify(Add(diff(F, "x"), Mul(Num(-1), parseExpr("(a+b*x)/(x+1)"))));
+        check("int symbolic linear denominator",
+              numericallyZero(res, {"x", "a", "b"}, 20, 1e-6) ? "0" : toPlain(res), "0");
+    }
+    {
+        // Symbolic numerator over a quadratic with no real roots (atan form).
+        Ex F = integrate(parseExpr("(a+b*x)/(x^2+1)"), "x");
+        Ex res = simplify(Add(diff(F, "x"), Mul(Num(-1), parseExpr("(a+b*x)/(x^2+1)"))));
+        check("int symbolic quadratic atan",
+              numericallyZero(res, {"x", "a", "b"}, 20, 1e-6) ? "0" : toPlain(res), "0");
+    }
+    {
+        // Symbolic numerator over a quadratic with two real roots (log form).
+        Ex F = integrate(parseExpr("(a+b*x)/(x^2-1)"), "x");
+        Ex res = simplify(Add(diff(F, "x"), Mul(Num(-1), parseExpr("(a+b*x)/(x^2-1)"))));
+        check("int symbolic quadratic log",
+              numericallyZero(res, {"x", "a", "b"}, 20, 1e-6) ? "0" : toPlain(res), "0");
+    }
     check("cancel sign", toPlain(simplify(parseExpr("(y-x)/(x*(x-y))"))), "-1/x");
     check("cancel content", toPlain(simplify(parseExpr("(2-2*x*y)/(x^2*y-x)"))), "-2/x");
     {

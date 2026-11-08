@@ -1,120 +1,53 @@
 import 'package:flutter/material.dart';
 
 import '../l10n.dart';
-import '../models.dart';
-import '../theme.dart';
-import '../widgets.dart';
+import '../native_engine.dart';
+import '../topic_catalog.dart';
+import 'topic_workbench_page.dart';
 
-/// Linear algebra is reserved for a later release: the drawer entry exists so
-/// the module map is complete, but there is nothing to compute yet.
+/// Linear algebra workbench: a 2×2 system is the smallest object where trace,
+/// determinant, eigenvalues and eigenvectors all matter at once.
 class LinearAlgebraPage extends StatelessWidget {
-  const LinearAlgebraPage({super.key});
+  const LinearAlgebraPage({
+    super.key,
+    required this.engine,
+    required this.l10n,
+    this.engineError,
+  });
+
+  final NativeEngine? engine;
+  final String? engineError;
+  final L10n l10n;
+
+  static const _spec = TopicSpec(
+    id: 'linear_system',
+    titleEn: 'Linear algebra',
+    titleFa: 'جبر خطی',
+    icon: Icons.view_in_ar_rounded,
+    blurbEn:
+        'Read a 2×2 system through its matrix: trace, determinant and eigenvalues decide whether the origin is a node, saddle, spiral or centre.',
+    blurbFa:
+        'یک دستگاه ۲×۲ را از ماتریسش بخوانید: رد، دترمینان و مقدارهای ویژه تعیین می‌کنند مبدأ گره، زین، مارپیچ یا مرکز باشد.',
+    fields: [
+      TopicField('a', 'a (row 1, col 1)', 'a (سطر ۱، ستون ۱)', initial: '0', numeric: true),
+      TopicField('b', 'b (row 1, col 2)', 'b (سطر ۱، ستون ۲)', initial: '1', numeric: true),
+      TopicField('c', 'c (row 2, col 1)', 'c (سطر ۲، ستون ۱)', initial: '-1', numeric: true),
+      TopicField('d', 'd (row 2, col 2)', 'd (سطر ۲، ستون ۲)', initial: '0', numeric: true),
+    ],
+    examples: [
+      "x' = y, y' = −x  →  centre",
+      "x' = x, y' = −y  →  saddle",
+      "x' = −x − y, y' = x − y  →  stable spiral",
+    ],
+  );
 
   @override
   Widget build(BuildContext context) {
-    final l = L10n(Localizations.localeOf(context).languageCode == 'fa');
-    final c = context.colors;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SoftCard(
-          padding: const EdgeInsets.fromLTRB(22, 24, 22, 26),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              PageTitle(
-                tone: c.info,
-                icon: Icons.view_in_ar_rounded,
-                title: l.t('Linear algebra', 'جبر خطی'),
-                subtitle: l.t(
-                  'Matrices, determinants, eigenvalues and vector spaces.',
-                  'ماتریس‌ها، دترمینان، مقدارهای ویژه و فضاهای برداری.',
-                ),
-              ),
-              const SizedBox(height: 26),
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 84,
-                      height: 84,
-                      decoration: BoxDecoration(
-                        color: c.accentSoft,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: c.accent.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Aᵀ',
-                          textDirection: TextDirection.ltr,
-                          style: TextStyle(
-                            fontFamily: 'SpaceGrotesk',
-                            fontSize: 30,
-                            fontWeight: FontWeight.w700,
-                            color: c.accent,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      l.t('Coming soon', 'به‌زودی'),
-                      style: Theme.of(context).textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 420),
-                      child: Text(
-                        l.t(
-                          'This section is intentionally empty for now. Determinants, inverses and eigenvalues will live here.',
-                          'این بخش فعلاً خالی است. دترمینان، ماتریس وارون و مقدارهای ویژه در همین صفحه اضافه می‌شوند.',
-                        ),
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(height: 1.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        LearningCard(
-          l10n: l,
-          title: l.t(
-            'What linear algebra adds',
-            'جبر خطی چه چیزی اضافه می‌کند؟',
-          ),
-          idea: l.t(
-            'Linear algebra turns equations into vectors and matrices, so a whole system can be read from its determinant and eigenvalues.',
-            'جبر خطی معادله‌ها را به بردار و ماتریس تبدیل می‌کند تا یک دستگاه کامل را از دترمینان و مقدارهای ویژه‌اش بخوانیم.',
-          ),
-          points: [
-            l.t(
-              'A nonzero determinant means the matrix is invertible and the system has a unique solution.',
-              'دترمینان ناصفر یعنی ماتریس وارون‌پذیر است و دستگاه جواب یکتا دارد.',
-            ),
-            l.t(
-              'Eigenvalues describe the directions a transformation only stretches or shrinks.',
-              'مقدارهای ویژه جهت‌هایی را توصیف می‌کنند که تبدیل فقط آن‌ها را کشیده یا فشرده می‌کند.',
-            ),
-          ],
-          example: const ExView(
-            plain: 'det([[2,1],[1,3]]) = 5 != 0',
-            pretty: 'det [[2, 1], [1, 3]] = 5 ≠ 0',
-            latex: r'\det\begin{pmatrix}2&1\\1&3\end{pmatrix} = 5 \neq 0',
-          ),
-          exampleCaption: l.t(
-            'A nonzero determinant confirms that this 2×2 system is uniquely solvable.',
-            'دترمینان ناصفر تأیید می‌کند که این دستگاه ۲×۲ جواب یکتا دارد.',
-          ),
-        ),
-      ],
+    return TopicWorkbenchPage(
+      spec: _spec,
+      engine: engine,
+      l10n: l10n,
+      engineError: engineError,
     );
   }
 }

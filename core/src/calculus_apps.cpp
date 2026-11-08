@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "calculus_apps.hpp"
 
+#include "graph.hpp"
 #include "limits.hpp"
 #include "numeric.hpp"
+#include "poles.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -48,12 +50,41 @@ Ex numEx(double v) {
 // exact fraction when it really is one, and as a decimal otherwise.
 Ex snap(double v) {
     if (!std::isfinite(v)) return nullptr;
+    // Recover small rational multiples of pi (x = pi, x = -pi/2, ...).  Roots
+    // such as tan(x) = 0 at x = pi would otherwise print as a huge fraction.
+    const double pi = 3.14159265358979323846;
+    const double ratio = v / pi;
+    for (int den = 1; den <= 64; ++den) {
+        const double scaled = ratio * den;
+        const double rounded = std::round(scaled);
+        if (std::fabs(scaled - rounded) < 1e-10) {
+            const long long num = (long long)std::llround(rounded);
+            if (num != 0 && std::llabs(num) <= 256)
+                return Mul(Num(Rational(num, den)), Sym("pi"));
+        }
+    }
     for (int den = 1; den <= 64; ++den) {
         const double scaled = v * den;
         const double rounded = std::round(scaled);
         if (std::fabs(scaled - rounded) < 1e-9) {
             const long long n = (long long)std::llround(rounded);
             if (std::llabs(n) <= 1000000) return Num(Rational(n, den));
+        }
+    }
+    // Recover simple radicals: 1/sqrt(2), sqrt(3), sqrt(3)/2, ...
+    const double sq = v * v;
+    for (int den = 1; den <= 64; ++den) {
+        const double scaled = sq * den;
+        const double rounded = std::round(scaled);
+        if (std::fabs(scaled - rounded) < 1e-9) {
+            const long long n = (long long)std::llround(rounded);
+            if (n <= 0 || n > 1000000) continue;
+            Ex root = Pow(Num(Rational(n, den)), Num(Rational(1, 2)));
+            bool ok = false;
+            const double check = evalConst(root, &ok);
+            if (!ok || std::fabs(check - std::fabs(v)) > 1e-9 * (1.0 + std::fabs(v)))
+                continue;
+            return v < 0 ? Mul(Num(-1), root) : root;
         }
     }
     return Num(Rational::fromDouble(v));
@@ -256,10 +287,98 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
                 en ? ""
                    : ("f′ = " + toPlain(df) + " و f″ = " + toPlain(ddf) + "."));
 
+        // Poles first: every later list (critical points, inflections,
+        // intercepts, cuts) must ignore points where the function is undefined.
+        // The symbolic pass gives exact locations such as x = 1 or x = pi/2;
+        // a removable hole (for example sin(x)/x at 0) is not a pole.
+        auto growsNear = [&](double at, int dir) {
+            double prev = 0;
+            int count = 0, growth = 0;
+            for (double d : {1e-2, 1e-4, 1e-6, 1e-8}) {
+                bool ok = false;
+                const double v = evalAt(f, x, at + dir * d, &ok);
+                // Undefined on this side means a domain boundary, not growth.
+                if (!ok || !std::isfinite(v)) return false;
+                const double a = std::fabs(v);
+                if (count > 0 && a > 5.0 * std::max(prev, 1.0)) ++growth;
+                prev = a;
+                ++count;
+            }
+            return count >= 2 && growth >= 2 && prev > 1e3;
+        };
+        std::vector<PolePoint> poles;
+        for (const auto& p : findPoles(f, x, xmin, xmax, true)) {
+            if (!std::isfinite(p.numericAt)) continue;
+            if (p.numericAt < xmin - 1e-9 || p.numericAt > xmax + 1e-9) continue;
+            if (p.exact && p.at) {
+                // A symbolic candidate is a genuine pole unless the function
+                // has a finite one-sided limit there (a removable hole).
+                if (hasFiniteLimitAt(f, x, p.at, -1) || hasFiniteLimitAt(f, x, p.at, +1))
+                    continue;
+            } else if (!growsNear(p.numericAt, -1) && !growsNear(p.numericAt, +1)) {
+                continue;
+            }
+            poles.push_back(p);
+        }
+        std::sort(poles.begin(), poles.end(),
+                  [](const PolePoint& a, const PolePoint& b) {
+                      return a.numericAt < b.numericAt;
+                  });
+        std::vector<double> poleCuts;
+        for (const auto& p : poles) poleCuts.push_back(p.numericAt);
+        // Domain boundaries (for example x = 0 for ln(x)) are cuts too, and
+        // intervals that lie wholly outside the domain must not be described as
+        // monotone or concave.
+        std::vector<double> domainCuts;
+        try {
+            DomainOutput domainScan = analyseDomain(input, x, xmin, xmax, 2000);
+            if (domainScan.ok) {
+                for (const auto& in : domainScan.domain) {
+                    if (!in.loInfinite && in.lo > xmin + 1e-9 && in.lo < xmax - 1e-9)
+                        domainCuts.push_back(in.lo);
+                    if (!in.hiInfinite && in.hi > xmin + 1e-9 && in.hi < xmax - 1e-9)
+                        domainCuts.push_back(in.hi);
+                }
+            }
+        } catch (...) {
+        }
+        auto intervalDefined = [&](double lo, double hi) {
+            for (int k = 1; k < 8; ++k) {
+                const double t = lo + (hi - lo) * k / 8.0;
+                bool ok = false;
+                const double v = evalAt(f, x, t, &ok);
+                if (ok && std::isfinite(v)) return true;
+            }
+            return false;
+        };
+        auto nearPole = [&](double v) {
+            for (double p : poleCuts) {
+                if (std::fabs(v - p) <= 1e-6 * (1.0 + std::fabs(v) + std::fabs(p))) return true;
+            }
+            return false;
+        };
+        auto finiteAt = [&](const Ex& g, double v) {
+            bool ok = false;
+            const double r = evalAt(g, x, v, &ok);
+            return ok && std::isfinite(r);
+        };
+        auto dedupeCuts = [](std::vector<double>& v) {
+            std::sort(v.begin(), v.end());
+            std::vector<double> out;
+            for (double c : v) {
+                if (!out.empty() &&
+                    std::fabs(c - out.back()) <= 1e-6 * (1.0 + std::fabs(c) + std::fabs(out.back())))
+                    continue;
+                out.push_back(c);
+            }
+            v.swap(out);
+        };
+
         std::vector<double> critical = allRoots(df, x, xmin, xmax);
         std::vector<CriticalPointView> points;
         std::string critFa, critEn;
         for (double c : critical) {
+            if (nearPole(c) || !finiteAt(f, c) || !finiteAt(df, c)) continue;
             const int left = signLeftOf(df, x, c, xmin, xmax);
             const int right = signRightOf(df, x, c, xmin, xmax);
             std::string kind;
@@ -296,6 +415,7 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
         std::vector<CriticalPointView> inflections;
         std::string infFa, infEn;
         for (double c : bends) {
+            if (nearPole(c) || !finiteAt(f, c) || !finiteAt(ddf, c)) continue;
             const int left = signLeftOf(ddf, x, c, xmin, xmax);
             const int right = signRightOf(ddf, x, c, xmin, xmax);
             if (left == 0 || right == 0 || left == right) continue;
@@ -315,24 +435,174 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
         }
         addStep(r, en, "Inflection points", "نقاط عطف", ddf, infEn, infFa);
 
-        // Monotonicity pieces: cut the window at the critical points.
+        // ------------------------------------------------------------- asymptotes
+        std::vector<std::string> asymptotes;
+        for (const auto& p : poles) {
+            asymptotes.push_back("x = " +
+                                 (p.exact ? toPlain(p.at) : toPlain(snap(p.numericAt))));
+        }
+        for (int sign = -1; sign <= 1; sign += 2) {
+            const std::string sideEn = sign > 0 ? "as x -> +inf" : "as x -> -inf";
+            const std::string sideFa = sign > 0 ? "وقتی x → +∞" : "وقتی x → −∞";
+            Ex inf = infinityPoint(sign);
+            LimitOutcome horizontal = limitOf(f, x, inf, 0);
+            bool added = false;
+            if (horizontal.kind == LimitOutcome::Finite && horizontal.value) {
+                bool ok = false;
+                const double hv = evalConst(horizontal.value, &ok);
+                if (ok && std::isfinite(hv)) {
+                    asymptotes.push_back("y = " + toPlain(snap(hv)) + " (" +
+                                         (en ? sideEn : sideFa) + ")");
+                    added = true;
+                }
+            }
+            if (added) continue;
+            Ex slopeExpr = simplify(Mul(f, Pow(Sym(x), Num(-1))));
+            LimitOutcome slope = limitOf(slopeExpr, x, inf, 0);
+            if (slope.kind != LimitOutcome::Finite || !slope.value) continue;
+            bool okM = false;
+            const double mv = evalConst(slope.value, &okM);
+            if (!okM || !std::isfinite(mv) || std::fabs(mv) < 1e-9) continue;
+            Ex interceptExpr = simplify(Add({f, Mul(Num(-1), Mul(slope.value, Sym(x)))}));
+            LimitOutcome intercept = limitOf(interceptExpr, x, inf, 0);
+            if (intercept.kind != LimitOutcome::Finite || !intercept.value) continue;
+            bool okB = false;
+            const double bv = evalConst(intercept.value, &okB);
+            if (!okB || !std::isfinite(bv)) continue;
+            Ex line = simplify(Add({Mul(snap(mv), Sym(x)), snap(bv)}));
+            asymptotes.push_back("y = " + toPlain(line) + " (" + (en ? sideEn : sideFa) + ")");
+        }
+        std::sort(asymptotes.begin(), asymptotes.end());
+        asymptotes.erase(std::unique(asymptotes.begin(), asymptotes.end()), asymptotes.end());
+        std::string asyEn, asyFa;
+        for (const auto& a : asymptotes) {
+            if (!asyEn.empty()) { asyEn += ", "; asyFa += "، "; }
+            asyEn += a;
+            asyFa += a;
+        }
+        if (asymptotes.empty()) {
+            asyEn = "No vertical, horizontal or oblique asymptote was found in this window.";
+            asyFa = "در این بازه هیچ مجانب عمودی، افقی یا مایلی پیدا نشد.";
+        }
+        addStep(r, en, "Asymptotes", "مجانب‌ها", nullptr, asyEn, asyFa);
+        r.asymptotes = asymptotes;
+
+        // ------------------------------------------------------- curve sketch
+        std::vector<Ex> xIntercepts;
+        for (double root : allRoots(f, x, xmin, xmax)) {
+            if (nearPole(root)) continue;
+            bool ok = false;
+            const double v = evalAt(f, x, root, &ok);
+            if (!ok || !std::isfinite(v) || std::fabs(v) > 1e-3) continue;
+            xIntercepts.push_back(snap(root));
+        }
+        r.xIntercepts = xIntercepts;
+        bool yOk = false;
+        const double yv = evalAt(f, x, 0.0, &yOk);
+        if (yOk && std::isfinite(yv)) {
+            r.yIntercept = snap(yv);
+            r.hasYIntercept = true;
+        }
+        std::string interceptEn = "x-intercepts: ";
+        std::string interceptFa = "طول‌های محور x: ";
+        if (xIntercepts.empty()) {
+            interceptEn += "none in the window";
+            interceptFa += "در این بازه وجود ندارد";
+        } else {
+            for (size_t i = 0; i < xIntercepts.size(); ++i) {
+                if (i) { interceptEn += ", "; interceptFa += "، "; }
+                interceptEn += "x = " + toPlain(xIntercepts[i]);
+                interceptFa += "x = " + toPlain(xIntercepts[i]);
+            }
+        }
+        if (r.hasYIntercept) {
+            interceptEn += "; y-intercept: (0, " + toPlain(r.yIntercept) + ")";
+            interceptFa += "؛ عرض از مبدأ: (0، " + toPlain(r.yIntercept) + ")";
+        }
+
+        // Sample several interior points so a single undefined midpoint (for
+        // example the pole of 1/x) does not masquerade as a sign.
+        auto signIn = [&](const Ex& g, double lo, double hi) {
+            for (int k = 1; k <= 11; ++k) {
+                const double t = lo + (hi - lo) * k / 12.0;
+                bool ok = false;
+                const double v = evalAt(g, x, t, &ok);
+                if (ok && std::isfinite(v) && std::fabs(v) > 1e-10) return v > 0 ? 1 : -1;
+            }
+            return 0;
+        };
+
+        // Concavity pieces, cut at the inflection points and vertical asymptotes.
+        std::vector<double> bendCuts;
+        for (const auto& ip : inflections) {
+            bool ok = false;
+            const double v = asDouble(ip.x, &ok);
+            if (ok && std::isfinite(v) && v > xmin + 1e-9 && v < xmax - 1e-9)
+                bendCuts.push_back(v);
+        }
+        for (double a : poleCuts) bendCuts.push_back(a);
+        for (double a : domainCuts) bendCuts.push_back(a);
+        dedupeCuts(bendCuts);
+        std::string concavityEn, concavityFa;
+        for (size_t i = 0; i <= bendCuts.size(); ++i) {
+            const double lo = (i == 0) ? xmin : bendCuts[i - 1];
+            const double hi = (i == bendCuts.size()) ? xmax : bendCuts[i];
+            if (hi - lo < 1e-9) continue;
+            if (!intervalDefined(lo, hi)) continue;
+            const int sign = signIn(ddf, lo, hi);
+            if (!concavityEn.empty()) { concavityEn += ", "; concavityFa += "، "; }
+            concavityEn += "[" + numStr(lo, 4) + ", " + numStr(hi, 4) + "] " +
+                           (sign > 0 ? "concave up" : (sign < 0 ? "concave down" : "undecided"));
+            concavityFa += "[" + numStr(lo, 4) + "، " + numStr(hi, 4) + "] " +
+                           (sign > 0 ? "رو به بالا" : (sign < 0 ? "رو به پایین" : "نامشخص"));
+        }
+        if (concavityEn.empty()) {
+            concavityEn = "concavity could not be classified";
+            concavityFa = "تقعر قابل تعیین نبود";
+        }
+
+        std::vector<std::string> sketch;
+        sketch.push_back(en ? "Window: [" + numStr(xmin, 4) + ", " + numStr(xmax, 4) + "]"
+                            : "بازه: [" + numStr(xmin, 4) + "، " + numStr(xmax, 4) + "]");
+        sketch.push_back(interceptEn);
+        if (!asymptotes.empty()) sketch.push_back("Asymptotes: " + asyEn);
+        if (!points.empty()) {
+            std::string criticalLine = en ? "Critical points: " : "نقاط بحرانی: ";
+            criticalLine += critEn;
+            sketch.push_back(criticalLine);
+        }
+        if (!inflections.empty()) {
+            std::string bendLine = en ? "Inflection points: " : "نقاط عطف: ";
+            bendLine += infEn;
+            sketch.push_back(bendLine);
+        }
+        r.sketch = sketch;
+
+        // Monotonicity pieces: cut the window at critical points and poles.
         std::vector<double> cuts;
         for (const auto& cp : points) {
             bool ok = false;
             const double v = asDouble(cp.x, &ok);
             if (ok && std::isfinite(v)) cuts.push_back(v);
         }
-        std::sort(cuts.begin(), cuts.end());
+        for (double a : poleCuts) cuts.push_back(a);
+        for (double a : domainCuts) cuts.push_back(a);
+        dedupeCuts(cuts);
         std::vector<MonotonePiece> pieces;
         for (size_t i = 0; i <= cuts.size(); ++i) {
             MonotonePiece p;
             p.lo = (i == 0) ? xmin : cuts[i - 1];
             p.hi = (i == cuts.size()) ? xmax : cuts[i];
             if (p.hi - p.lo < 1e-9) continue;
-            bool ok = false;
-            const double dv = evalAt(df, x, 0.5 * (p.lo + p.hi), &ok);
-            p.sign = (ok && std::isfinite(dv)) ? (dv > 0 ? 1 : (dv < 0 ? -1 : 0)) : 0;
-            p.trend = trendName(p.sign, en);
+            if (!intervalDefined(p.lo, p.hi)) continue;
+            p.sign = signIn(df, p.lo, p.hi);
+            if (p.sign == 0) {
+                p.trend = identicallyZero(df, x, p.lo, p.hi)
+                              ? trendName(0, en)
+                              : (en ? "undecided" : "نامشخص");
+            } else {
+                p.trend = trendName(p.sign, en);
+            }
             pieces.push_back(p);
         }
         std::string monoFa, monoEn;
@@ -346,6 +616,11 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
             monoEn = "No monotonicity interval was found.";
         }
         addStep(r, en, "Monotonicity intervals", "بازه‌های یکنوایی", nullptr, monoEn, monoFa);
+
+        sketch.push_back((en ? "Monotonicity: " : "یکنوایی: ") + monoEn);
+        sketch.push_back((en ? "Concavity: " : "تقعر: ") + concavityEn);
+        r.sketch = sketch;
+        addStep(r, en, "Curve sketch", "رسم نمودار", f, interceptEn, interceptFa);
 
         r.critical = points;
         r.inflections = inflections;
@@ -576,15 +851,6 @@ Result relatedRates(const std::string& relation, const std::string& var, const s
             r.ok = true;
             return r;
         }
-        if (dependsOn(A, w) || dependsOn(B, q)) {
-            r.warnings.push_back(en
-                ? "The relation could not be isolated for the requested rate symbolically; the "
-                  "differentiated relation is shown instead."
-                : "رابطه برای نرخ خواسته‌شده به‌صورت نمادین جدا نشد؛ رابطهٔ مشتق‌گرفته‌شده نمایش داده می‌شود.");
-            r.ok = true;
-            return r;
-        }
-
         Ex coefficient = simplify(Mul(Num(-1), B, Pow(A, Num(-1))));
         r.solution = coefficient;
         r.slope = coefficient;

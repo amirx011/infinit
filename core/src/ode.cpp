@@ -458,7 +458,8 @@ static Ex numeratorOf(const Ex& e) {
     return e;
 }
 
-static Ex tryExplicit(const Ex& eq, const std::string& x, const std::string& y) {
+static Ex tryExplicit(const Ex& eq, const std::string& x, const std::string& y,
+                      bool allowEvenPower = false) {
     Ex s = simplify(eq);
     if (!dependsOn(s, y)) return nullptr;
     Ex lin = solveLinear(s, y);
@@ -499,13 +500,15 @@ static Ex tryExplicit(const Ex& eq, const std::string& x, const std::string& y) 
     }
     // single invertible function of y: k·F(y) + rest = 0
     try {
-        Rational kk(1);
+        Ex kk = Num(1);
         std::string fname;
         Ex farg;
         std::vector<Ex> mf = ypart->isMul() ? ypart->args : std::vector<Ex>{ypart};
         bool good = true;
         for (auto& f : mf) {
-            if (f->isNum()) { kk = kk * f->num; continue; }
+            // A factor that does not depend on y is part of the coefficient,
+            // even when it is symbolic (for example sqrt(2/C)).
+            if (!dependsOn(f, y)) { kk = Mul(kk, f); continue; }
             if (f->isFunc() && f->args.size() == 1 && dependsOn(f->args[0], y) && fname.empty()) {
                 fname = f->name;
                 farg = f->args[0];
@@ -517,14 +520,46 @@ static Ex tryExplicit(const Ex& eq, const std::string& x, const std::string& y) 
         static const std::map<std::string, std::string> inv = {
             {"atan", "tan"}, {"tan", "atan"}, {"asin", "sin"}, {"sin", "asin"},
             {"acos", "cos"}, {"cos", "acos"}, {"asinh", "sinh"}, {"sinh", "asinh"},
-            {"acosh", "cosh"}, {"cosh", "acosh"}, {"atanh", "tanh"}, {"tanh", "atanh"}
+            {"acosh", "cosh"}, {"cosh", "acosh"}, {"atanh", "tanh"}, {"tanh", "atanh"},
+            {"exp", "ln"}
         };
         auto it = inv.find(fname);
-        if (good && it != inv.end() && !kk.isZero()) {
-            Ex rhs = simplify(expand(Mul(Num(-1), rest, Pow(Num(kk), Num(-1)))));
+        if (good && it != inv.end() && !kk->isZero()) {
+            Ex rhs = simplify(expand(Mul(Num(-1), rest, Pow(kk, Num(-1)))));
             Ex target = simplify(Fn(it->second, {rhs}));
             Ex ysol = solveLinear(Add(farg, Mul(Num(-1), target)), y);
             if (ysol) return simplify(ysol);
+        }
+    } catch (...) {}
+    // A single power of y: k·y^n + rest = 0, including negative n such as
+    // p^(-2) from the separable equation p' = p^3.
+    try {
+        Ex kk = Num(1), base = nullptr, expo = nullptr;
+        std::vector<Ex> mf = ypart->isMul() ? ypart->args : std::vector<Ex>{ypart};
+        bool good = true;
+        for (auto& f : mf) {
+            if (!dependsOn(f, y)) { kk = Mul(kk, f); continue; }
+            if (f->isSym(y) && !base) { base = f; expo = Num(1); continue; }
+            if (f->isPow() && f->args[0]->isSym(y) && f->args[1]->isNum() && !base) {
+                base = f->args[0];
+                expo = f->args[1];
+                continue;
+            }
+            good = false;
+            break;
+        }
+        // Isolating an even positive power would lose one branch (y² = R
+        // gives y = ±√R), so by default only odd or negative powers are
+        // inverted.  The order-reduction path opts in because it needs one
+        // branch of p to continue and the other is recovered by the final
+        // integration constant.
+        const bool invertible = expo && !expo->num.isZero() &&
+                                (allowEvenPower || expo->num.isNeg() ||
+                                 expo->num.n % 2 != 0);
+        if (good && base && invertible && !kk->isZero()) {
+            Ex rhs = simplify(expand(Mul(Num(-1), rest, Pow(kk, Num(-1)))));
+            Ex inv = Pow(expo, Num(-1));
+            return simplify(Pow(rhs, inv));
         }
     } catch (...) {}
     return nullptr;
@@ -661,7 +696,12 @@ void verifyExplicit(Result& r, const Ex& F, const Ex& yExpr, const std::string& 
         bool ok = res->isZero();
         if (!ok) {
             Ex chk = simplify(expand(substitute(res, y, yExpr)));
-            ok = chk->isZero() || numericallyZero(chk, {x}, 8, 1e-6);
+            // Sample the arbitrary constants too, not only x.  A solution such
+            // as y = C2 + x - (C+x)ln(C+x) cannot be evaluated numerically
+            // while C and C2 remain free symbols.
+            std::vector<std::string> nsyms;
+            collectSymbols(chk, nsyms);
+            ok = chk->isZero() || numericallyZero(chk, nsyms, 8, 1e-6);
         }
         r.checks.push_back({en ? "Substitution into the ODE" : "جایگذاری در معادله", ok,
                             en ? (ok ? "Differentiating the answer satisfies the equation." : "Symbolic verification was inconclusive; check the domain.") : (ok ? "پاسخ با مشتق‌گیری، در معادله صدق می‌کند." : "بررسی نمادین قطعی نشد؛ لطفاً دامنه را بررسی کنید.")});
@@ -677,7 +717,9 @@ static void verifyImplicit(Result& r, const Ex& u, const Ex& M, const Ex& N, con
         Ex ux = simplify(diff(u, x));
         Ex uy = simplify(diff(u, y));
         Ex rel = simplify(Add(Mul(ux, N), Mul(Num(-1), Mul(uy, M))));
-        bool ok = rel->isZero() || numericallyZero(rel, {x, y}, 8, 1e-6);
+        std::vector<std::string> nsyms;
+        collectSymbols(rel, nsyms);
+        bool ok = rel->isZero() || numericallyZero(rel, nsyms, 8, 1e-6);
         r.checks.push_back({en ? "Exactness condition" : "شرط دیفرانسیل کامل", ok,
                             en ? (ok ? "du is proportional to M dx + N dy; the solution family is valid."
                                      : "The symbolic relation was not confirmed; branch points may exist.")
@@ -1080,7 +1122,8 @@ static bool tryBernoulli(Builder& b, const Ex& yp, const std::vector<TermPow>& t
     Ex oneMinusN = Num(Rational(1) - n);
     Ex A = simplify(Mul(Num(n - Rational(1)), Pc));   // (1-n)*(-P)
     Ex B = simplify(Mul(oneMinusN, Q));
-    Ex vz = solveLinearODE(b.x, A, B);
+    Ex mu, intRhs;
+    Ex vz = solveLinearODE(b.x, A, B, &mu, &intRhs);
     Ex ysol = simplify(Pow(vz, Pow(oneMinusN, Num(-1))));
     b.step("تغییر متغیر v = y^(1−n)",
            Add({Deriv(Sym("v"), b.x, 1), Mul(A, Sym("v")), Mul(Num(-1), B)}),
@@ -1093,6 +1136,28 @@ static bool tryBernoulli(Builder& b, const Ex& yp, const std::vector<TermPow>& t
            "این معادلهٔ خطی با عامل انتگرال‌ساز حل می‌شود و v(x) به دست می‌آید.",
            "Solve the linear equation for v",
            "The linear equation is solved with an integrating factor to obtain v(x).");
+    // For odd integer n the power 1−n is even, so y ↦ y^(1−n) is not
+    // one-to-one: solving for y explicitly would silently discard the
+    // negative branch.  Keep the complete family implicitly instead.
+    const bool losesBranch = n.isInt() && (n.n % 2 != 0);
+    if (losesBranch) {
+        // The linear solution is v = (C + intRhs)/mu, so the constant-free
+        // family relation is mu·v - intRhs = C.  The UI appends `= C`.
+        Ex implicit = simplify(Add(Mul(mu, Pow(b.Y, oneMinusN)),
+                                   Mul(Num(-1), intRhs)));
+        b.step("بازگشت به y", implicit,
+               "چون 1−n زوج است، حل صریح نسبت به y یکی از دو شاخه را حذف می‌کند؛ "
+               "خانوادهٔ کامل را به صورت ضمنی نگه می‌داریم.",
+               "Return to y",
+               "Because 1−n is even, solving explicitly for y would drop one branch; the "
+               "complete family is kept in implicit form.");
+        b.r.singular.push_back(Num(0));
+        setSolution(b.r, "bernoulli", "برنولی", implicit, false, nullptr);
+        verifyImplicit(b.r, implicit,
+                       Mul(Num(-1), Add(Mul(Pc, Sym(b.y)), Mul(Q, Pow(Sym(b.y), nEx)))),
+                       Num(1), b.x, b.y, b.en);
+        return true;
+    }
     b.step("بازگشت به y", ysol,
            "با y = v^(1/(1−n)) به متغیر اصلی برمی‌گردیم.",
            "Return to y",
@@ -1158,12 +1223,122 @@ static std::vector<Ex> subCandidates(const Ex& a, const Ex& whole) {
     return out;
 }
 
+// Denominator of a rational expression, used by the affine-shift detector.
+static Ex denominatorOf(const Ex& e) {
+    if (!e) return Num(1);
+    if (e->isPow() && e->args[1]->isNum() && e->args[1]->num.isInt() &&
+        e->args[1]->num.n < 0)
+        return Pow(e->args[0], Num(-e->args[1]->num.n));
+    if (e->isMul()) {
+        std::vector<Ex> v;
+        for (auto& f : e->args) {
+            Ex d = denominatorOf(f);
+            if (!d->isOne()) v.push_back(d);
+        }
+        return v.empty() ? Num(1) : Mul(v);
+    }
+    return Num(1);
+}
+
+// Read e = a x + b y + c with constant a, b, c.
+static bool affineCoeffs(const Ex& e, const std::string& x, const std::string& y,
+                         Ex& a, Ex& b, Ex& c) {
+    std::vector<Ex> cy;
+    if (!polyCoeffs(expand(e), y, cy) || cy.size() > 2) return false;
+    if (cy.size() == 2 && dependsOn(cy[1], x)) return false;
+    b = cy.size() == 2 ? cy[1] : Num(0);
+    std::vector<Ex> cx;
+    if (!polyCoeffs(expand(cy[0]), x, cx) || cx.size() > 2) return false;
+    a = cx.size() == 2 ? cx[1] : Num(0);
+    c = cx[0];
+    if (dependsOn(a, x) || dependsOn(a, y) || dependsOn(b, x) || dependsOn(b, y) ||
+        dependsOn(c, x) || dependsOn(c, y))
+        return false;
+    return true;
+}
+
+// y' = (a x + b y + c)/(d x + e y + f) with non-parallel lines is reduced to
+// a homogeneous equation by moving the origin to the intersection point.
+static bool tryAffineHomogeneous(Builder& b, const Ex& yp) {
+    Ex frac = together(yp);
+    Ex num = numeratorOf(frac);
+    Ex den = denominatorOf(frac);
+    if (!num || !den || den->isOne()) return false;
+    Ex a, bb, c, d, e, f;
+    if (!affineCoeffs(num, b.x, b.y, a, bb, c)) return false;
+    if (!affineCoeffs(den, b.x, b.y, d, e, f)) return false;
+    if (c->isZero() && f->isZero()) return false;  // already homogeneous
+    Ex det = simplify(Add(Mul(a, e), Mul(Num(-1), Mul(bb, d))));
+    if (det->isZero()) return false;               // parallel lines
+    Ex x0 = simplify(Mul(Add(Mul(bb, f), Mul(Num(-1), Mul(c, e))), Pow(det, Num(-1))));
+    Ex y0 = simplify(Mul(Add(Mul(c, d), Mul(Num(-1), Mul(a, f))), Pow(det, Num(-1))));
+    Ex X = Add(Sym(b.x), Mul(Num(-1), x0));
+    Ex Y = Add(Sym(b.y), Mul(Num(-1), y0));
+    // The recursive solve is in fresh variables; use the homogeneous form
+    // (a x + b y)/(d x + e y) and shift its answer back afterwards.
+    Ex rhs = simplify(Mul(Add(Mul(a, Sym(b.x)), Mul(bb, Sym(b.y))),
+                          Pow(Add(Mul(d, Sym(b.x)), Mul(e, Sym(b.y))), Num(-1))));
+    Result rr = solveODE("y' = " + toPlain(rhs), b.opt);
+    if (!rr.ok) return false;
+    auto back = [&](const Ex& ex) {
+        if (!ex) return ex;
+        return substitute(substitute(ex, b.x, X), b.y, Y);
+    };
+    if (rr.isExplicit) {
+        // Y(X) is the solution in shifted coordinates; the original answer is
+        // y = y0 + Y(x - x0), not Y(x - x0) itself.
+        Ex shifted = substitute(rr.explicitY ? rr.explicitY : rr.solution, b.x, X);
+        shifted = simplify(Add(y0, shifted));
+        rr.solution = shifted;
+        rr.explicitY = shifted;
+    } else {
+        rr.solution = back(rr.solution);
+    }
+    rr.paramX = rr.paramX ? simplify(Add(x0, rr.paramX)) : nullptr;
+    rr.paramY = rr.paramY ? simplify(Add(y0, rr.paramY)) : nullptr;
+    for (auto& s : rr.singular) s = back(s);
+    for (auto& st : rr.steps) st.math = back(st.math);
+    rr.normalized = yp;
+    rr.typeId = "homogeneous";
+    rr.typeFa = "همگن";
+    rr.steps.insert(rr.steps.begin(), Step{
+        b.en ? "Shift the origin" : "انتقال مبدأ",
+        nullptr,
+        b.en ? "The two lines meet at (" + toPlain(x0) + ", " + toPlain(y0) +
+                   "). Moving the origin there removes the constant terms and leaves a "
+                   "homogeneous equation in X = x - x0 and Y = y - y0."
+             : "دو خط در نقطهٔ (" + toPlain(x0) + ", " + toPlain(y0) +
+                   ") همدیگر را قطع می‌کنند. با انتقال مبدأ به آن نقطه، جمله‌های ثابت حذف "
+                   "می‌شوند و معادله نسبت به X = x - x0 و Y = y - y0 همگن می‌شود."});
+    b.r = rr;
+    return true;
+}
+
 static bool tryHomogeneous(Builder& b, const Ex& yp) {
     if (!dependsOn(yp, b.y)) return false;
     Ex v = Sym("v");
     Ex sub = substitute(yp, b.y, Mul(v, Sym(b.x)));
     sub = expand(simplify(sub));
-    if (dependsOn(sub, b.x)) return false;
+    if (dependsOn(sub, b.x)) {
+        // simplify sometimes leaves a common x factor uncancelled, e.g.
+        // v·x/(x−v·x) + x/(x−v·x).  Homogeneity means the value cannot change
+        // with x at fixed v, so probe two scales before giving up.
+        bool homogeneous = true;
+        for (double vv : {0.37, 1.23, -0.71, 2.1}) {
+            bool ok1 = false, ok2 = false;
+            std::map<std::string, double> at1{{"v", vv}, {b.x, 1.0}};
+            std::map<std::string, double> at2{{"v", vv}, {b.x, 2.5}};
+            const double f1 = evalReal(sub, at1, &ok1);
+            const double f2 = evalReal(sub, at2, &ok2);
+            if (!ok1 || !ok2 || !std::isfinite(f1) || !std::isfinite(f2) ||
+                std::fabs(f1 - f2) > 1e-8 * (1.0 + std::fabs(f1))) {
+                homogeneous = false;
+                break;
+            }
+        }
+        if (!homogeneous) return false;
+        sub = substitute(sub, b.x, Num(1));
+    }
     b.r.order = 1;
     b.step("شناسایی نوع", sub,
            "اگر در طرف راست y = v·x گذاشته شود، عبارت تنها به v بستگی پیدا می‌کند؛ پس معادله "
@@ -1184,7 +1359,14 @@ static bool tryHomogeneous(Builder& b, const Ex& yp) {
         setSolution(b.r, "homogeneous", "همگن", sol, true, sol);
         return true;
     }
+    // F(v) - v can be a sum of fractions.  Integrating 1/(sum) directly hides
+    // the rational structure from the integrator, so combine it first.
+    Ex combined = together(num);
+    if (combined && !combined->isZero()) num = combined;
     Ex integral = integrate(Pow(num, Num(-1)), "v");
+    // Back-substituting v = y/x inside an unevaluated Integral would leave an
+    // invalid integral whose variable is y/x; let another method try instead.
+    if (hasUnevaluatedIntegral(integral)) return false;
     Ex sol = Add(integral, Mul(Num(-1), lnAbs(Sym(b.x))));
     b.step("جداسازی متغیرها", num,
            "معادلهٔ به‌دست‌آمده جداشدنی است: dv/(F(v) − v) = dx/x.",
@@ -1460,6 +1642,17 @@ static bool tryExact(Builder& b, const Ex& F, const Ex& M, const Ex& N, bool fro
 }
 
 // ---------------------------------------------------------------- higher order
+// True when e contains any derivative of y with respect to x.  dependsOn()
+// deliberately treats y′ as an independent jet variable, so a nonlinear term
+// such as (y′)² would otherwise be mistaken for a forcing term.
+static bool containsDerivOf(const Ex& e, const std::string& y, const std::string& x) {
+    if (!e) return false;
+    if (isDeriv(e) && e->args.size() == 3 && e->args[0]->isSym(y) && e->args[1]->isSym(x))
+        return true;
+    for (auto& c : e->args) if (containsDerivOf(c, y, x)) return true;
+    return false;
+}
+
 static bool extractLinearODE(const Ex& F, const std::string& y, const std::string& x,
                              std::vector<Ex>& a, Ex& rhs) {
     Ex e = expand(F);
@@ -1484,13 +1677,16 @@ static bool extractLinearODE(const Ex& F, const std::string& y, const std::strin
                 order = 0;
                 continue;
             }
-            if (!dependsOn(f, y)) { coef = Mul(coef, f); continue; }
+            if (!dependsOn(f, y) && !containsDerivOf(f, y, x)) {
+                coef = Mul(coef, f);
+                continue;
+            }
             bad = true;
             break;
         }
         if (bad) return false;
         if (order == -1) {
-            if (dependsOn(coef, y)) return false;
+            if (dependsOn(coef, y) || containsDerivOf(coef, y, x)) return false;
             rhs = Add(rhs, Mul(Num(-1), coef));
             continue;
         }
@@ -1880,12 +2076,503 @@ static Ex particularSolution(const std::vector<Ex>& a, const Ex& rhs, const std:
     return simplify(expand(total));
 }
 
+// A short symbol that does not occur in F, used for the reduction variable.
+// Identifiers beginning with an underscore confuse the implicit-product
+// preprocessor, so only plain letters are considered.
+static std::string freshSymbol(const Ex& F) {
+    std::vector<std::string> syms;
+    collectSymbols(F, syms);
+    for (const char* cand : {"p", "q", "r", "w", "u", "v", "s", "k"}) {
+        bool used = false;
+        for (auto& s : syms) if (s == cand) { used = true; break; }
+        if (!used) return cand;
+    }
+    return "p";
+}
+
+// Highest derivative of y with respect to x that occurs in F.
+static int maxOrderOf(const Ex& F, const std::string& x) {
+    int best = 0;
+    std::function<void(const Ex&)> scan = [&](const Ex& e) {
+        if (!e) return;
+        if (isDeriv(e) && e->args.size() == 3 && e->args[1]->isSym(x))
+            best = std::max(best, derivOrder(e));
+        for (auto& c : e->args) scan(c);
+    };
+    scan(F);
+    return best;
+}
+
+// y'' = p·dp/dy, y' = p, ... for the missing-independent-variable reduction.
+// Only first and second derivatives are needed by the second-order method.
+static Ex reduceMissingX(const Ex& e, const std::string& y, const std::string& x,
+                         const std::string& p, bool& ok) {
+    if (!e) return e;
+    if (isDeriv(e) && e->args.size() == 3 && e->args[0]->isSym(y) && e->args[1]->isSym(x)) {
+        const int k = derivOrder(e);
+        if (k == 1) return Sym(p);
+        if (k == 2) return Mul(Sym(p), Deriv(Sym(p), y, 1));
+        ok = false;
+        return e;
+    }
+    if (e->args.empty()) return e;
+    std::vector<Ex> v;
+    for (auto& a : e->args) v.push_back(reduceMissingX(a, y, x, p, ok));
+    switch (e->kind) {
+        case Kind::Add: return Add(v);
+        case Kind::Mul: return Mul(v);
+        case Kind::Pow: return Pow(v[0], v[1]);
+        case Kind::Func: return Fn(e->name, v);
+        default: return e;
+    }
+}
+
+// y^(k) = p^(k-1) for the missing-dependent-variable reduction (p = y').
+static Ex reduceMissingY(const Ex& e, const std::string& y, const std::string& x,
+                         const std::string& p) {
+    if (!e) return e;
+    if (isDeriv(e) && e->args.size() == 3 && e->args[0]->isSym(y) && e->args[1]->isSym(x)) {
+        const int k = derivOrder(e);
+        if (k <= 1) return Sym(p);
+        return Deriv(Sym(p), x, k - 1);
+    }
+    if (e->args.empty()) return e;
+    std::vector<Ex> v;
+    for (auto& a : e->args) v.push_back(reduceMissingY(a, y, x, p));
+    switch (e->kind) {
+        case Kind::Add: return Add(v);
+        case Kind::Mul: return Mul(v);
+        case Kind::Pow: return Pow(v[0], v[1]);
+        case Kind::Func: return Fn(e->name, v);
+        default: return e;
+    }
+}
+
+// ∫ dy/p(y) for the final step of the missing-x reduction.  The general
+// integrator needs numeric quadratic coefficients, so a symbolic constant
+// (the C from the p-equation) leaves forms such as 1/(y²+2C) unevaluated.
+// Complete the square and return the elementary antiderivative in that case.
+static Ex integrateReciprocal(const Ex& p, const std::string& y) {
+    Ex q = simplify(Pow(p, Num(-1)));
+    bool closed = false;
+    Ex direct = integrate(q, y, &closed);
+    if (direct && !hasUnevaluatedIntegral(direct)) return direct;
+
+    Ex coeff = Num(1), den = nullptr, expo = nullptr;
+    Ex t = simplify(q);
+    std::vector<Ex> facs = t->isMul() ? t->args : std::vector<Ex>{t};
+    for (auto& f : facs) {
+        if (f->isPow() && f->args[1]->isNum() && f->args[1]->num.isNeg() && !den) {
+            den = f->args[0];
+            expo = f->args[1];
+        } else if (!dependsOn(f, y)) {
+            coeff = Mul(coeff, f);
+        } else {
+            den = nullptr;
+            break;
+        }
+    }
+    if (!den) return direct;
+    // sqrt(Q)^(-1) may survive simplification as Q^(-1/2).
+    if (den->isPow() && den->args[1]->isNum() && den->args[1]->num == Rational(1, 2) &&
+        expo->isNum() && expo->num == Rational(-1)) {
+        den = den->args[0];
+        expo = Num(Rational(-1, 2));
+    }
+    std::vector<Ex> cs;
+    if (!polyCoeffs(expand(den), y, cs) || cs.size() != 3) return direct;
+    Ex A = cs[2], B = cs[1], C = cs[0];
+    if (!A->isNum() || !B->isNum()) return direct;
+
+    // den = A u^2 + K with u = y + B/(2A).
+    Ex u = Add(Sym(y), Mul(B, Pow(Mul(Num(2), A), Num(-1))));
+    Ex K = simplify(Add(C, Mul(Num(-1), Pow(B, Num(2)), Pow(Mul(Num(4), A), Num(-1)))));
+    const bool negA = A->isNum() && A->num.isNeg();
+    const bool negK = K->isNum() && K->num.isNeg();
+    // ∫ du/(K + A u²): the coefficient carries the sign of A, and the
+    // antiderivative switches from atan to artanh when A and K differ in sign.
+    if (expo->isNum() && expo->num == Rational(-1)) {
+        if (K->isNum() && (negA != negK)) {
+            Ex out = Mul(coeff, negA ? Num(1) : Num(-1), Pow(Sqrt(Mul(Num(-1), A, K)), Num(-1)),
+                         Fn("atanh", {Mul(u, Sqrt(Mul(Num(-1), A, Pow(K, Num(-1)))))}));
+            return simplify(out);
+        }
+        // K is symbolic: present the branch where K has the sign of A, which
+        // keeps the square root real.  The other sign is obtained by
+        // analytically continuing the arbitrary constant.
+        Ex out = Mul(coeff, negA ? Num(-1) : Num(1), Pow(Sqrt(Mul(A, K)), Num(-1)),
+                     Fn("atan", {Mul(u, Sqrt(Mul(A, Pow(K, Num(-1)))))}));
+        return simplify(out);
+    }
+    if (expo->isNum() && expo->num == Rational(-1, 2)) {
+        if (negA) {
+            // ∫ du/√(K − |A|u²) = asin(u√(|A|/K))/√|A| (K > 0 branch).
+            Ex out = Mul(coeff, Pow(Sqrt(Mul(Num(-1), A)), Num(-1)),
+                         Fn("asin", {Mul(u, Sqrt(Mul(Num(-1), A, Pow(K, Num(-1)))))}));
+            return simplify(out);
+        }
+        if (K->isNum() && negK) {
+            // ∫ du/√(A u² − |K|) = arcosh(u√(A/|K|))/√A.
+            Ex out = Mul(coeff, Pow(Sqrt(A), Num(-1)),
+                         Fn("acosh", {Mul(u, Sqrt(Mul(A, Pow(Mul(Num(-1), K), Num(-1)))))}));
+            return simplify(out);
+        }
+        Ex out = Mul(coeff, Pow(Sqrt(A), Num(-1)),
+                     Fn("asinh", {Mul(u, Sqrt(Mul(A, Pow(K, Num(-1)))))}));
+        return simplify(out);
+    }
+    return direct;
+}
+
+// Isolate p from an implicit relation u(y,p) = C, including the quadratic
+// energy relations produced by p·dp/dy = f(y).
+static Ex isolatePFromRelation(const Ex& u, const std::string& indep, const std::string& p) {
+    Ex lin = tryExplicit(Add(u, Mul(Num(-1), Cst(1))), indep, p);
+    if (lin) return lin;
+    std::vector<Ex> cs;
+    if (!polyCoeffs(expand(u), p, cs) || cs.size() != 3) return nullptr;
+    Ex A = cs[2], B = cs[1], C0 = cs[0];
+    if (!A || A->isZero()) return nullptr;
+    Ex C1 = Add(C0, Mul(Num(-1), Cst(1)));
+    Ex disc = simplify(Add(Pow(B, Num(2)), Mul(Num(-4), A, C1)));
+    Ex sq = Sqrt(disc);
+    return simplify(Mul(Add(Mul(Num(-1), B), sq), Num(Rational(1, 2)), Pow(A, Num(-1))));
+}
+
+// Equations with no bare y: substitute p = y', so y^(k) = p^(k-1).  The
+// reduced equation is one order lower; solve it and integrate p once.
+static bool solveMissingDependent(Builder& b, const Ex& F, int order) {
+    const std::string pName = freshSymbol(F);
+    Ex G = reduceMissingY(F, b.y, b.x, pName);
+    // If only the highest derivative occurs, this is plain repeated
+    // integration y^(n) = f(x); keep the established type id for that case.
+    bool onlyHighest = true;
+    std::function<void(const Ex&)> scan = [&](const Ex& e) {
+        if (!e) return;
+        if (isDeriv(e) && e->args.size() == 3 && e->args[0]->isSym(b.y) &&
+            e->args[1]->isSym(b.x) && derivOrder(e) < order)
+            onlyHighest = false;
+        for (auto& c : e->args) scan(c);
+    };
+    scan(F);
+    const std::string typeId = onlyHighest ? "direct_integration" : "reduction_missing_y";
+    const std::string typeFa = onlyHighest ? "انتگرال‌گیری مستقیم" : "کاهش مرتبه (فاقد y)";
+
+    // y^(n) = f(x): repeated quadrature is clearer than a p-substitution.
+    if (onlyHighest) {
+        std::vector<Ex> a;
+        Ex rhs;
+        if (extractLinearODE(F, b.y, b.x, a, rhs)) {
+            const int n = (int)a.size() - 1;
+            if (n == order && n >= 1 && !a[n]->isZero()) {
+                Ex f = simplify(Mul(rhs, Pow(a[n], Num(-1))));
+                b.step("شناسایی نوع", F,
+                       "تنها مشتق مرتبهٔ " + std::to_string(n) +
+                           " و تابعی از x در معادله دیده می‌شوند؛ پس می‌توان " +
+                           std::to_string(n) + " بار مستقیماً انتگرال گرفت.",
+                       "Type identification",
+                       "Only the order-" + std::to_string(n) +
+                           " derivative and a function of x occur, so the equation can be "
+                           "integrated " + std::to_string(n) + " times directly.");
+                Ex cur = f;
+                for (int k = 1; k <= n; ++k) {
+                    cur = integrate(cur, b.x);
+                    cur = Add(cur, Cst(k));
+                    cur = expand(cur);
+                    const std::string cname = k == 1 ? "C" : "C" + std::to_string(k);
+                    b.step("انتگرال‌گیری " + std::to_string(k), cur,
+                           "با انتگرال‌گیری، مرتبه یک واحد کم می‌شود و ثابت " + cname +
+                               " اضافه می‌شود.",
+                           "Integration " + std::to_string(k),
+                           "Integrating lowers the order by one and introduces the constant " +
+                               cname + ".");
+                }
+                setSolution(b.r, typeId, typeFa, cur, true, cur);
+                b.r.normalized = F;
+                b.r.checks.clear();
+                verifyExplicit(b.r, F, cur, b.x, b.y, b.en);
+                return true;
+            }
+        }
+    }
+
+    b.step("شناسایی نوع", F,
+           "هیچ جمله‌ای شامل خود y نیست؛ تنها x و مشتق‌های y تا مرتبهٔ " +
+               std::to_string(order) + " دیده می‌شوند. این معادله «فاقد متغیر وابسته» است.",
+           "Type identification",
+           "No term contains y itself, only x and derivatives of y up to order " +
+               std::to_string(order) + ". This is an equation missing the dependent variable.");
+    b.step("تغییر متغیر y′ = " + pName, G,
+           "قرار می‌دهیم " + pName + " = y′. در نتیجه y″ = " + pName + "′، y‴ = " +
+               pName + "″ و به‌طور کلی y^(k) = " + pName +
+               "^(k−1)؛ مرتبه یک واحد کم می‌شود و معادله بر حسب " + pName +
+               " و x به دست می‌آید.",
+           "Substitution y′ = " + pName,
+           "Set " + pName + " = y′. Then y″ = " + pName + "′, y‴ = " + pName +
+               "″, and in general y^(k) = " + pName + "^(k−1); the order drops by one "
+               "and the equation is written in " + pName + " and x.");
+
+    OdeOptions o = b.opt;
+    o.x = b.x;
+    o.y = pName;
+    o.particular.clear();
+    o.simplifyAttempts = 0;
+    Result rr;
+    try {
+        rr = solveODE(toPlain(G) + " = 0", o);
+    } catch (...) {
+        b.fail("معادلهٔ کاهش‌یافته بر حسب p حل نشد.",
+               "The reduced equation in p could not be solved.");
+        return true;
+    }
+    if (rr.ok)
+        b.text("حل معادلهٔ کاهش‌یافته",
+               "در گام‌های زیر، " + pName + " متغیر وابسته و x متغیر مستقل است؛ " +
+                   "هر جا در متن اصلی y دیده شود، در این بخش نقش " + pName + " را دارد.",
+               "Solving the reduced equation",
+               "In the following steps " + pName + " is the dependent variable and x is "
+               "the independent variable; wherever the generic text says y, it means " +
+                   pName + " here.");
+    for (auto& s : rr.steps) b.r.steps.push_back(s);
+    if (!rr.ok) {
+        b.fail("معادلهٔ کاهش‌یافته بر حسب " + pName + " حل نشد: " + rr.error,
+               "The reduced equation in " + pName + " could not be solved: " + rr.error);
+        return true;
+    }
+
+    Ex pSol = rr.isExplicit ? rr.explicitY : nullptr;
+    if (!pSol && rr.solution)
+        pSol = tryExplicit(Add(rr.solution, Mul(Num(-1), Cst(1))), b.x, pName, true);
+    if (!pSol) {
+        Ex rel = substituteSubexpr(rr.solution, Sym(pName), Deriv(b.Y, b.x, 1));
+        b.step("جواب ضمنی بر حسب y′", rel,
+               pName + " به‌صورت صریح از رابطهٔ ضمنی جدا نشد؛ همان رابطه با بازگرداندن " +
+                   pName + " = y′ نوشته می‌شود.",
+               "Implicit answer in terms of y′",
+               pName + " could not be isolated explicitly; the same relation is written "
+               "with " + pName + " = y′ restored.");
+        setSolution(b.r, typeId, typeFa, rel, false, nullptr);
+        b.r.normalized = F;
+        b.r.checks.clear();
+        return true;
+    }
+
+    Ex y = Add(integrate(pSol, b.x), Cst(order));
+    // Keep square roots over the whole radicand: simplify() may split
+    // sqrt(-2(C+x)) into sqrt(-2)sqrt(C+x), which obscures the real domain.
+    y = expand(y);
+    b.step("بازگشت به y", y,
+           "چون " + pName + " = y′، یک انتگرال‌گیری دیگر y را می‌دهد و ثابت C" +
+               std::to_string(order) + " اضافه می‌شود.",
+           "Return to y",
+           "Since " + pName + " = y′, one more integration gives y and introduces the constant C" +
+               std::to_string(order) + ".");
+    setSolution(b.r, typeId, typeFa, y, true, y);
+    b.r.normalized = F;
+    b.r.checks.clear();
+    verifyExplicit(b.r, F, y, b.x, b.y, b.en);
+    return true;
+}
+
+// Equations with no explicit x: substitute y′ = p(y), y″ = p·dp/dy.  Solve the
+// resulting first-order equation for p(y), then separate dy/p(y) = dx.
+static bool solveMissingIndependent(Builder& b, const Ex& F, int order) {
+    if (order != 2) {
+        b.fail("کاهش معادلات فاقد x در این نسخه برای مرتبهٔ دوم پیاده‌سازی شده است.",
+               "The missing-x reduction is implemented for second-order equations.");
+        return true;
+    }
+    const std::string pName = freshSymbol(F);
+    bool reducible = true;
+    Ex G = reduceMissingX(F, b.y, b.x, pName, reducible);
+    if (!reducible) {
+        b.fail("این معادله مشتق‌هایی بالاتر از مرتبهٔ دوم دارد و با تغییر متغیر "
+               "y′ = p(y) پوشش داده نمی‌شود.",
+               "This equation has derivatives above the second order and is not covered "
+               "by the substitution y′ = p(y).");
+        return true;
+    }
+    b.step("شناسایی نوع", F,
+           "متغیر مستقل x به‌صورت صریح در معادله دیده نمی‌شود؛ معادله «فاقد متغیر مستقل» است.",
+           "Type identification",
+           "The independent variable x does not appear explicitly; the equation is "
+           "missing the independent variable.");
+    b.step("تغییر متغیر y′ = " + pName + "(y)", G,
+           "قرار می‌دهیم " + pName + " = y′(x) و " + pName + " را تابعی از y می‌گیریم. "
+           "با قاعدهٔ زنجیره‌ای y″ = d" + pName + "/dx = (d" + pName + "/dy)(dy/dx) = " +
+               pName + "·d" + pName + "/dy. بنابراین معادله به یک معادلهٔ مرتبهٔ اول "
+           "بر حسب " + pName + "(y) تبدیل می‌شود.",
+           "Substitution y′ = " + pName + "(y)",
+           "Set " + pName + " = y′(x) and treat " + pName + " as a function of y. By the "
+           "chain rule y″ = d" + pName + "/dx = (d" + pName + "/dy)(dy/dx) = " + pName +
+               "·d" + pName + "/dy, so the equation becomes a first-order equation in " +
+               pName + "(y).");
+
+    OdeOptions o = b.opt;
+    o.x = b.y;   // the reduced equation's independent variable is the old y
+    o.y = pName;
+    o.particular.clear();
+    o.simplifyAttempts = 0;
+    Result rr;
+    try {
+        rr = solveODE(toPlain(G) + " = 0", o);
+    } catch (...) {
+        b.fail("معادلهٔ کاهش‌یافته بر حسب " + pName + "(y) حل نشد.",
+               "The reduced equation in " + pName + "(y) could not be solved.");
+        return true;
+    }
+    if (rr.ok)
+        b.text("حل معادلهٔ کاهش‌یافته",
+               "در گام‌های زیر، y متغیر مستقل و " + pName + " متغیر وابسته است؛ هر جا "
+               "در متن اصلی x دیده شود، در این بخش نقش y را دارد و هر جا y دیده شود، "
+               "یعنی " + pName + ".",
+               "Solving the reduced equation",
+               "In the following steps y is the independent variable and " + pName +
+                   " is the dependent variable; wherever the generic text says x it means y, "
+                   "and wherever it says y it means " + pName + ".");
+    for (auto& s : rr.steps) b.r.steps.push_back(s);
+    if (!rr.ok) {
+        b.fail("معادلهٔ کاهش‌یافته بر حسب " + pName + "(y) حل نشد: " + rr.error,
+               "The reduced equation in " + pName + "(y) could not be solved: " + rr.error);
+        return true;
+    }
+
+    Ex pSol = rr.isExplicit ? rr.explicitY : nullptr;
+    if (!pSol && rr.solution) pSol = isolatePFromRelation(rr.solution, b.y, pName);
+    if (!pSol) {
+        Ex rel = substituteSubexpr(rr.solution, Sym(pName), Deriv(b.Y, b.x, 1));
+        b.step("جواب ضمنی بر حسب y′", rel,
+               pName + " به‌صورت صریح جدا نشد؛ رابطه با بازگرداندن " + pName +
+                   " = y′ نوشته می‌شود.",
+               "Implicit answer in terms of y′",
+               pName + " could not be isolated explicitly; the relation is written with " +
+                   pName + " = y′ restored.");
+        setSolution(b.r, "reduction_missing_x", "کاهش مرتبه (فاقد x)", rel, false, nullptr);
+        b.r.normalized = F;
+        b.r.checks.clear();
+        return true;
+    }
+    b.step("حل معادلهٔ کاهش‌یافته برای " + pName, pSol,
+           "جواب معادلهٔ مرتبهٔ اول بر حسب " + pName + "(y) به دست آمد.",
+           "Solve the reduced equation for " + pName,
+           "The first-order equation gives " + pName + " as a function of y.");
+
+    // Separate: dy/p(y) = dx, then integrate both sides.
+    Ex antider = integrateReciprocal(pSol, b.y);
+    Ex relation = simplify(Add(antider, Mul(Num(-1), Sym(b.x)), Mul(Num(-1), Cst(2))));
+    b.step("جدا کردن متغیرها", relation,
+           "با نوشتن y′ = " + pName + "(y) داریم dy/" + pName +
+               "(y) = dx. طرف چپ نسبت به y و طرف راست نسبت به x انتگرال گرفته می‌شود؛ "
+               "ثابت انتگرال C2 ظاهر می‌شود.",
+           "Separate the variables",
+           "Writing y′ = " + pName + "(y) gives dy/" + pName +
+               "(y) = dx. Integrate the left side in y and the right side in x; the "
+               "integration constant C2 appears.");
+    Ex ysol = tryExplicit(relation, b.x, b.y);
+    b.r.normalized = F;
+    b.r.checks.clear();
+    if (ysol) {
+        b.step("جواب صریح", ysol,
+               "رابطهٔ ضمنی برای y حل شد و جواب صریح y(x) به دست آمد.",
+               "Explicit solution",
+               "The implicit relation was solved for y, giving y(x) explicitly.");
+        setSolution(b.r, "reduction_missing_x", "کاهش مرتبه (فاقد x)", ysol, true, ysol);
+        verifyExplicit(b.r, F, ysol, b.x, b.y, b.en);
+    } else {
+        setSolution(b.r, "reduction_missing_x", "کاهش مرتبه (فاقد x)", relation, false, nullptr);
+        // u(x,y) = 0 solves y' = p(y) when u_x + p(y) u_y = 0.
+        Ex ux = simplify(diff(relation, b.x));
+        Ex uy = simplify(diff(relation, b.y));
+        Ex cond = simplify(Add(ux, Mul(pSol, uy)));
+        bool good = cond->isZero() || numericallyZero(cond, {b.x, b.y}, 8, 1e-6);
+        b.r.checks.push_back({b.en ? "Implicit differentiation" : "مشتق‌گیری ضمنی", good,
+                              b.en ? (good ? "The implicit relation satisfies y′ = p(y)."
+                                           : "The symbolic check was inconclusive.")
+                                   : (good ? "رابطهٔ ضمنی در y′ = p(y) صدق می‌کند."
+                                           : "بررسی نمادین قطعی نشد.")});
+    }
+    return true;
+}
+
+// Honest numeric fallback for a second-order equation with no supported closed
+// form. The RHS is isolated as y'' = f(x, y, y') and the UI integrates it with
+// RK4; no symbolic formula is fabricated.
+static bool tryNumericSecondOrder(Builder& b, const Ex& F) {
+    if (maxOrderOf(F, b.x) != 2) return false;
+    Ex marker = Sym("__q");
+    Ex G = substituteSubexpr(F, Deriv(Sym(b.y), b.x, 2), marker);
+    std::vector<Ex> cs;
+    if (!polyCoeffs(expand(G), "__q", cs) || cs.size() != 2 || cs[1]->isZero()) return false;
+    Ex rhs = simplify(expand(Mul(Num(-1), cs[0], Pow(cs[1], Num(-1)))));
+    Ex velocity = Sym("__v");
+    Ex rhsV = substituteSubexpr(rhs, Deriv(Sym(b.y), b.x, 1), velocity);
+    // Keep the fallback for autonomous equations. Variable-coefficient forms
+    // such as Euler–Cauchy stay in the honest "unsupported" bucket instead of
+    // being approximated by a trajectory that hides their exact structure.
+    if (dependsOn(rhsV, b.x)) return false;
+
+    b.r.ok = true;
+    b.r.order = 2;
+    b.r.normalized = F;
+    b.r.typeId = "numeric_second_order";
+    b.r.typeFa = "حل عددی مرتبهٔ دوم";
+    b.r.method = "runge_kutta";
+    b.r.closedForm = false;
+    b.r.verified = false;
+    b.r.numericOnly = true;
+    b.r.numericRhs = toPlain(rhs);
+    b.r.numericNote = b.en
+        ? "No supported closed form was found. The curves below are RK4 trajectories of "
+          "y'' = " + toPlain(rhs) + ", accurate only on the interval where they stay finite."
+        : "هیچ فرم بستهٔ پشتیبانی‌شده‌ای پیدا نشد. منحنی‌های زیر مسیرهای RK4 برای "
+          "y'' = " + toPlain(rhs) + " هستند و تنها در بازه‌ای که متناهی می‌مانند معتبرند.";
+    b.r.steps.clear();
+    b.step("شناسایی نوع", F,
+           "این معادلهٔ مرتبهٔ دوم در هیچ‌یک از قالب‌های نمادین پشتیبانی‌شده قرار نمی‌گیرد. "
+           "به‌جای ساختن جواب نمادین نادرست، آن را به دستگاه مرتبهٔ اول تبدیل و عددی حل می‌کنیم.",
+           "Type identification",
+           "This second-order equation fits none of the supported symbolic forms. Instead of "
+           "inventing a symbolic answer, it is converted to a first-order system and solved numerically.");
+    b.step("تبدیل به دستگاه مرتبهٔ اول", Add({Deriv(Sym(b.y), b.x, 1), Mul(Num(-1), velocity)}),
+           "با v = y′ معادله به y′ = v و v′ = f(x, y, v) تبدیل می‌شود.",
+           "First-order system",
+           "With v = y′ the equation becomes y′ = v and v′ = f(x, y, v).");
+    b.step("انتگرال‌گیری RK4", Sym(b.y),
+           "روش رانگ-کوتای مرتبهٔ چهارم از چند شرط اولیه شروع می‌کند و مسیرهای جواب را "
+           "گام‌به‌گام می‌سازد. دقت آن به گام و به بازهٔ اعتبار بستگی دارد.",
+           "RK4 integration",
+           "Fourth-order Runge–Kutta starts from several initial conditions and builds the "
+           "solution trajectories step by step. Accuracy depends on the step size and the interval of validity.");
+    b.r.checks.push_back({
+        b.en ? "Numeric method" : "روش عددی",
+        true,
+        b.en ? "RK4 with automatic step subdivision; the plot marks the computed trajectories."
+             : "RK4 با تقسیم‌بندی خودکار گام؛ نمودار مسیرهای محاسبه‌شده را نشان می‌دهد."});
+    b.r.warnings.push_back(b.en
+        ? "This is an approximate solution. It is not a symbolic general solution and may leave its domain."
+        : "این یک جواب تقریبی است؛ جواب عمومی نمادین نیست و ممکن است از دامنهٔ خود خارج شود.");
+    return true;
+}
+
 static bool solveHigherOrder(Builder& b, const Ex& F) {
+    const int order = maxOrderOf(F, b.x);
+    if (order < 2) return false;
+    b.r.order = order;
+    b.r.normalized = F;
+    // No bare y: reduce with p = y' before trying the linear classifier.
+    if (!dependsOn(F, b.y)) return solveMissingDependent(b, F, order);
+
     std::vector<Ex> a;
     Ex rhs;
-    if (!extractLinearODE(F, b.y, b.x, a, rhs)) return false;
+    if (!extractLinearODE(F, b.y, b.x, a, rhs)) {
+        if (!dependsOn(F, b.x)) return solveMissingIndependent(b, F, order);
+        return false;
+    }
     int n = (int)a.size() - 1;
-    if (n < 2) return false;
+    if (n < 2) {
+        if (!dependsOn(F, b.x)) return solveMissingIndependent(b, F, order);
+        return false;
+    }
     b.r.order = n;
     b.r.normalized = F;
     bool constCoef = true;
@@ -1995,6 +2682,9 @@ std::string typeNameFa(const std::string& id) {
         {"linear_sub", "جایگذاری خطی"},
         {"linear_cc", "خطی همگن با ضرایب ثابت"},
         {"linear_higher", "خطی مرتبهٔ بالا"},
+        {"reduction_missing_y", "کاهش مرتبه (فاقد y)"},
+        {"reduction_missing_x", "کاهش مرتبه (فاقد x)"},
+        {"numeric_second_order", "حل عددی مرتبهٔ دوم"},
         {"wronskian", "رونسکی"},
         {"direct_integration", "انتگرال‌گیری مستقیم"},
         {"quadrature", "انتگرال‌گیری مستقیم"},
@@ -2026,6 +2716,9 @@ std::string typeNameEn(const std::string& id) {
         {"linear_sub", "Linear substitution"},
         {"linear_cc", "Linear, constant coefficients"},
         {"linear_higher", "Higher-order linear"},
+        {"reduction_missing_y", "Order reduction (missing y)"},
+        {"reduction_missing_x", "Order reduction (missing x)"},
+        {"numeric_second_order", "Second-order numerical solution"},
         {"direct_integration", "Direct integration (2nd order)"},
         {"quadrature", "Direct integration"},
         {"wronskian", "Wronskian"},
@@ -2121,6 +2814,19 @@ Result solveODE(const std::string& input, const OdeOptions& opt) {
 
         if (maxOrder >= 2) {
             if (solveHigherOrder(b, F)) {
+                // The symbolic route may have reported an honest failure. For a
+                // second-order equation the numeric fallback still gives a real
+                // answer, so replace the error instead of stopping there.
+                if (!r.ok && maxOrder == 2 && tryNumericSecondOrder(b, F)) {
+                    r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                    return r;
+                }
+                r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+                return r;
+            }
+            // A second-order equation outside the symbolic catalogue still has
+            // a real, checkable answer: numeric RK4 trajectories.
+            if (maxOrder == 2 && tryNumericSecondOrder(b, F)) {
                 r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
                 return r;
             }
@@ -2209,6 +2915,16 @@ Result solveODE(const std::string& input, const OdeOptions& opt) {
             r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
             return r;
         }
+        // Bernoulli first: separation would leave an integral such as
+        // ∫dy/(√y−y), while v=y^(1−n) gives an elementary closed form.
+        if (!ts.empty() && tryBernoulli(b, yp, ts)) {
+            r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+            return r;
+        }
+        if (tryAffineHomogeneous(b, yp)) {
+            r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
+            return r;
+        }
         if (trySeparable(b, yp)) {
             r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
             return r;
@@ -2218,10 +2934,6 @@ Result solveODE(const std::string& input, const OdeOptions& opt) {
             return r;
         }
         if (!ts.empty()) {
-            if (tryBernoulli(b, yp, ts)) {
-                r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
-                return r;
-            }
             if (tryRiccati(b, yp, ts)) {
                 r.timeMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
                 return r;
@@ -2462,6 +3174,9 @@ Result solveWronskian(const std::vector<std::string>& functions, const std::stri
     return r;
 }
 
+// Symbolic roots of a linear or quadratic family equation; defined below.
+static std::vector<Ex> quadraticBranches(const Ex& F, const std::string& var);
+
 // ---------------------------------------------------------------- envelope / family
 Result solveEnvelope(const std::string& input, const std::string& c, bool orthogonal,
                      const std::string& x, const std::string& y, const std::string& lang) {
@@ -2484,8 +3199,13 @@ Result solveEnvelope(const std::string& input, const std::string& c, bool orthog
         if (lin) {
             cvals.push_back(lin);
         } else {
-            auto roots = solvePoly(Fc, c);
-            for (auto& rr : roots) cvals.push_back(rr);
+            // A quadratic in c with symbolic coefficients (e.g. y = c x + c^3
+            // gives -x - 3 c^2) still has a usable closed form.
+            cvals = quadraticBranches(Fc, c);
+            if (cvals.empty()) {
+                auto roots = solvePoly(Fc, c);
+                for (auto& rr : roots) cvals.push_back(rr);
+            }
         }
         if (cvals.empty()) {
             // resultant-free fallback: solve linear in c if possible
@@ -2659,8 +3379,12 @@ static Ex tanDegrees(double angleDeg) {
     if (std::fabs(t + 1.0) < 1e-12) return Num(-1);
     const double s3 = std::sqrt(3.0);
     if (std::fabs(t - s3) < 1e-10) return Sqrt(Num(3));
+    if (std::fabs(t + s3) < 1e-10) return Mul(Num(-1), Sqrt(Num(3)));
     if (std::fabs(t - 1.0 / s3) < 1e-10) {
         return simplify(Mul(Sqrt(Num(3)), Pow(Num(3), Num(-1))));
+    }
+    if (std::fabs(t + 1.0 / s3) < 1e-10) {
+        return Mul(Num(-1), simplify(Mul(Sqrt(Num(3)), Pow(Num(3), Num(-1)))));
     }
     return Num(Rational::fromDouble(t, 1000));
 }

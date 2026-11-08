@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app_state.dart';
+import '../charts.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
@@ -146,6 +148,7 @@ class _DerivativePageState extends State<DerivativePage> {
   Widget build(BuildContext context) {
     final l = widget.l10n;
     final c = context.colors;
+    final showGraphs = SettingsScope.maybeOf(context)?.showGraphs ?? true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -157,8 +160,8 @@ class _DerivativePageState extends State<DerivativePage> {
                 icon: Icons.drive_file_rename_outline_rounded,
                 title: l.t('Derivatives', 'مشتق'),
                 subtitle: l.t(
-                  'Derivatives of order 1–10 — explicit (AST walk, chain and product rules) or implicit from an equation.',
-                  'مشتق‌های مرتبهٔ ۱ تا ۱۰ — صریح (پیمایش درخت AST، قواعد زنجیره‌ای و ضرب) یا ضمنی از یک معادله.',
+                  'Derivatives of order 1–10: explicit (AST walk, chain and product rules) or implicit from an equation.',
+                  'مشتق‌های مرتبهٔ ۱ تا ۱۰: صریح (پیمایش درخت AST، قواعد زنجیره‌ای و ضرب) یا ضمنی از یک معادله.',
                 ),
               ),
               const SizedBox(height: 18),
@@ -306,6 +309,36 @@ class _DerivativePageState extends State<DerivativePage> {
             key: _firstKey,
             child: ResultView(result: _first!, l10n: l),
           ),
+          if (showGraphs &&
+              !_first!.implicit &&
+              _first!.normalized != null &&
+              _first!.solution != null) ...[
+            const SizedBox(height: 16),
+            MultiCurvePlot(
+              engine: widget.engine,
+              l10n: l,
+              variable: _first!.variable.isEmpty ? 'x' : _first!.variable,
+              curves: [
+                PlotCurveSpec(
+                  expression: _first!.normalized!.plain,
+                  color: c.accent,
+                  label: l.t('f(x)', 'f(x)'),
+                ),
+                PlotCurveSpec(
+                  expression: _first!.solution!.plain,
+                  color: c.accentAlt,
+                  label: l.t("f′(x)", 'f′(x)'),
+                ),
+              ],
+              xmin: -8,
+              xmax: 8,
+              title: l.t('Function and derivative', 'تابع و مشتق'),
+              caption: l.t(
+                'The derivative is the slope of the original curve. Where f′ crosses zero the tangent is horizontal.',
+                'مشتق شیب منحنی اصلی است. جایی که f′ صفر می‌شود، مماس افقی است.',
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Align(
             alignment: AlignmentDirectional.centerStart,

@@ -1,0 +1,7 @@
+name = "InfinitBridge"
+uuid = "3f7a1c2e-9b4d-4c8a-9e21-6d5b7a0f1c33"
+version = "0.1.0"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"

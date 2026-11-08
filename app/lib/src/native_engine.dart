@@ -7,6 +7,7 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 
+import 'julia_bridge.dart';
 import 'models.dart';
 
 typedef _SolveNative = Pointer<Utf8> Function(Pointer<Utf8> request);
@@ -167,7 +168,13 @@ class NativeEngine {
   }
 
   /// Solves on a background isolate so the Flutter UI thread stays responsive.
+  ///
+  /// On desktop the optional Julia sidecar is tried first for the heavy linear
+  /// and stiff ODE topics.  Any failure silently falls through to the C++ core,
+  /// which is the only backend on Android.
   Future<SolveResult> solveAsync(Map<String, dynamic> request) async {
+    final julia = await _tryJulia(request);
+    if (julia != null) return julia;
     final payload = <String, String>{
       'library': libraryPath,
       'request': jsonEncode(request),
@@ -183,6 +190,74 @@ class NativeEngine {
       );
     }
   }
+
+  /// Returns null unless the request is one of the Julia topics and the
+  /// sidecar produced a usable answer.
+  Future<SolveResult?> _tryJulia(Map<String, dynamic> request) async {
+    if (request['mode'] != 'topic') return null;
+    final topic = request['topic']?.toString() ?? '';
+    Map<String, dynamic> params;
+    if (topic == 'ode_linear') {
+      final coeffs = _numberList(request['coeffs']);
+      if (coeffs.length < 2) return null;
+      params = {'coeffs': coeffs};
+      final ics = _numberList(request['ics']);
+      if (ics.isNotEmpty) params['ics'] = ics;
+    } else if (topic == 'ode_stiff') {
+      params = {
+        'f': (request['f'] ?? 'x + y').toString(),
+        'x0': _num(request['x0'], 0),
+        'y0': _num(request['y0'], 1),
+        'xend': _num(request['xend'], 10),
+        'h': _num(request['h'], 0.1),
+      };
+    } else {
+      return null;
+    }
+    final result = await JuliaBridge.instance.call(topic, params);
+    if (result == null || result['ok'] == false) return null;
+    final merged = <String, dynamic>{
+      'mode': 'topic',
+      'closed_form': true,
+      ...result,
+    };
+    merged['ok'] = result['ok'] != false;
+    try {
+      return SolveResult.fromJson(merged);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static double _num(dynamic value, double fallback) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
+  static List<double> _numberList(dynamic value) {
+    if (value is List) {
+      return value
+          .map((e) => e is num ? e.toDouble() : double.tryParse('$e'))
+          .whereType<double>()
+          .toList();
+    }
+    if (value is String) {
+      return value
+          .split(',')
+          .map((e) => double.tryParse(e.trim()))
+          .whereType<double>()
+          .toList();
+    }
+    return const [];
+  }
+
+  /// Runs a curriculum topic through the shared topic workbench.
+  Future<SolveResult> topicAsync(
+    String topic, {
+    Map<String, dynamic> params = const {},
+    String lang = 'en',
+  }) => solveAsync({'mode': 'topic', 'topic': topic, ...params, 'lang': lang});
 
   // --------------------------------------------------------------- requests
   Map<String, dynamic> _odeRequest(
@@ -405,6 +480,70 @@ class NativeEngine {
     'g': g,
     'x': x,
     'point': point,
+    'lang': lang,
+  };
+
+  Map<String, dynamic> _taylorRequest(
+    String input, {
+    required String x,
+    required double a,
+    required int order,
+    required String lang,
+  }) => {
+    'mode': 'taylor',
+    'input': input,
+    'x': x,
+    'a': a,
+    'order': order,
+    'lang': lang,
+  };
+
+  Map<String, dynamic> _integralAppsRequest(
+    String kind,
+    String input, {
+    required String g,
+    required String x,
+    required double a,
+    required double b,
+    required String axis,
+    required String lang,
+  }) => {
+    'mode': 'integral_apps',
+    'kind': kind,
+    'input': input,
+    'g': g,
+    'x': x,
+    'a': a,
+    'b': b,
+    'axis': axis,
+    'lang': lang,
+  };
+
+  Map<String, dynamic> _partialRequest(
+    String input, {
+    required String vars,
+    required String point,
+    required String direction,
+    required String lang,
+  }) => {
+    'mode': 'partial',
+    'input': input,
+    'vars': vars,
+    'point': point,
+    'direction': direction,
+    'lang': lang,
+  };
+
+  Map<String, dynamic> _seriesRequest(
+    String input, {
+    required String n,
+    required int start,
+    required String lang,
+  }) => {
+    'mode': 'series',
+    'input': input,
+    'n': n,
+    'start': start,
     'lang': lang,
   };
 
@@ -690,6 +829,65 @@ class NativeEngine {
     String lang = 'en',
   }) => solveAsync(_lhopitalRequest(f, g, x: x, point: point, lang: lang));
 
+  // ---------------------------------------------------- Taylor / Maclaurin
+  Future<SolveResult> taylorAsync(
+    String input, {
+    String x = 'x',
+    double a = 0,
+    int order = 4,
+    String lang = 'en',
+  }) => solveAsync(
+    _taylorRequest(input, x: x, a: a, order: order, lang: lang),
+  );
+
+  // ------------------------------------------------- integral applications
+  Future<SolveResult> integralApplicationAsync(
+    String kind,
+    String input, {
+    String g = '',
+    String x = 'x',
+    double a = 0,
+    double b = 1,
+    String axis = 'x',
+    String lang = 'en',
+  }) => solveAsync(
+    _integralAppsRequest(
+      kind,
+      input,
+      g: g,
+      x: x,
+      a: a,
+      b: b,
+      axis: axis,
+      lang: lang,
+    ),
+  );
+
+  // ------------------------------------------------- partial derivatives
+  Future<SolveResult> partialAsync(
+    String input, {
+    String vars = 'x,y',
+    String point = '1,1',
+    String direction = '',
+    String lang = 'en',
+  }) => solveAsync(
+    _partialRequest(
+      input,
+      vars: vars,
+      point: point,
+      direction: direction,
+      lang: lang,
+    ),
+  );
+
+  // ------------------------------------------------------- series convergence
+  Future<SolveResult> seriesAsync(
+    String input, {
+    String n = 'n',
+    int start = 1,
+    String lang = 'en',
+  }) => solveAsync(_seriesRequest(input, n: n, start: start, lang: lang));
+
   // ----------------------------------------------------------------- graphs
   Future<Map<String, dynamic>> _graphAsync(Map<String, dynamic> request) async {
     final payload = <String, String>{
@@ -777,6 +975,54 @@ class NativeEngine {
       'rows': rows,
       'curves': curves,
       'ics': ics,
+    }),
+  );
+
+  /// Numeric RK4 trajectories for a second-order equation y'' = f(x, y, y').
+  Future<TrajectoryResult> odeTrajectoryAsync(
+    String input, {
+    String x = 'x',
+    String y = 'y',
+    double xmin = -6,
+    double xmax = 6,
+    int curves = 6,
+    List<List<double>> ics = const [],
+  }) async => TrajectoryResult.fromJson(
+    await _graphAsync({
+      'mode': 'ode_trajectory',
+      'input': input,
+      'x': x,
+      'y': y,
+      'xmin': xmin,
+      'xmax': xmax,
+      'curves': curves,
+      'ics': ics,
+    }),
+  );
+
+  /// Samples z = f(x, y) for a contour/heat map.
+  Future<SurfaceResult> surfaceAsync(
+    String input, {
+    String x = 'x',
+    String y = 'y',
+    double xmin = -4,
+    double xmax = 4,
+    double ymin = -4,
+    double ymax = 4,
+    int nx = 48,
+    int ny = 48,
+  }) async => SurfaceResult.fromJson(
+    await _graphAsync({
+      'mode': 'surface',
+      'input': input,
+      'x': x,
+      'y': y,
+      'xmin': xmin,
+      'xmax': xmax,
+      'ymin': ymin,
+      'ymax': ymax,
+      'nx': nx,
+      'ny': ny,
     }),
   );
 }

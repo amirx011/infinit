@@ -24,6 +24,12 @@ struct CriticalPointView {
     std::string kind;        // maximum / minimum / inflection / candidate
 };
 
+// One partial derivative (first or second order) with its display label.
+struct PartialView {
+    std::string label;       // f_x, f_y, f_xx, f_xy, ...
+    Ex value;
+};
+
 // One monotonicity interval of f, with the sign of f' on it.
 struct MonotonePiece {
     double lo = 0;
@@ -127,6 +133,38 @@ struct Result {
     std::vector<MonotonePiece> pieces;           // behaviour: monotonicity pieces
     std::vector<Ex> points;                      // MVT / Cauchy: the points c
     std::vector<Ex> pointValues;                 // f(c) for each point in `points`
+
+    // ------------------------------------------- asymptotes and curve sketching
+    std::vector<std::string> asymptotes;         // printable equations
+    std::vector<Ex> xIntercepts;
+    Ex yIntercept;
+    bool hasYIntercept = false;
+    std::vector<std::string> sketch;             // summary lines
+
+    // ------------------------------------------- Taylor / Maclaurin
+    Ex polynomial;                               // the Taylor polynomial
+    Ex remainder;                                // Lagrange remainder expression
+    std::vector<Ex> coefficients;                // c_0 ... c_n
+
+    // ------------------------------------------- definite-integral applications
+    Ex integrand;                                // the integrand actually used
+    std::string application;                     // area / volume / arc_length
+
+    // ------------------------------------------- partial derivatives
+    std::vector<PartialView> partials;           // first and second partials
+    std::vector<Ex> gradient;                    // evaluated gradient vector
+    Ex laplacian;
+    Ex directional;                              // directional derivative
+    Ex functionValue;                            // f at the point
+    std::string pointLabel;                      // printable point
+
+    // ------------------------------------------- series and convergence
+    std::string seriesVerdict;                   // converges / diverges / inconclusive
+    std::string seriesTest;                      // ratio / root / geometric / p-series / ...
+    bool converges = false;
+    Ex seriesSum;                                // exact sum when known
+    double partialSum = 0.0;                     // numeric partial sum
+    std::vector<double> partialSums;             // S_k for the partial-sum plot
     Ex functionValueA;                           // Cauchy: g(a)
     Ex functionValueB;                           // Cauchy: g(b)
     bool hypothesesContinuous = false;
@@ -134,6 +172,12 @@ struct Result {
     bool rolleApplies = false;
 
     bool closedForm = true;
+    // The equation has no supported closed form, so the answer is a numerical
+    // RK4 trajectory. The UI draws it and labels it as approximate instead of
+    // pretending a symbolic solution exists.
+    bool numericOnly = false;
+    std::string numericRhs;
+    std::string numericNote;
     // True when every reported check passed.  `ok` says the solver produced an
     // answer; `verified` says the answer survived independent verification.
     bool verified = true;

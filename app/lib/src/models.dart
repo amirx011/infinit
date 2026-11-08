@@ -95,6 +95,22 @@ class MonotonePieceView {
   }
 }
 
+/// One partial derivative (first or second order) with its display label.
+class PartialView {
+  const PartialView({required this.label, this.value});
+
+  final String label;
+  final ExView? value;
+
+  static PartialView? fromJson(dynamic v) {
+    if (v is! Map) return null;
+    return PartialView(
+      label: (v['label'] ?? '').toString(),
+      value: ExView.fromJson(v['value']),
+    );
+  }
+}
+
 class SolveResult {
   const SolveResult({
     required this.ok,
@@ -192,6 +208,31 @@ class SolveResult {
     this.hypothesesContinuous = false,
     this.hypothesesDifferentiable = false,
     this.rolleApplies = false,
+    this.asymptotes = const [],
+    this.xIntercepts = const [],
+    this.yIntercept,
+    this.hasYIntercept = false,
+    this.sketch = const [],
+    this.polynomial,
+    this.remainder,
+    this.coefficients = const [],
+    this.integrand,
+    this.application = '',
+    this.partials = const [],
+    this.gradient = const [],
+    this.laplacian,
+    this.directional,
+    this.functionValue,
+    this.pointLabel = '',
+    this.seriesVerdict = '',
+    this.seriesTest = '',
+    this.converges = false,
+    this.seriesSum,
+    this.partialSum = 0,
+    this.partialSums = const [],
+    this.numericOnly = false,
+    this.numericRhs = '',
+    this.numericNote = '',
   });
 
   final bool ok;
@@ -310,6 +351,46 @@ class SolveResult {
   final bool hypothesesContinuous;
   final bool hypothesesDifferentiable;
   final bool rolleApplies;
+
+  /// Asymptotes and curve-sketch summary (behaviour mode).
+  final List<String> asymptotes;
+  final List<ExView> xIntercepts;
+  final ExView? yIntercept;
+  final bool hasYIntercept;
+  final List<String> sketch;
+
+  /// Taylor / Maclaurin payload.
+  final ExView? polynomial;
+  final ExView? remainder;
+  final List<ExView> coefficients;
+
+  /// Definite-integral applications: the integrand and the application id.
+  final ExView? integrand;
+  final String application;
+
+  /// Partial derivatives and gradient.
+  final List<PartialView> partials;
+  final List<ExView> gradient;
+  final ExView? laplacian;
+  final ExView? directional;
+  final ExView? functionValue;
+  final String pointLabel;
+
+  /// Series convergence.
+  final String seriesVerdict;
+  final String seriesTest;
+  final bool converges;
+  final ExView? seriesSum;
+  final double partialSum;
+
+  /// S_1 ... S_400 for the partial-sum graph.
+  final List<double> partialSums;
+
+  /// True when the engine could not find a closed form and returned RK4
+  /// trajectories instead. The UI must label the answer as approximate.
+  final bool numericOnly;
+  final String numericRhs;
+  final String numericNote;
 
   static List<ExView> _exList(dynamic value) {
     if (value is! List) return const [];
@@ -432,6 +513,36 @@ class SolveResult {
     hypothesesContinuous: j['hypotheses_continuous'] == true,
     hypothesesDifferentiable: j['hypotheses_differentiable'] == true,
     rolleApplies: j['rolle_applies'] == true,
+    asymptotes: _strList(j['asymptotes']),
+    xIntercepts: _exList(j['x_intercepts']),
+    yIntercept: ExView.fromJson(j['y_intercept']),
+    hasYIntercept: j['has_y_intercept'] == true,
+    sketch: _strList(j['sketch']),
+    polynomial: ExView.fromJson(j['polynomial']),
+    remainder: ExView.fromJson(j['remainder']),
+    coefficients: _exList(j['coefficients']),
+    integrand: ExView.fromJson(j['integrand']),
+    application: (j['application'] ?? '').toString(),
+    partials: j['partials'] is List
+        ? (j['partials'] as List)
+              .map(PartialView.fromJson)
+              .whereType<PartialView>()
+              .toList(growable: false)
+        : const [],
+    gradient: _exList(j['gradient']),
+    laplacian: ExView.fromJson(j['laplacian']),
+    directional: ExView.fromJson(j['directional']),
+    functionValue: ExView.fromJson(j['function_value']),
+    pointLabel: (j['point_label'] ?? '').toString(),
+    seriesVerdict: (j['series_verdict'] ?? '').toString(),
+    seriesTest: (j['series_test'] ?? '').toString(),
+    converges: j['converges'] == true,
+    seriesSum: ExView.fromJson(j['series_sum']),
+    partialSum: (j['partial_sum'] as num?)?.toDouble() ?? 0,
+    partialSums: doubleList(j['partial_sums']),
+    numericOnly: j['numeric_only'] == true,
+    numericRhs: (j['numeric_rhs'] ?? '').toString(),
+    numericNote: (j['numeric_note'] ?? '').toString(),
   );
 
   static List<PointView> _pointList(dynamic value) {
@@ -648,6 +759,108 @@ class FieldResult {
         ? (j['curves'] as List)
               .map(FieldCurveView.fromJson)
               .whereType<FieldCurveView>()
+              .toList(growable: false)
+        : const [],
+  );
+}
+
+class TrajectoryCurveView {
+  const TrajectoryCurveView({
+    required this.x0,
+    required this.y0,
+    required this.xs,
+    required this.ys,
+  });
+
+  final double x0;
+  final double y0;
+  final List<double> xs;
+  final List<double> ys;
+
+  static TrajectoryCurveView? fromJson(dynamic value) {
+    if (value is! Map) return null;
+    return TrajectoryCurveView(
+      x0: (value['x0'] as num?)?.toDouble() ?? 0,
+      y0: (value['y0'] as num?)?.toDouble() ?? 0,
+      xs: doubleList(value['xs']),
+      ys: doubleList(value['ys']),
+    );
+  }
+}
+
+class TrajectoryResult {
+  const TrajectoryResult({
+    required this.ok,
+    required this.error,
+    required this.rhs,
+    required this.order,
+    required this.xmin,
+    required this.xmax,
+    required this.curves,
+  });
+
+  final bool ok;
+  final String error;
+  final String rhs;
+  final int order;
+  final double xmin;
+  final double xmax;
+  final List<TrajectoryCurveView> curves;
+
+  factory TrajectoryResult.fromJson(Map<String, dynamic> j) => TrajectoryResult(
+    ok: j['ok'] == true,
+    error: (j['error'] ?? '').toString(),
+    rhs: (j['rhs'] ?? '').toString(),
+    order: (j['order'] as num?)?.toInt() ?? 2,
+    xmin: (j['xmin'] as num?)?.toDouble() ?? -6,
+    xmax: (j['xmax'] as num?)?.toDouble() ?? 6,
+    curves: j['curves'] is List
+        ? (j['curves'] as List)
+              .map(TrajectoryCurveView.fromJson)
+              .whereType<TrajectoryCurveView>()
+              .toList(growable: false)
+        : const [],
+  );
+}
+
+class SurfaceResult {
+  const SurfaceResult({
+    required this.ok,
+    required this.error,
+    required this.xmin,
+    required this.xmax,
+    required this.ymin,
+    required this.ymax,
+    required this.nx,
+    required this.ny,
+    required this.zs,
+  });
+
+  final bool ok;
+  final String error;
+  final double xmin;
+  final double xmax;
+  final double ymin;
+  final double ymax;
+  final int nx;
+  final int ny;
+
+  /// Row-major grid; NaN marks an undefined sample.
+  final List<List<double>> zs;
+
+  factory SurfaceResult.fromJson(Map<String, dynamic> j) => SurfaceResult(
+    ok: j['ok'] == true,
+    error: (j['error'] ?? '').toString(),
+    xmin: (j['xmin'] as num?)?.toDouble() ?? -4,
+    xmax: (j['xmax'] as num?)?.toDouble() ?? 4,
+    ymin: (j['ymin'] as num?)?.toDouble() ?? -4,
+    ymax: (j['ymax'] as num?)?.toDouble() ?? 4,
+    nx: (j['nx'] as num?)?.toInt() ?? 0,
+    ny: (j['ny'] as num?)?.toInt() ?? 0,
+    zs: j['zs'] is List
+        ? (j['zs'] as List)
+              .whereType<List>()
+              .map(doubleList)
               .toList(growable: false)
         : const [],
   );

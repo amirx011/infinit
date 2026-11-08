@@ -72,7 +72,7 @@ struct Compiler {
                     {"atan", ODE_ATAN}, {"exp", ODE_EXP}, {"ln", ODE_LN}, {"log", ODE_LN},
                     {"sqrt", ODE_SQRT}, {"abs", ODE_ABS}, {"sinh", ODE_SINH}, {"cosh", ODE_COSH},
                     {"tanh", ODE_TANH}, {"asinh", ODE_ASINH}, {"acosh", ODE_ACOSH}, {"atanh", ODE_ATANH},
-                    {"erf", ODE_ERF}, {"erfc", ODE_ERFC}
+                    {"erf", ODE_ERF}, {"erfc", ODE_ERFC}, {"fact", ODE_FACT}
                 };
                 auto it = ops.find(n);
                 if (it == ops.end()) { ok = false; return; }
@@ -109,15 +109,26 @@ static double sampleCoord(int i, int which) {
 
 bool numericallyZero(const Ex& e, const std::vector<std::string>& syms, int samples, double tol) {
     int finite = 0;
+    // Try both signs of every sample.  A solution such as
+    // y = C2 + C + x - (C+x)ln(-C-x) is only real when -C-x > 0, so an
+    // all-positive sample would leave the logarithm undefined and the
+    // verification inconclusive.
     for (int i = 0; i < samples; ++i) {
-        std::map<std::string, double> vars;
-        int k = 0;
-        for (auto& s : syms) vars[s] = sampleCoord(i + k, k % 2), ++k;
-        bool ok = false;
-        double v = evalReal(e, vars, &ok);
-        if (!ok) continue;
-        ++finite;
-        if (std::fabs(v) > tol) return false;
+        for (int sign = 0; sign < 2; ++sign) {
+            std::map<std::string, double> vars;
+            int k = 0;
+            for (auto& s : syms) {
+                double value = sampleCoord(i + k, k % 2);
+                if (sign) value = -value;
+                vars[s] = value;
+                ++k;
+            }
+            bool ok = false;
+            double v = evalReal(e, vars, &ok);
+            if (!ok) continue;
+            ++finite;
+            if (std::fabs(v) > tol) return false;
+        }
     }
     return finite > 0;
 }

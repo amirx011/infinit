@@ -5,6 +5,7 @@
 #include "localize.hpp"
 #include "odecore.h"
 #include "solver.hpp"
+#include "topics.hpp"
 
 #include <cctype>
 #include <cmath>
@@ -325,6 +326,63 @@ std::string graphResultJson(const JVal& req, const std::string& mode) {
         o << "]}";
         return o.str();
     }
+    if (mode == "ode_trajectory") {
+        std::vector<ode::TrajectorySeed> seeds;
+        if (const JVal* arr = req.get("ics")) {
+            if (arr->kind == JVal::Arr) {
+                for (const auto& v : arr->arr) {
+                    if (v.kind == JVal::Arr && v.arr.size() >= 3 &&
+                        v.arr[0].kind == JVal::Num && v.arr[1].kind == JVal::Num &&
+                        v.arr[2].kind == JVal::Num) {
+                        seeds.push_back({v.arr[0].n, v.arr[1].n, v.arr[2].n});
+                    }
+                }
+            }
+        }
+        const auto traj = ode::analyseTrajectory(
+            req.str("input"), req.str("x", "x"), req.str("y", "y"),
+            numberArg(req, "xmin", -6.0), numberArg(req, "xmax", 6.0),
+            (int)numberArg(req, "curves", 6), seeds);
+        if (!traj.ok) return graphError(mode, traj.error);
+        std::ostringstream o;
+        o << "{\"ok\":true,\"mode\":\"ode_trajectory\",\"rhs\":" << q(traj.rhs)
+          << ",\"order\":" << traj.order
+          << ",\"xmin\":" << numJson(traj.xmin) << ",\"xmax\":" << numJson(traj.xmax)
+          << ",\"curves\":[";
+        for (size_t i = 0; i < traj.curves.size(); ++i) {
+            if (i) o << ",";
+            const auto& curve = traj.curves[i];
+            o << "{\"x0\":" << numJson(curve.icX) << ",\"y0\":" << numJson(curve.icY)
+              << ",\"xs\":" << numArrayJson(curve.xs)
+              << ",\"ys\":" << numArrayJson(curve.ys) << "}";
+        }
+        o << "]}";
+        return o.str();
+    }
+    if (mode == "surface") {
+        const auto surf = ode::sampleSurface(
+            req.str("input"), req.str("x", "x"), req.str("y", "y"),
+            numberArg(req, "xmin", -4.0), numberArg(req, "xmax", 4.0),
+            numberArg(req, "ymin", -4.0), numberArg(req, "ymax", 4.0),
+            (int)numberArg(req, "nx", 48), (int)numberArg(req, "ny", 48));
+        if (!surf.ok) return graphError(mode, surf.error);
+        std::ostringstream o;
+        o << "{\"ok\":true,\"mode\":\"surface\",\"xmin\":" << numJson(surf.xmin)
+          << ",\"xmax\":" << numJson(surf.xmax) << ",\"ymin\":" << numJson(surf.ymin)
+          << ",\"ymax\":" << numJson(surf.ymax) << ",\"nx\":" << surf.nx
+          << ",\"ny\":" << surf.ny << ",\"zs\":[";
+        for (int r = 0; r < surf.ny; ++r) {
+            if (r) o << ",";
+            o << "[";
+            for (int c = 0; c < surf.nx; ++c) {
+                if (c) o << ",";
+                o << numJson(surf.zs[(size_t)r * surf.nx + c]);
+            }
+            o << "]";
+        }
+        o << "]}";
+        return o.str();
+    }
     return graphError(mode, "Unknown graph mode");
 }
 
@@ -502,6 +560,48 @@ std::string resultJson(const ode::Result& r) {
     }
     o << "]";
 
+    // asymptotes and curve sketching
+    o << ",\"asymptotes\":" << strArrayJson(r.asymptotes);
+    o << ",\"x_intercepts\":" << exArrayJson(r.xIntercepts);
+    o << ",\"y_intercept\":" << exJson(r.yIntercept);
+    o << ",\"has_y_intercept\":" << (r.hasYIntercept ? "true" : "false");
+    o << ",\"sketch\":" << strArrayJson(r.sketch);
+
+    // Taylor / Maclaurin
+    o << ",\"polynomial\":" << exJson(r.polynomial);
+    o << ",\"remainder\":" << exJson(r.remainder);
+    o << ",\"coefficients\":" << exArrayJson(r.coefficients);
+
+    // definite-integral applications
+    o << ",\"integrand\":" << exJson(r.integrand);
+    o << ",\"application\":" << q(r.application);
+
+    // partial derivatives
+    o << ",\"partials\":[";
+    for (size_t i = 0; i < r.partials.size(); ++i) {
+        if (i) o << ",";
+        o << "{\"label\":" << q(r.partials[i].label)
+          << ",\"value\":" << exJson(r.partials[i].value) << "}";
+    }
+    o << "]";
+    o << ",\"gradient\":" << exArrayJson(r.gradient);
+    o << ",\"laplacian\":" << exJson(r.laplacian);
+    o << ",\"directional\":" << exJson(r.directional);
+    o << ",\"function_value\":" << exJson(r.functionValue);
+    o << ",\"point_label\":" << q(r.pointLabel);
+
+    // series convergence
+    o << ",\"series_verdict\":" << q(r.seriesVerdict);
+    o << ",\"series_test\":" << q(r.seriesTest);
+    o << ",\"converges\":" << (r.converges ? "true" : "false");
+    o << ",\"series_sum\":" << exJson(r.seriesSum);
+    o << ",\"partial_sum\":" << numJson(r.partialSum);
+    o << ",\"partial_sums\":" << numArrayJson(r.partialSums);
+
+    o << ",\"numeric_only\":" << (r.numericOnly ? "true" : "false");
+    o << ",\"numeric_rhs\":" << q(r.numericRhs);
+    o << ",\"numeric_note\":" << q(r.numericNote);
+
     o << "}";
     return o.str();
 }
@@ -580,6 +680,76 @@ ode::Result handle(const JVal& req) {
                                   req.str("x", "x"), req.str("y", "y"),
                                   req.str("lang", "en"));
     }
+    // ------------------------------------------- calculus extensions
+    if (mode == "taylor") {
+        int order = 4;
+        if (const JVal* v = req.get("order")) {
+            if (v->kind == JVal::Num) order = (int)v->n;
+        }
+        return ode::taylorSeries(req.str("input"), req.str("x", "x"), numberArg(req, "a", 0.0),
+                                 order, req.str("lang", "en"));
+    }
+    if (mode == "integral_apps") {
+        return ode::integralApplication(req.str("kind", "area"), req.str("input"),
+                                        req.str("g", ""), req.str("x", "x"),
+                                        numberArg(req, "a", 0.0), numberArg(req, "b", 1.0),
+                                        req.str("axis", "x"), req.str("lang", "en"));
+    }
+    if (mode == "partial") {
+        auto textList = [&](const char* key) {
+            std::vector<std::string> out;
+            if (const JVal* v = req.get(key)) {
+                if (v->kind == JVal::Str) {
+                    std::string s = v->s;
+                    for (char& ch : s) if (ch == ',') ch = ' ';
+                    std::istringstream in(s);
+                    std::string token;
+                    while (in >> token) out.push_back(token);
+                } else if (v->kind == JVal::Arr) {
+                    for (auto& item : v->arr)
+                        if (item.kind == JVal::Str) out.push_back(item.s);
+                }
+            }
+            return out;
+        };
+        auto numberList = [&](const char* key) {
+            std::vector<double> out;
+            if (const JVal* v = req.get(key)) {
+                if (v->kind == JVal::Str) {
+                    std::string s = v->s;
+                    for (char& ch : s) if (ch == ',') ch = ' ';
+                    std::istringstream in(s);
+                    double value = 0;
+                    while (in >> value) out.push_back(value);
+                } else if (v->kind == JVal::Arr) {
+                    for (auto& item : v->arr)
+                        if (item.kind == JVal::Num) out.push_back(item.n);
+                }
+            }
+            return out;
+        };
+        return ode::partialDerivatives(req.str("input"), textList("vars"), numberList("point"),
+                                       numberList("direction"), req.str("lang", "en"));
+    }
+    if (mode == "series") {
+        int start = 1;
+        if (const JVal* v = req.get("start")) {
+            if (v->kind == JVal::Num) start = (int)v->n;
+        }
+        return ode::seriesAnalysis(req.str("input"), req.str("n", "n"), start,
+                                   req.str("lang", "en"));
+    }
+    if (mode == "topic") {
+        ode::TopicRequest topic;
+        topic.topic = req.str("topic");
+        topic.lang = req.str("lang", "en");
+        for (const auto& item : req.obj) {
+            if (item.second.kind == JVal::Num) topic.nums[item.first] = item.second.n;
+            else if (item.second.kind == JVal::Str) topic.strs[item.first] = item.second.s;
+        }
+        return ode::solveTopic(topic);
+    }
+
     // ------------------------------------------- applications of the derivative
     if (mode == "behaviour" || mode == "optimize") {
         const double lo = numberArg(req, "xmin", mode == "optimize" ? -5.0 : -10.0);
@@ -664,7 +834,8 @@ ODE_API char* ode_solve(const char* request_json) {
         JsonParser parser(body);
         JVal req = parser.value();
         const std::string mode = req.str("mode", "ode");
-        if (mode == "sample" || mode == "domain" || mode == "field") {
+        if (mode == "sample" || mode == "domain" || mode == "field" ||
+            mode == "ode_trajectory" || mode == "surface") {
             out = graphResultJson(req, mode);
         } else {
             out = resultJson(handle(req));

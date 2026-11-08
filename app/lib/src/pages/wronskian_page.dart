@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app_state.dart';
+import '../charts.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
@@ -127,6 +129,7 @@ class _WronskianPageState extends State<WronskianPage> {
   Widget build(BuildContext context) {
     final l = widget.l10n;
     final c = context.colors;
+    final showGraphs = SettingsScope.maybeOf(context)?.showGraphs ?? true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -338,8 +341,49 @@ class _WronskianPageState extends State<WronskianPage> {
             key: _resultKey,
             child: ResultView(result: _result!, l10n: l),
           ),
+          if (showGraphs && _result!.ok) ...[
+            const SizedBox(height: 16),
+            _functionsPlot(context, l, c),
+          ],
         ],
       ],
+    );
+  }
+
+  Widget _functionsPlot(BuildContext context, L10n l, OdeColors c) {
+    final palette = <Color>[
+      c.accent,
+      c.accentAlt,
+      c.success,
+      c.warning,
+      c.info,
+      c.creative,
+    ];
+    final curves = <PlotCurveSpec>[];
+    for (var i = 0; i < _functions.length; i++) {
+      final expression = _functions[i].text.trim();
+      if (expression.isEmpty) continue;
+      curves.add(
+        PlotCurveSpec(
+          expression: expression,
+          color: palette[curves.length % palette.length],
+          label: 'f${curves.length + 1}(x)',
+        ),
+      );
+    }
+    if (curves.length < 2) return const SizedBox.shrink();
+    return MultiCurvePlot(
+      engine: widget.engine,
+      l10n: l,
+      variable: _xv.text.trim().isEmpty ? 'x' : _xv.text.trim(),
+      curves: curves,
+      xmin: -8,
+      xmax: 8,
+      title: l.t('Functions under test', 'توابع مورد بررسی'),
+      caption: l.t(
+        'The Wronskian is built from these curves and their derivatives. A nonzero determinant on an interval means they are linearly independent there.',
+        'رونسکی از این منحنی‌ها و مشتق‌هایشان ساخته می‌شود. ناصفر بودن دترمینان روی یک بازه یعنی آن‌ها در آن بازه مستقل خطی‌اند.',
+      ),
     );
   }
 }

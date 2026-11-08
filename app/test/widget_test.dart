@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:infinit/main.dart';
@@ -30,13 +31,14 @@ Future<void> _drawerTap(WidgetTester tester, String label) async {
     of: find.byType(Drawer),
     matching: find.text(label),
   );
+  final list = find.descendant(
+    of: find.byType(Drawer),
+    matching: find.byType(ListView),
+  );
   await tester.scrollUntilVisible(
     finder,
     120,
-    scrollable: find.descendant(
-      of: find.byType(Drawer),
-      matching: find.byType(Scrollable),
-    ),
+    scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
   );
   await tester.pumpAndSettle();
   await tester.tap(finder);
@@ -117,6 +119,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential equations'));
     await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Applications');
     await _drawerTap(tester, 'Orthogonal trajectories');
 
     expect(find.text('Orthogonal trajectories'), findsOneWidget);
@@ -131,9 +134,7 @@ void main() {
     expect(find.textContaining('direction field'), findsOneWidget);
   });
 
-  testWidgets('opens the dedicated oblique-trajectories page', (
-    tester,
-  ) async {
+  testWidgets('opens the dedicated oblique-trajectories page', (tester) async {
     final settings = await _settings();
     await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
@@ -142,6 +143,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential equations'));
     await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Applications');
     await _drawerTap(tester, 'Oblique trajectories');
 
     expect(find.text('Oblique trajectories'), findsOneWidget);
@@ -167,11 +169,12 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
 
-    // The new top level section exists.
-    expect(find.text('Applications of the derivative'), findsOneWidget);
+    // The new top level section exists. Nested groups only appear once their
+    // parent is open.
     expect(find.text('Educational explanations'), findsOneWidget);
 
     await _drawerTap(tester, 'Differential & integral');
+    expect(find.text('Applications of the derivative'), findsOneWidget);
     await _drawerTap(tester, 'Applications of the derivative');
     expect(find.text('Function behaviour'), findsOneWidget);
     expect(find.text('Related rates'), findsOneWidget);
@@ -186,7 +189,7 @@ void main() {
     expect(find.text('Derivative theorems, complete'), findsOneWidget);
   });
 
-  testWidgets('educational section states that it is still empty', (
+  testWidgets('educational section opens the derivative article', (
     tester,
   ) async {
     final settings = await _settings();
@@ -196,10 +199,100 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Educational explanations');
-    expect(
-      find.text('Nothing has been added to this section yet.'),
-      findsOneWidget,
+    await _drawerTap(tester, 'Derivative');
+
+    // The article shows the simplest answer first, then the numbered solution.
+    expect(find.text('Short answer'), findsOneWidget);
+    expect(find.text('Simplest answer'), findsOneWidget);
+    expect(find.text('Step by step'), findsOneWidget);
+    expect(find.textContaining('lim'), findsWidgets);
+  });
+
+  testWidgets('linear algebra sits just before the educational section', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+
+    final linear = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.text('Linear algebra'),
     );
+    final education = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.text('Educational explanations'),
+    );
+    expect(linear, findsOneWidget);
+    expect(education, findsOneWidget);
+    expect(
+      tester.getTopLeft(linear).dy,
+      lessThan(tester.getTopLeft(education).dy),
+    );
+  });
+
+  testWidgets('filters modules from the drawer search field', (tester) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+
+    final search = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(search, 'bessel');
+    await tester.pumpAndSettle();
+
+    final result = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.text('Bessel equations & functions'),
+    );
+    expect(result, findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Derivative'),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(result);
+    await tester.pumpAndSettle();
+    expect(find.text('Coming soon'), findsOneWidget);
+  });
+
+  testWidgets('shows the current path in the drawer breadcrumb', (
+    tester,
+  ) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations'));
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Applications');
+    await _drawerTap(tester, 'Wronskian');
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+
+    final trail = find.byWidgetPredicate(
+      (widget) =>
+          widget is Text &&
+          RegExp(r'Differential equations\s*/\s*Applications\s*/\s*Wronskian')
+              .hasMatch(widget.textSpan?.toPlainText() ?? ''),
+    );
+    expect(trail, findsOneWidget);
   });
 
   testWidgets('shows the new sections in Persian', (tester) async {
@@ -220,7 +313,6 @@ void main() {
     expect(find.text('مماس و خط عمود'), findsOneWidget);
     expect(find.text('مسایل بهینه‌سازی'), findsOneWidget);
     expect(find.text('نرخ‌های مرتبط'), findsOneWidget);
-
     await _drawerTap(tester, 'قضایای مهم');
     expect(find.text('قاعدهٔ هوپیتال'), findsOneWidget);
     expect(find.text('قضیهٔ مقدار میانگین'), findsOneWidget);
@@ -229,9 +321,44 @@ void main() {
     expect(find.text('قضایای مشتق، کامل'), findsOneWidget);
   });
 
-  testWidgets('analyses function behaviour and draws the plot', (
-    tester,
-  ) async {
+  testWidgets('opens the systems of ODEs workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Systems & stability');
+    await _drawerTap(tester, 'Systems of ODEs');
+
+    expect(find.text('Systems of ODEs'), findsWidgets);
+    expect(find.text('Show the answer and steps'), findsOneWidget);
+    expect(find.text('Coming soon'), findsNothing);
+  });
+
+  testWidgets('localises the systems of ODEs workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await settings.setLocale(const Locale('fa'));
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'معادلات دیفرانسیل');
+    await _drawerTap(tester, 'دستگاه‌ها و پایداری');
+    await _drawerTap(tester, 'دستگاه‌های معادلات دیفرانسیل');
+
+    expect(find.text('دستگاه‌های معادلات دیفرانسیل'), findsWidgets);
+    expect(find.text('نمایش جواب و مراحل'), findsOneWidget);
+  });
+
+  testWidgets('analyses function behaviour and draws the plot', (tester) async {
     final settings = await _settings();
     await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
@@ -325,7 +452,10 @@ void main() {
 
     expect(find.text('Theorems of the derivative'), findsOneWidget);
     expect(find.text("Fermat's theorem"), findsOneWidget);
-    expect(find.text('Taylor\'s theorem with Lagrange remainder'), findsOneWidget);
+    expect(
+      find.text('Taylor\'s theorem with Lagrange remainder'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('computes an integral from the drawer module', (tester) async {
@@ -347,6 +477,7 @@ void main() {
     await tester.enterText(find.byType(TextField).first, '2*x*cos(x^2)');
     await tester.tap(find.text('Compute integral'));
     await _awaitEngine(tester, find.text('Substitution'));
+    await _awaitEngine(tester, find.byKey(const ValueKey('multi-curve-ready')));
 
     expect(find.text('Substitution'), findsOneWidget);
     expect(find.textContaining('Differentiate the result'), findsOneWidget);
@@ -374,11 +505,51 @@ void main() {
 
     await tester.tap(find.text('Compute first derivative'));
     await _awaitEngine(tester, find.text('Compute second derivative'));
+    await _awaitEngine(tester, find.byKey(const ValueKey('multi-curve-ready')));
     expect(find.text('Compute second derivative'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Compute second derivative'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Compute second derivative'));
     await _awaitEngine(tester, find.text('Second derivative'));
     expect(find.text('Second derivative'), findsWidgets);
+  });
+
+  testWidgets('honours the solution and graph visibility settings', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await settings.setShowSteps(false);
+    await settings.setShowChecks(false);
+    await settings.setShowGraphs(false);
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential & integral'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Derivative'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Compute first derivative'));
+    await _awaitEngine(tester, find.text('Compute second derivative'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Solution path'), findsNothing);
+    expect(find.byKey(const ValueKey('multi-curve-ready')), findsNothing);
+
+    await settings.setShowGraphs(true);
+    await tester.pump();
+    expect(find.text('Function and derivative'), findsOneWidget);
+    await _awaitEngine(tester, find.byKey(const ValueKey('multi-curve-ready')));
   });
 
   testWidgets('opens settings and switches theme', (tester) async {
@@ -386,10 +557,10 @@ void main() {
     await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
-    await tester.tap(find.byIcon(Icons.tune_rounded).first);
+    await tester.tap(find.byIcon(Icons.settings_rounded).first);
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Theme'), findsOneWidget);
+    expect(find.text('Appearance'), findsWidgets);
     expect(find.text('Language'), findsOneWidget);
     expect(find.text('System'), findsOneWidget);
 
@@ -400,10 +571,57 @@ void main() {
     await tester.tap(find.text('System'));
     await tester.pumpAndSettle();
     expect(settings.themeMode, ThemeMode.system);
+  });
 
-    await tester.tap(find.text('فارسی'));
+  testWidgets('quick language chips are gone from the settings header', (
+    tester,
+  ) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.settings_rounded).first);
     await tester.pumpAndSettle();
-    expect(settings.locale.languageCode, 'fa');
+
+    expect(find.text('English'), findsNothing);
+    expect(find.text('فارسی'), findsNothing);
+  });
+
+  testWidgets('selects another language from the locale dropdown', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1500));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.settings_rounded).first);
+    await tester.pumpAndSettle();
+
+    final dropdown = find.byType(DropdownButtonFormField<String>);
+    await tester.ensureVisible(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Español  ·  Spanish').last);
+    await tester.pumpAndSettle();
+
+    expect(settings.locale.languageCode, 'es');
+    expect(find.text('Ajustes'), findsWidgets);
+  });
+
+  testWidgets('settings lives in the header, not the drawer', (tester) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: find.byType(Drawer), matching: find.text('Settings')),
+      findsNothing,
+    );
   });
 
   testWidgets('solves y\u2032 = y through the native engine', (tester) async {
@@ -434,6 +652,109 @@ void main() {
     expect(find.byType(Math), findsWidgets);
     expect(find.text('Solution path'), findsOneWidget);
     expect(find.text('Validation'), findsOneWidget);
+  });
+
+  testWidgets('copies the ODE answer as plain text, not LaTeX', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Solve an equation'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, "y' = y");
+    await tester.tap(find.text('Solve equation'));
+    await _awaitEngine(tester, find.text('Explicit solution'));
+
+    final copyButton = find.byIcon(Icons.copy_rounded).first;
+    await tester.ensureVisible(copyButton);
+    await tester.pumpAndSettle();
+    await tester.tap(copyButton);
+    await tester.pump();
+
+    expect(copied, isNotNull);
+    expect(copied, isNot(contains(r'\')));
+    expect(copied, contains('y ='));
+    expect(copied, contains('exp(x)'));
+  });
+
+  testWidgets('copies a derivative as plain text, not LaTeX', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential & integral'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Derivative'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'x^3');
+    await tester.tap(find.text('Compute first derivative'));
+    await _awaitEngine(tester, find.text('Compute second derivative'));
+
+    final copyButton = find.byIcon(Icons.copy_rounded).first;
+    await tester.ensureVisible(copyButton);
+    await tester.pumpAndSettle();
+    await tester.tap(copyButton);
+    await tester.pump();
+
+    expect(copied, isNotNull);
+    expect(copied, isNot(contains(r'\')));
+    expect(copied, contains('3*x^2'));
   });
 
   testWidgets('plots the direction field for an exact differential form', (
@@ -503,5 +824,287 @@ void main() {
     expect(find.textContaining('[−2, 2]'), findsWidgets);
     expect(find.textContaining('[0, 2]'), findsWidgets);
     expect(find.byKey(const ValueKey('domain-chart')), findsOneWidget);
+  });
+
+  testWidgets('changes the accent palette from settings', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.settings_rounded).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Accent palette'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Emerald'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Emerald'));
+    await tester.pumpAndSettle();
+    expect(settings.palette, 'emerald');
+  });
+
+  testWidgets('searches modules from the command palette', (tester) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.search_rounded).first);
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'Wronskian');
+    await tester.pumpAndSettle();
+    final result = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.text('Wronskian'),
+    );
+    expect(result, findsNWidgets(2));
+    await tester.tap(result.last);
+    await tester.pumpAndSettle();
+    expect(find.text('Wronskian & linear independence'), findsOneWidget);
+  });
+
+  testWidgets('builds a Taylor polynomial with its remainder', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Taylor & Maclaurin');
+
+    final button = find.text('Build the polynomial');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lagrange remainder'), findsWidgets);
+    expect(find.text('Coefficients'), findsWidgets);
+  });
+
+  testWidgets('computes the area between two curves', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Integral applications');
+
+    final button = find.text('Set up and evaluate');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Area between curves'), findsWidgets);
+    expect(find.text('Integrand'), findsWidgets);
+  });
+
+  testWidgets('reads the gradient and Laplacian at a point', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Partial derivatives');
+
+    final button = find.text('Differentiate and evaluate');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gradient'), findsWidgets);
+    expect(find.text('Laplacian'), findsWidgets);
+    expect(find.text('Directional derivative'), findsWidgets);
+  });
+
+  testWidgets('decides series convergence and shows the sum', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Series & convergence');
+
+    final button = find.text('Test for convergence');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Converges'), findsWidgets);
+    expect(find.text('Exact sum'), findsWidgets);
+    expect(find.text('p-series'), findsWidgets);
+  });
+
+  testWidgets('handles a factorial term with the ratio test', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Series & convergence');
+
+    await tester.enterText(find.byType(TextField).first, '1/n!');
+    final button = find.text('Test for convergence');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Converges'), findsWidgets);
+    expect(find.text('Ratio test'), findsWidgets);
+    expect(find.textContaining('n!'), findsWidgets);
+  });
+
+  testWidgets('solves a linear algebra system through the workbench', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Linear algebra');
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Solution path'), findsOneWidget);
+    expect(find.text('Simplest answer'), findsOneWidget);
+    expect(find.textContaining('cos'), findsWidgets);
+    expect(find.textContaining('= C'), findsNothing);
+  });
+
+  testWidgets('solves a growth and decay application', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Differential equations');
+    await _drawerTap(tester, 'Applications');
+    await _drawerTap(tester, 'Growth & decay');
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Solution path'), findsOneWidget);
+    expect(find.text('Simplest answer'), findsOneWidget);
+    expect(find.textContaining('exp'), findsWidgets);
+    // The answer is a finished expression, not an implicit ODE family.
+    expect(find.textContaining('= C'), findsNothing);
+  });
+
+  testWidgets('opens the integral, types and applications study articles', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Educational explanations');
+
+    for (final title in [
+      'Integral',
+      'Types of differential equations',
+      'Applications of differential equations',
+    ]) {
+      if (title != 'Integral') {
+        await tester.tap(find.byIcon(Icons.menu_rounded).first);
+        await tester.pumpAndSettle();
+      }
+      await _drawerTap(tester, title);
+      expect(find.text('Short answer'), findsOneWidget);
+      expect(find.text('Simplest answer'), findsOneWidget);
+      expect(find.text('Step by step'), findsOneWidget);
+    }
+  });
+
+  testWidgets('settings no longer advertises the computation engine', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.settings_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Native engine'), findsNothing);
+    expect(find.textContaining('Engine ready'), findsNothing);
+  });
+
+  testWidgets('routes the damped oscillator and Heun workbenches', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Applications');
+    await _drawerTap(tester, 'Damped & forced oscillations');
+    expect(find.text('Damped & forced oscillations'), findsWidgets);
+    expect(find.text('Show the answer and steps'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Numerical methods');
+    await _drawerTap(tester, 'Improved Euler (Heun)');
+    expect(find.text('Improved Euler (Heun)'), findsWidgets);
+    expect(find.text('Show the answer and steps'), findsOneWidget);
   });
 }

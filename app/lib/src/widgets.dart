@@ -3,6 +3,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import 'app_state.dart';
 import 'calc_widgets.dart';
 import 'l10n.dart';
 import 'models.dart';
@@ -30,21 +31,28 @@ class PageTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(11),
+            color: accent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: accent.withValues(alpha: 0.28)),
           ),
-          child: Icon(icon, color: accent, size: 20),
+          child: Icon(icon, color: accent, size: 21),
         ),
-        const SizedBox(width: 11),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.1,
+                ),
+              ),
+              const SizedBox(height: 1),
               Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
@@ -73,17 +81,18 @@ class SoftCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
         color: color ?? c.card,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: borderColor ?? c.line),
-        boxShadow: elevated
+        boxShadow: elevated && !dark
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 26,
-                  offset: const Offset(0, 12),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
               ]
             : null,
@@ -106,18 +115,9 @@ class SectionLabel extends StatelessWidget {
     final c = context.colors;
     return Row(
       children: [
-        Container(
-          width: 3,
-          height: 18,
-          decoration: BoxDecoration(
-            color: c.accent,
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        const SizedBox(width: 9),
         if (icon != null) ...[
           Icon(icon, size: 16, color: c.accent),
-          const SizedBox(width: 6),
+          const SizedBox(width: 7),
         ],
         Expanded(
           child: Text(
@@ -138,14 +138,14 @@ class MathBlock extends StatelessWidget {
     required this.math,
     this.size = 19,
     this.accent = false,
-    this.onCopyLatex,
+    this.onCopy,
     this.tooltip,
   });
 
   final ExView math;
   final double size;
   final bool accent;
-  final VoidCallback? onCopyLatex;
+  final VoidCallback? onCopy;
   final String? tooltip;
 
   @override
@@ -189,12 +189,12 @@ class MathBlock extends StatelessWidget {
               ),
             ),
           ),
-          if (onCopyLatex != null)
+          if (onCopy != null)
             IconButton(
               tooltip: tooltip,
               visualDensity: VisualDensity.compact,
-              icon: Icon(Icons.code_rounded, size: 19, color: c.muted),
-              onPressed: onCopyLatex,
+              icon: Icon(Icons.copy_rounded, size: 19, color: c.muted),
+              onPressed: onCopy,
             ),
         ],
       ),
@@ -206,12 +206,7 @@ class MathBlock extends StatelessWidget {
 /// [MathBlock] would be too heavy.  Fractions and roots still use the real
 /// mathematical layout instead of the linear `.pretty` fallback.
 class MathInline extends StatelessWidget {
-  const MathInline({
-    super.key,
-    required this.math,
-    this.size = 15,
-    this.color,
-  });
+  const MathInline({super.key, required this.math, this.size = 15, this.color});
 
   final ExView math;
   final double size;
@@ -366,7 +361,7 @@ class _LearningCardState extends State<LearningCard> {
                       style: TextStyle(
                         fontFamily: 'Vazirmatn',
                         fontSize: 12,
-                        letterSpacing: l.isFa ? 0 : 0.8,
+                        letterSpacing: l.isRtl ? 0 : 0.8,
                         fontWeight: FontWeight.w700,
                         color: c.accentAlt,
                       ),
@@ -534,13 +529,14 @@ class ResultView extends StatelessWidget {
   /// answer card and before the step-by-step solution.
   final Widget? beforeSteps;
 
-  Future<void> _copyLatex(BuildContext context, ExView? math) async {
+  Future<void> _copyMath(BuildContext context, ExView? math) async {
     if (math == null) return;
-    await Clipboard.setData(ClipboardData(text: math.latex));
+    // Copy the same linear notation the user types, never the internal LaTeX.
+    final text = math.plain.isNotEmpty ? math.plain : math.pretty;
+    await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.t('LaTeX copied.', 'کد LaTeX کپی شد.'))),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(l10n.t('Copied.', 'کپی شد.'))));
   }
 
   @override
@@ -582,21 +578,23 @@ class ResultView extends StatelessWidget {
       );
     }
 
+    final settings = SettingsScope.maybeOf(context);
+    final showSteps = settings?.showSteps ?? true;
+    final showChecks = settings?.showChecks ?? true;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _answerCard(context),
-        if (beforeSteps != null) ...[
-          const SizedBox(height: 18),
-          beforeSteps!,
-        ],
-        if (result.steps.isNotEmpty) ...[
+        if (beforeSteps != null) ...[const SizedBox(height: 18), beforeSteps!],
+        if (showSteps && result.steps.isNotEmpty) ...[
           const SizedBox(height: 18),
           _stepsCard(context),
         ],
-        if (result.checks.isNotEmpty ||
-            result.warnings.isNotEmpty ||
-            result.assumptions.isNotEmpty) ...[
+        if (showChecks &&
+            (result.checks.isNotEmpty ||
+                result.warnings.isNotEmpty ||
+                result.assumptions.isNotEmpty)) ...[
           const SizedBox(height: 18),
           _checksCard(context),
         ],
@@ -656,10 +654,31 @@ class ResultView extends StatelessWidget {
       ? '${angle.toStringAsFixed(0)}°'
       : '${angle.toStringAsFixed(1)}°';
 
-  String _formatNumber(double v) {
+  String _seriesTestLabel(String test) => switch (test) {
+    'geometric' => l10n.t('Geometric series', 'سری هندسی'),
+    'p-series' => l10n.t('p-series', 'سری p'),
+    'ratio' => l10n.t('Ratio test', 'آزمون نسبت'),
+    'root' => l10n.t('Root test', 'آزمون ریشه'),
+    'alternating' => l10n.t('Alternating series', 'سری متناوب'),
+    'nth-term' => l10n.t('nth-term test', 'آزمون جملهٔ nام'),
+    _ => l10n.t('Numeric evidence', 'شواهد عددی'),
+  };
+
+  int _decimals(BuildContext context) =>
+      SettingsScope.maybeOf(context)?.decimalPlaces ?? 0;
+
+  String _formatNumber(double v, {int decimals = 0}) {
     if (v.isNaN) return '?';
     if (!v.isFinite) return v.sign < 0 ? '−∞' : '∞';
     if (v.abs() < 1e-12) return '0';
+    if (decimals > 0) {
+      var fixed = v.toStringAsFixed(decimals);
+      if (fixed.contains('.')) {
+        fixed = fixed.replaceFirst(RegExp(r'0+$'), '');
+        if (fixed.endsWith('.')) fixed = fixed.substring(0, fixed.length - 1);
+      }
+      return fixed;
+    }
     var s = v.toStringAsPrecision(10);
     if (s.contains('e')) return s;
     if (s.contains('.')) s = s.replaceFirst(RegExp(r'0+$'), '');
@@ -728,7 +747,7 @@ class ResultView extends StatelessWidget {
   List<String> get _integralVars =>
       result.vars.isEmpty ? <String>[result.variable] : result.vars;
 
-  ExView? _integralFormula() {
+  ExView? _integralFormula(int decimals) {
     final f = result.normalized;
     if (f == null) return null;
     final vars = _integralVars;
@@ -742,7 +761,7 @@ class ResultView extends StatelessWidget {
     final prettyDiffs = vars.map((v) => ' d$v').join();
     final solutionLatex = result.solution?.latex;
     final solutionPretty = result.solution?.pretty;
-    final valueText = _formatNumber(result.numericValue);
+    final valueText = _formatNumber(result.numericValue, decimals: decimals);
     final rhsLatex = result.divergent
         ? '\\text{diverges}'
         : (solutionLatex ?? (result.hasNumeric ? valueText : '\\text{?}'));
@@ -877,7 +896,43 @@ class ResultView extends StatelessWidget {
     children.add(Wrap(spacing: 8, runSpacing: 8, children: badges));
     children.add(const SizedBox(height: 16));
 
-    if (result.mode == 'wronskian') {
+    if (result.numericOnly) {
+      children.add(SectionLabel(l10n.t('Numerical solution', 'جواب عددی')));
+      children.add(const SizedBox(height: 10));
+      final rhs = result.numericRhs.isEmpty ? 'f(x, y, y′)' : result.numericRhs;
+      children.add(
+        MathBlock(
+          math: ExView(
+            plain: "y'' = $rhs",
+            pretty: "y″ = $rhs",
+            latex: "y'' = ${rhs.replaceAll('−', '-')}",
+          ),
+          accent: true,
+          size: 22,
+          tooltip: l10n.t('Copy', 'کپی'),
+        ),
+      );
+      children.add(const SizedBox(height: 12));
+      children.add(
+        Text(
+          result.numericNote.isEmpty
+              ? l10n.t(
+                  'No closed form was found. The curves below are approximate RK4 trajectories.',
+                  'فرم بسته‌ای پیدا نشد. منحنی‌های زیر مسیرهای تقریبی RK4 هستند.',
+                )
+              : result.numericNote,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      );
+      children.add(const SizedBox(height: 10));
+      children.add(
+        TypeBadge(
+          l10n.t('Approximate', 'تقریبی'),
+          icon: Icons.straighten_rounded,
+          tone: c.warning,
+        ),
+      );
+    } else if (result.mode == 'wronskian') {
       children.add(
         SectionLabel(l10n.t('Wronskian determinant', 'دترمینان رونسکی')),
       );
@@ -888,8 +943,8 @@ class ResultView extends StatelessWidget {
             math: result.wronskian!,
             accent: true,
             size: 22,
-            tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-            onCopyLatex: () => _copyLatex(context, result.wronskian),
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(context, result.wronskian),
           ),
         );
       }
@@ -905,15 +960,15 @@ class ResultView extends StatelessWidget {
         ),
       );
       children.add(const SizedBox(height: 10));
-      final formula = _integralFormula();
+      final formula = _integralFormula(_decimals(context));
       if (formula != null) {
         children.add(
           MathBlock(
             math: formula,
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-            onCopyLatex: () => _copyLatex(context, formula),
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(context, formula),
           ),
         );
       }
@@ -921,7 +976,7 @@ class ResultView extends StatelessWidget {
         children.add(const SizedBox(height: 10));
         children.add(
           Text(
-            '≈ ${_formatNumber(result.numericValue)}',
+            '≈ ${_formatNumber(result.numericValue, decimals: _decimals(context))}',
             style: Theme.of(context).textTheme.bodySmall
                 ?.copyWith(fontFamily: 'DejaVu Sans Mono', letterSpacing: 0.2),
           ),
@@ -985,8 +1040,10 @@ class ResultView extends StatelessWidget {
         rhsLatex = result.limitSign < 0 ? '-\\infty' : '\\infty';
         rhsPretty = result.limitSign < 0 ? '−∞' : '∞';
       } else if (result.hasNumeric) {
-        rhsLatex = '\\approx ${_formatNumber(result.numericValue)}';
-        rhsPretty = '≈ ${_formatNumber(result.numericValue)}';
+        rhsLatex =
+            '\\approx ${_formatNumber(result.numericValue, decimals: _decimals(context))}';
+        rhsPretty =
+            '≈ ${_formatNumber(result.numericValue, decimals: _decimals(context))}';
       } else {
         rhsLatex = '\\text{does not exist}';
         rhsPretty = l10n.t('does not exist', 'وجود ندارد');
@@ -1003,8 +1060,8 @@ class ResultView extends StatelessWidget {
           math: formula,
           accent: true,
           size: 21,
-          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-          onCopyLatex: () => _copyLatex(context, formula),
+          tooltip: l10n.t('Copy', 'کپی'),
+          onCopy: () => _copyMath(context, formula),
         ),
       );
       if (result.side == 'both' &&
@@ -1124,8 +1181,8 @@ class ResultView extends StatelessWidget {
             math: formula,
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-            onCopyLatex: () => _copyLatex(context, formula),
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(context, formula),
           ),
         );
       }
@@ -1176,8 +1233,8 @@ class ResultView extends StatelessWidget {
                 ),
                 accent: true,
                 size: 21,
-                tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-                onCopyLatex: () => _copyLatex(context, curve),
+                tooltip: l10n.t('Copy', 'کپی'),
+                onCopy: () => _copyMath(context, curve),
               ),
             ),
           );
@@ -1224,8 +1281,8 @@ class ResultView extends StatelessWidget {
             ),
             accent: true,
             size: 20,
-            tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-            onCopyLatex: () => _copyLatex(context, o),
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(context, o),
           ),
         );
       }
@@ -1250,8 +1307,8 @@ class ResultView extends StatelessWidget {
             math: ExView(plain: plain, pretty: pretty, latex: latex),
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-            onCopyLatex: () => _copyLatex(
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(
               context,
               ExView(plain: plain, pretty: pretty, latex: latex),
             ),
@@ -1271,6 +1328,285 @@ class ResultView extends StatelessWidget {
           );
         }
       }
+    } else if (result.mode == 'taylor') {
+      children.add(
+        SectionLabel(
+          result.application == 'maclaurin'
+              ? l10n.t('Maclaurin polynomial', 'چندجمله‌ای مکلورن')
+              : l10n.t('Taylor polynomial', 'چندجمله‌ای تیلور'),
+        ),
+      );
+      children.add(const SizedBox(height: 10));
+      if (result.polynomial != null) {
+        children.add(
+          MathBlock(
+            math: result.polynomial!,
+            accent: true,
+            size: 21,
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(context, result.polynomial),
+          ),
+        );
+      }
+      if (result.coefficients.isNotEmpty) {
+        children.add(const SizedBox(height: 14));
+        children.add(SectionLabel(l10n.t('Coefficients', 'ضرایب')));
+        children.add(const SizedBox(height: 8));
+        children.add(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < result.coefficients.length; i++)
+                TypeBadge(
+                  'c$i = ${result.coefficients[i].pretty}',
+                  icon: Icons.tag_rounded,
+                ),
+            ],
+          ),
+        );
+      }
+      if (result.remainder != null) {
+        children.add(const SizedBox(height: 14));
+        children.add(
+          SectionLabel(l10n.t('Lagrange remainder', 'باقی‌ماندهٔ لاگرانژ')),
+        );
+        children.add(const SizedBox(height: 8));
+        children.add(MathBlock(math: result.remainder!, size: 17));
+      }
+    } else if (result.mode == 'integral_apps') {
+      final label = switch (result.application) {
+        'volume' => l10n.t('Volume of revolution', 'حجم دوران'),
+        'arc_length' => l10n.t('Arc length', 'طول قوس'),
+        _ => l10n.t('Area between curves', 'مساحت بین دو منحنی'),
+      };
+      children.add(SectionLabel(label));
+      children.add(const SizedBox(height: 10));
+      final answer = result.value ?? result.solution;
+      if (answer != null) {
+        children.add(
+          MathBlock(
+            math: answer,
+            accent: true,
+            size: 21,
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(context, answer),
+          ),
+        );
+      }
+      if (result.hasNumeric) {
+        children.add(const SizedBox(height: 10));
+        children.add(
+          Text(
+            '≈ ${_formatNumber(result.numericValue, decimals: _decimals(context))}',
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(fontFamily: 'DejaVu Sans Mono', letterSpacing: 0.2),
+          ),
+        );
+      }
+      if (result.integrand != null) {
+        children.add(const SizedBox(height: 14));
+        children.add(SectionLabel(l10n.t('Integrand', 'انتگرال‌ده')));
+        children.add(const SizedBox(height: 8));
+        children.add(MathBlock(math: result.integrand!, size: 17));
+      }
+    } else if (result.mode == 'partial') {
+      if (result.functionValue != null) {
+        children.add(
+          SectionLabel(
+            l10n.t('Value at the point', 'مقدار در نقطه') +
+                (result.pointLabel.isEmpty ? '' : ' ${result.pointLabel}'),
+          ),
+        );
+        children.add(const SizedBox(height: 8));
+        children.add(MathBlock(math: result.functionValue!, size: 18));
+        children.add(const SizedBox(height: 14));
+      }
+      if (result.gradient.isNotEmpty) {
+        children.add(SectionLabel(l10n.t('Gradient', 'گرادیان')));
+        children.add(const SizedBox(height: 10));
+        children.add(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < result.gradient.length; i++)
+                TypeBadge(
+                  '∂${i + 1} = ${result.gradient[i].pretty}',
+                  icon: Icons.north_east_rounded,
+                ),
+            ],
+          ),
+        );
+        children.add(const SizedBox(height: 14));
+      }
+      if (result.partials.isNotEmpty) {
+        children.add(
+          SectionLabel(l10n.t('Partial derivatives', 'مشتق‌های جزئی')),
+        );
+        children.add(const SizedBox(height: 8));
+        for (final p in result.partials) {
+          if (p.value == null) continue;
+          children.add(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 64,
+                    child: Text(
+                      p.label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontFamily: 'DejaVu Sans Mono',
+                        color: c.muted,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: MathBlock(math: p.value!, size: 17)),
+                ],
+              ),
+            ),
+          );
+        }
+      }
+      if (result.laplacian != null) {
+        children.add(const SizedBox(height: 8));
+        children.add(SectionLabel(l10n.t('Laplacian', 'لاپلاسیان')));
+        children.add(const SizedBox(height: 8));
+        children.add(MathBlock(math: result.laplacian!, size: 17));
+      }
+      if (result.directional != null) {
+        children.add(const SizedBox(height: 14));
+        children.add(
+          SectionLabel(l10n.t('Directional derivative', 'مشتق جهت‌دار')),
+        );
+        children.add(const SizedBox(height: 8));
+        children.add(
+          MathBlock(math: result.directional!, accent: true, size: 19),
+        );
+      }
+    } else if (result.mode == 'series') {
+      final converges = result.seriesVerdict == 'converges';
+      final inconclusive = result.seriesVerdict == 'inconclusive';
+      children.add(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            TypeBadge(
+              inconclusive
+                  ? l10n.t('Inconclusive', 'بی‌نتیجه')
+                  : converges
+                  ? l10n.t('Converges', 'همگرا')
+                  : l10n.t('Diverges', 'واگرا'),
+              icon: inconclusive
+                  ? Icons.help_outline_rounded
+                  : converges
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.cancel_outlined,
+              tone: inconclusive
+                  ? c.warning
+                  : converges
+                  ? c.success
+                  : Theme.of(context).colorScheme.error,
+            ),
+            if (result.seriesTest.isNotEmpty)
+              TypeBadge(
+                _seriesTestLabel(result.seriesTest),
+                icon: Icons.rule_rounded,
+              ),
+          ],
+        ),
+      );
+      children.add(const SizedBox(height: 14));
+      if (result.seriesSum != null) {
+        children.add(SectionLabel(l10n.t('Exact sum', 'مجموع دقیق')));
+        children.add(const SizedBox(height: 10));
+        children.add(
+          MathBlock(
+            math: result.seriesSum!,
+            accent: true,
+            size: 21,
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(context, result.seriesSum),
+          ),
+        );
+      } else {
+        children.add(
+          SectionLabel(l10n.t('Numeric partial sum', 'مجموع جزئی عددی')),
+        );
+        children.add(const SizedBox(height: 8));
+        children.add(
+          Text(
+            _formatNumber(result.partialSum, decimals: _decimals(context)),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontFamily: 'DejaVu Sans Mono'),
+          ),
+        );
+      }
+    } else if (result.mode == 'topic') {
+      // Curriculum topics already contain the finished answer.  They are not
+      // ODE families, so never append the implicit `= C` suffix here.
+      final primary = result.primary;
+      children.add(
+        SectionLabel(
+          l10n.t('Simplest answer', 'ساده‌ترین جواب'),
+          icon: Icons.bolt_rounded,
+        ),
+      );
+      if (result.typeEn.isNotEmpty && result.typeEn != 'topic') {
+        children.add(const SizedBox(height: 8));
+        children.add(
+          TypeBadge(
+            l10n.t(result.typeEn, result.typeFa),
+            icon: Icons.sell_outlined,
+          ),
+        );
+      }
+      children.add(const SizedBox(height: 10));
+      if (primary != null) {
+        children.add(
+          MathBlock(
+            math: primary,
+            accent: true,
+            size: 22,
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(context, primary),
+          ),
+        );
+      }
+      final numericText = _formatNumber(
+        result.numericValue,
+        decimals: _decimals(context),
+      );
+      final answerIsNumeric =
+          primary != null &&
+          double.tryParse(primary.plain.replaceAll('−', '-')) != null;
+      if (result.hasNumeric && result.point.isNotEmpty && !answerIsNumeric) {
+        children.add(const SizedBox(height: 12));
+        children.add(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: c.cardAlt,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: c.line),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.pin_rounded, size: 17, color: c.accent),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    '${l10n.t('At', 'در')} ${result.point}: $numericText',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
     } else {
       final primary = result.primary;
       if (primary != null) {
@@ -1285,18 +1621,21 @@ class ResultView extends StatelessWidget {
         final expression = result.isExplicit
             ? 'y = ${primary.pretty}'
             : '${primary.pretty} = C';
+        final plain = result.isExplicit
+            ? 'y = ${primary.plain}'
+            : '${primary.plain} = C';
         final latex = result.isExplicit
             ? 'y = ${primary.latex}'
             : '${primary.latex} = C';
         children.add(
           MathBlock(
-            math: ExView(plain: expression, pretty: expression, latex: latex),
+            math: ExView(plain: plain, pretty: expression, latex: latex),
             accent: true,
             size: 22,
-            tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-            onCopyLatex: () => _copyLatex(
+            tooltip: l10n.t('Copy', 'کپی'),
+            onCopy: () => _copyMath(
               context,
-              ExView(plain: expression, pretty: expression, latex: latex),
+              ExView(plain: plain, pretty: expression, latex: latex),
             ),
           ),
         );
@@ -1354,8 +1693,8 @@ class ResultView extends StatelessWidget {
           math: result.derivative!,
           accent: true,
           size: 20,
-          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-          onCopyLatex: () => _copyLatex(context, result.derivative),
+          tooltip: l10n.t('Copy', 'کپی'),
+          onCopy: () => _copyMath(context, result.derivative),
         ),
       );
       out.add(const SizedBox(height: 14));
@@ -1367,8 +1706,8 @@ class ResultView extends StatelessWidget {
         MathBlock(
           math: result.secondDerivative!,
           size: 18,
-          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-          onCopyLatex: () => _copyLatex(context, result.secondDerivative),
+          tooltip: l10n.t('Copy', 'کپی'),
+          onCopy: () => _copyMath(context, result.secondDerivative),
         ),
       );
       out.add(const SizedBox(height: 14));
@@ -1436,17 +1775,18 @@ class ResultView extends StatelessWidget {
     if (result.tangent != null) {
       out.add(SectionLabel(l10n.t('Tangent line', 'خط مماس')));
       out.add(const SizedBox(height: 10));
+      final formula = ExView(
+        plain: 'y = ${result.tangent!.plain}',
+        pretty: 'y = ${result.tangent!.pretty}',
+        latex: 'y = ${result.tangent!.latex}',
+      );
       out.add(
         MathBlock(
-          math: ExView(
-            plain: 'y = ${result.tangent!.plain}',
-            pretty: 'y = ${result.tangent!.pretty}',
-            latex: 'y = ${result.tangent!.latex}',
-          ),
+          math: formula,
           accent: true,
           size: 21,
-          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-          onCopyLatex: () => _copyLatex(context, result.tangent),
+          tooltip: l10n.t('Copy', 'کپی'),
+          onCopy: () => _copyMath(context, formula),
         ),
       );
       out.add(const SizedBox(height: 14));
@@ -1461,13 +1801,17 @@ class ResultView extends StatelessWidget {
       final pretty = vertical
           ? 'x = ${result.normal!.pretty}'
           : 'y = ${result.normal!.pretty}';
+      final plain = vertical
+          ? 'x = ${result.normal!.plain}'
+          : 'y = ${result.normal!.plain}';
+      final formula = ExView(plain: plain, pretty: pretty, latex: latex);
       out.add(
         MathBlock(
-          math: ExView(plain: pretty, pretty: pretty, latex: latex),
+          math: formula,
           accent: true,
           size: 21,
-          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-          onCopyLatex: () => _copyLatex(context, result.normal),
+          tooltip: l10n.t('Copy', 'کپی'),
+          onCopy: () => _copyMath(context, formula),
         ),
       );
     }
@@ -1485,7 +1829,8 @@ class ResultView extends StatelessWidget {
           l10n.t('Maximum', 'بیشینه'),
           ExView(
             plain: 'f(${result.maximumAt!.plain}) = ${result.maximum!.plain}',
-            pretty: 'f(${result.maximumAt!.pretty}) = ${result.maximum!.pretty}',
+            pretty:
+                'f(${result.maximumAt!.pretty}) = ${result.maximum!.pretty}',
             latex: 'f(${result.maximumAt!.latex}) = ${result.maximum!.latex}',
           ),
           context,
@@ -1499,7 +1844,8 @@ class ResultView extends StatelessWidget {
           l10n.t('Minimum', 'کمینه'),
           ExView(
             plain: 'f(${result.minimumAt!.plain}) = ${result.minimum!.plain}',
-            pretty: 'f(${result.minimumAt!.pretty}) = ${result.minimum!.pretty}',
+            pretty:
+                'f(${result.minimumAt!.pretty}) = ${result.minimum!.pretty}',
             latex: 'f(${result.minimumAt!.latex}) = ${result.minimum!.latex}',
           ),
           context,
@@ -1509,7 +1855,9 @@ class ResultView extends StatelessWidget {
     }
     if (result.candidates.isNotEmpty) {
       out.add(const SizedBox(height: 8));
-      out.add(SectionLabel(l10n.t('Candidates compared', 'کاندیدهای مقایسه‌شده')));
+      out.add(
+        SectionLabel(l10n.t('Candidates compared', 'کاندیدهای مقایسه‌شده')),
+      );
       out.add(const SizedBox(height: 10));
       out.add(
         PointTable(
@@ -1536,8 +1884,8 @@ class ResultView extends StatelessWidget {
           math: result.solution!,
           accent: true,
           size: 21,
-          tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-          onCopyLatex: () => _copyLatex(context, result.solution),
+          tooltip: l10n.t('Copy', 'کپی'),
+          onCopy: () => _copyMath(context, result.solution),
         ),
       );
       out.add(const SizedBox(height: 14));
@@ -1548,9 +1896,16 @@ class ResultView extends StatelessWidget {
           context,
           l10n.t('At this instant', 'در این لحظه'),
           ExView(
-            plain: _formatNumber(result.numericValue),
-            pretty: _formatNumber(result.numericValue),
-            latex: '\\approx ${_formatNumber(result.numericValue).replaceAll('−', '-')}',
+            plain: _formatNumber(
+              result.numericValue,
+              decimals: _decimals(context),
+            ),
+            pretty: _formatNumber(
+              result.numericValue,
+              decimals: _decimals(context),
+            ),
+            latex:
+                '\\approx ${_formatNumber(result.numericValue, decimals: _decimals(context)).replaceAll('−', '-')}',
           ),
         ),
       );
@@ -1596,7 +1951,11 @@ class ResultView extends StatelessWidget {
       out.add(const SizedBox(height: 10));
     }
     if (result.points.isNotEmpty) {
-      out.add(SectionLabel(l10n.t('Point guaranteed by the theorem', 'نقطهٔ تضمین‌شدهٔ قضیه')));
+      out.add(
+        SectionLabel(
+          l10n.t('Point guaranteed by the theorem', 'نقطهٔ تضمین‌شدهٔ قضیه'),
+        ),
+      );
       out.add(const SizedBox(height: 10));
       for (var i = 0; i < result.points.length; i++) {
         final point = result.points[i];
@@ -1710,7 +2069,7 @@ class ResultView extends StatelessWidget {
               step: result.steps[i],
               last: i == result.steps.length - 1,
               l10n: l10n,
-              onCopyLatex: (m) => _copyLatex(context, m),
+              onCopy: (m) => _copyMath(context, m),
             ),
         ],
       ),
@@ -1802,14 +2161,14 @@ class _StepRow extends StatelessWidget {
     required this.step,
     required this.last,
     required this.l10n,
-    this.onCopyLatex,
+    this.onCopy,
   });
 
   final int index;
   final StepView step;
   final bool last;
   final L10n l10n;
-  final ValueChanged<ExView?>? onCopyLatex;
+  final ValueChanged<ExView?>? onCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -1864,10 +2223,8 @@ class _StepRow extends StatelessWidget {
                   MathBlock(
                     math: step.math!,
                     size: 16,
-                    tooltip: l10n.t('Copy LaTeX', 'کپی LaTeX'),
-                    onCopyLatex: onCopyLatex == null
-                        ? null
-                        : () => onCopyLatex!(step.math),
+                    tooltip: l10n.t('Copy', 'کپی'),
+                    onCopy: onCopy == null ? null : () => onCopy!(step.math),
                   ),
                 ],
                 if (step.note.isNotEmpty) ...[
@@ -1923,62 +2280,6 @@ class ExampleChip extends StatelessWidget {
       side: BorderSide(color: c.line),
       backgroundColor: c.cardAlt,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-    );
-  }
-}
-
-class LatexDialog extends StatelessWidget {
-  const LatexDialog({
-    super.key,
-    required this.latex,
-    required this.l10n,
-    this.title,
-  });
-
-  final String latex;
-  final L10n l10n;
-  final String? title;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return AlertDialog(
-      title: Text(title ?? l10n.t('LaTeX code', 'کد LaTeX')),
-      content: SizedBox(
-        width: 560,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: c.cardAlt,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: c.line),
-              ),
-              child: SelectableText(
-                latex,
-                textDirection: TextDirection.ltr,
-                textAlign: TextAlign.left,
-                style: const TextStyle(fontFamily: 'monospace', height: 1.6),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: AlignmentDirectional.centerEnd,
-              child: FilledButton.tonalIcon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: latex));
-                  if (context.mounted) Navigator.of(context).pop();
-                },
-                icon: const Icon(Icons.copy_rounded, size: 17),
-                label: Text(l10n.t('Copy', 'کپی')),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

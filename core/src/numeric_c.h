@@ -35,7 +35,8 @@ enum OdeOp {
     ODE_CSC = 25,
     ODE_COT = 26,
     ODE_ERF = 27,
-    ODE_ERFC = 28
+    ODE_ERFC = 28,
+    ODE_FACT = 29
 };
 
 typedef struct {

@@ -49,11 +49,24 @@ struct Traits {
     bool trigonometric = false;
 };
 
+bool containsTrigFunc(const Ex& e) {
+    if (!e) return false;
+    if (e->kind == Kind::Func &&
+        (e->name == "sin" || e->name == "cos" || e->name == "tan" ||
+         e->name == "cot" || e->name == "sec" || e->name == "csc"))
+        return true;
+    for (const auto& a : e->args)
+        if (containsTrigFunc(a)) return true;
+    return false;
+}
+
 void collectTraits(const Ex& e, Traits& t) {
     if (!e) return;
     if (e->kind == Kind::Pow) {
         if (e->args.size() == 2 && e->args[1]->isNum() && e->args[1]->num.n < 0) {
             t.rational = true;
+            // 1/cos and 1/sin are sec and csc: trigonometric singularities.
+            if (containsTrigFunc(e->args[0])) t.trigonometric = true;
         }
         if (e->args.size() == 2 && e->args[1]->isNum() && !e->args[1]->num.isInt()) {
             t.root = true;
@@ -70,6 +83,9 @@ void collectTraits(const Ex& e, Traits& t) {
 }
 
 std::string classify(const Traits& t) {
+    // A reciprocal of a trig factor (sec, 1/cos, 1/tan, …) is trigonometric,
+    // not rational, even though it is written as a negative power.
+    if (t.trigonometric && !t.root && !t.logarithm) return "trigonometric";
     if (t.rational && (t.root || t.logarithm)) return "mixed";
     if (t.rational) return "rational";
     if (t.root) return "root";
@@ -392,7 +408,31 @@ DomainOutput analyseDomain(const std::string& input, const std::string& x, doubl
             if (a * b >= 0) continue;
             if (std::fabs(a) < 50.0 || std::fabs(b) < 50.0) continue;
             if (std::fabs(a - b) < 100.0) continue;
-            const double xa = snap(0.5 * (xs[i - 1] + xs[i]));
+            double xa = snap(0.5 * (xs[i - 1] + xs[i]));
+            // The pole lies between two samples.  Refine it as a zero of 1/f
+            // (cot for tan, cos for sec, …) so the reported location is the
+            // actual singular point rather than the grid midpoint.
+            {
+                double lo = xs[i - 1], hi = xs[i];
+                bool okLo = false, okHi = false;
+                const double fLo = at(f, x, lo, &okLo);
+                const double fHi = at(f, x, hi, &okHi);
+                if (okLo && okHi && std::fabs(fLo) > 1e-12 && std::fabs(fHi) > 1e-12) {
+                    double gLo = 1.0 / fLo, gHi = 1.0 / fHi;
+                    if (gLo * gHi < 0) {
+                        for (int it = 0; it < 60; ++it) {
+                            const double mid = 0.5 * (lo + hi);
+                            bool okMid = false;
+                            const double fMid = at(f, x, mid, &okMid);
+                            if (!okMid || std::fabs(fMid) < 1e-300) break;
+                            const double gMid = 1.0 / fMid;
+                            if (gLo * gMid <= 0) { hi = mid; gHi = gMid; }
+                            else { lo = mid; gLo = gMid; }
+                        }
+                        xa = snap(0.5 * (lo + hi));
+                    }
+                }
+            }
             bool duplicate = false;
             for (double old : out.asymptotes) {
                 if (std::fabs(old - xa) <= step * 2.0) {
@@ -986,6 +1026,203 @@ FieldOutput analyseField(const std::string& input, const std::string& x, const s
                     curve.ys.swap(sy);
                 }
                 out.curves.push_back(curve);
+            }
+        }
+        out.ok = true;
+    } catch (const std::exception& e) {
+        out.error = e.what();
+    }
+    return out;
+}
+
+// Highest derivative order of `dep` with respect to `x` in the expression.
+static int maxDerivativeOrder(const Ex& e, const std::string& dep, const std::string& x) {
+    if (isDeriv(e) && e->args.size() == 3 && e->args[0]->isSym(dep) && e->args[1]->isSym(x)) {
+        return derivOrder(e);
+    }
+    int best = 0;
+    for (const auto& a : e->args) best = std::max(best, maxDerivativeOrder(a, dep, x));
+    return best;
+}
+
+TrajectoryOutput analyseTrajectory(const std::string& input, const std::string& x,
+                                   const std::string& y, double xmin, double xmax,
+                                   int curveCount,
+                                   const std::vector<TrajectorySeed>& seedsIn) {
+    TrajectoryOutput out;
+    try {
+        if (!(xmin < xmax)) {
+            out.error = "The sampling window is empty.";
+            return out;
+        }
+        std::string dep;
+        Ex F = parseODEExpr(input, x, &dep, {x, y, "c"});
+        const std::string depVar = dep.empty() ? y : dep;
+        const int order = maxDerivativeOrder(F, depVar, x);
+        if (order < 2 || order > 6) {
+            out.error = "The numeric solution plot supports orders 2 to 6.";
+            return out;
+        }
+        out.order = order;
+
+        Ex marker = Sym("__q");
+        Ex G = substituteSubexpr(F, Deriv(Sym(depVar), x, order), marker);
+        std::vector<Ex> cs;
+        if (!polyCoeffs(expand(G), "__q", cs) || cs.size() != 2 || cs[1]->isZero()) {
+            out.error = "This numeric plot needs an equation linear in the highest derivative.";
+            return out;
+        }
+        Ex rhs = simplify(Mul(Num(-1), cs[0], Pow(cs[1], Num(-1))));
+
+        // Replace y', y'', ... with the state variables of the first-order system.
+        Ex rhsState = rhs;
+        for (int k = 1; k < order; ++k) {
+            rhsState = substituteSubexpr(rhsState, Deriv(Sym(depVar), x, k),
+                                         Sym("__d" + std::to_string(k)));
+        }
+        if (maxDerivativeOrder(rhsState, depVar, x) > 0) {
+            out.error = "The highest derivative could not be isolated from the equation.";
+            return out;
+        }
+        out.rhs = toPlain(rhs);
+        out.xmin = xmin;
+        out.xmax = xmax;
+
+        auto system = [&](double xv, const std::vector<double>& z,
+                          std::vector<double>& dz) -> bool {
+            dz.assign((size_t)order, 0.0);
+            for (int i = 0; i + 1 < order; ++i) dz[(size_t)i] = z[(size_t)i + 1];
+            std::map<std::string, double> vars;
+            vars[x] = xv;
+            vars[depVar] = z[0];
+            for (int k = 1; k < order; ++k) vars["__d" + std::to_string(k)] = z[(size_t)k];
+            bool ok = false;
+            const double top = evalReal(rhsState, vars, &ok);
+            if (!ok || !std::isfinite(top)) return false;
+            dz[(size_t)order - 1] = top;
+            return true;
+        };
+
+        const int steps = 360;
+        const double stateLimit = 1e6;
+        auto integrate = [&](const TrajectorySeed& seed, double xEnd, FieldCurve& curve) {
+            const double h = (xEnd - seed.x0) / (double)steps;
+            if (!std::isfinite(h) || h == 0) return;
+            std::vector<double> z((size_t)order, 0.0);
+            z[0] = seed.y0;
+            if (order >= 2) z[1] = seed.v0;
+            double xv = seed.x0;
+            curve.xs.push_back(xv);
+            curve.ys.push_back(z[0]);
+            std::vector<double> k1, k2, k3, k4, tmp;
+            for (int i = 0; i < steps; ++i) {
+                if (!system(xv, z, k1)) break;
+                tmp.resize((size_t)order);
+                for (int j = 0; j < order; ++j) tmp[(size_t)j] = z[(size_t)j] + 0.5 * h * k1[(size_t)j];
+                if (!system(xv + h / 2, tmp, k2)) break;
+                for (int j = 0; j < order; ++j) tmp[(size_t)j] = z[(size_t)j] + 0.5 * h * k2[(size_t)j];
+                if (!system(xv + h / 2, tmp, k3)) break;
+                for (int j = 0; j < order; ++j) tmp[(size_t)j] = z[(size_t)j] + h * k3[(size_t)j];
+                if (!system(xv + h, tmp, k4)) break;
+                bool finite = true;
+                for (int j = 0; j < order; ++j) {
+                    z[(size_t)j] += h * (k1[(size_t)j] + 2 * k2[(size_t)j] +
+                                         2 * k3[(size_t)j] + k4[(size_t)j]) /
+                                    6.0;
+                    if (!std::isfinite(z[(size_t)j]) || std::fabs(z[(size_t)j]) > stateLimit) {
+                        finite = false;
+                        break;
+                    }
+                }
+                if (!finite) break;
+                xv += h;
+                curve.xs.push_back(xv);
+                curve.ys.push_back(z[0]);
+            }
+            curve.ok = curve.xs.size() > 1;
+        };
+
+        std::vector<TrajectorySeed> seeds = seedsIn;
+        curveCount = std::max(1, std::min(curveCount, 12));
+        if (seeds.empty()) {
+            const double xMid = 0.5 * (xmin + xmax);
+            for (int i = 0; i < curveCount; ++i) {
+                const double t = (double)(i + 1) / (double)(curveCount + 1);
+                seeds.push_back({xMid, -2.0 + 4.0 * t, 0.0});
+            }
+            // A few slopes make the two-parameter family visible instead of a
+            // stack of parallel translates.
+            seeds.push_back({xMid, 0.0, 1.5});
+            seeds.push_back({xMid, 0.0, -1.5});
+        }
+
+        for (const auto& seed : seeds) {
+            FieldCurve curve;
+            curve.icX = seed.x0;
+            curve.icY = seed.y0;
+            integrate(seed, xmax, curve);
+            if (curve.ok) {
+                FieldCurve back;
+                integrate(seed, xmin, back);
+                if (back.ok) {
+                    for (size_t i = 1; i < back.xs.size(); ++i) {
+                        curve.xs.push_back(back.xs[i]);
+                        curve.ys.push_back(back.ys[i]);
+                    }
+                    std::vector<size_t> orderIdx(curve.xs.size());
+                    for (size_t i = 0; i < orderIdx.size(); ++i) orderIdx[i] = i;
+                    std::sort(orderIdx.begin(), orderIdx.end(),
+                              [&](size_t a, size_t b) { return curve.xs[a] < curve.xs[b]; });
+                    std::vector<double> sx;
+                    std::vector<double> sy;
+                    sx.reserve(orderIdx.size());
+                    sy.reserve(orderIdx.size());
+                    for (size_t idx : orderIdx) {
+                        sx.push_back(curve.xs[idx]);
+                        sy.push_back(curve.ys[idx]);
+                    }
+                    curve.xs.swap(sx);
+                    curve.ys.swap(sy);
+                }
+                out.curves.push_back(curve);
+            }
+        }
+        out.ok = !out.curves.empty();
+        if (!out.ok && out.error.empty()) {
+            out.error = "The numeric trajectories left their domain immediately.";
+        }
+    } catch (const std::exception& e) {
+        out.error = e.what();
+    }
+    return out;
+}
+
+SurfaceOutput sampleSurface(const std::string& input, const std::string& x,
+                            const std::string& y, double xmin, double xmax, double ymin,
+                            double ymax, int nx, int ny) {
+    SurfaceOutput out;
+    try {
+        if (!(xmin < xmax) || !(ymin < ymax)) {
+            out.error = "The sampling window is empty.";
+            return out;
+        }
+        Ex f = parseODEExpr(input, x, nullptr, {x, y, "e", "pi"});
+        nx = std::max(8, std::min(nx, 160));
+        ny = std::max(8, std::min(ny, 160));
+        out.xmin = xmin;
+        out.xmax = xmax;
+        out.ymin = ymin;
+        out.ymax = ymax;
+        out.nx = nx;
+        out.ny = ny;
+        out.zs.reserve((size_t)nx * ny);
+        for (int r = 0; r < ny; ++r) {
+            const double yv = ymin + (ymax - ymin) * (double)r / (double)(ny - 1);
+            for (int c = 0; c < nx; ++c) {
+                const double xv = xmin + (xmax - xmin) * (double)c / (double)(nx - 1);
+                bool ok = false;
+                const double zv = at2(f, x, xv, y, yv, &ok);
+                out.zs.push_back(ok && std::isfinite(zv) ? zv : kNaN);
             }
         }
         out.ok = true;

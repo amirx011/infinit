@@ -390,13 +390,13 @@ class _DomainRangePageState extends State<DomainRangePage> {
                       details: [
                         if (result.holes.isNotEmpty)
                           l.t(
-                            'Punctures at ${puncturedText(result.holes, emptySymbol: '—')}',
-                            'نقطه‌های حذف‌شده در ${puncturedText(result.holes, emptySymbol: '—')}',
+                            'Punctures at ${puncturedText(result.holes, emptySymbol: '·')}',
+                            'نقطه‌های حذف‌شده در ${puncturedText(result.holes, emptySymbol: '·')}',
                           ),
                         if (result.asymptotes.isNotEmpty)
                           l.t(
-                            'Vertical asymptotes at ${puncturedText(result.asymptotes, emptySymbol: '—')}',
-                            'مجانب‌های عمودی در ${puncturedText(result.asymptotes, emptySymbol: '—')}',
+                            'Vertical asymptotes at ${puncturedText(result.asymptotes, emptySymbol: '·')}',
+                            'مجانب‌های عمودی در ${puncturedText(result.asymptotes, emptySymbol: '·')}',
                           ),
                       ],
                     );

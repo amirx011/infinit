@@ -231,7 +231,17 @@ Ex Pow(Ex base, Ex exp) {
             // exact perfect roots for small rational exponents with numerator 1
             if (q.n == 1 && q.d > 1 && q.d <= 64) {
                 long long n = base->num.n, d = base->num.d;
-                if (n < 0) return Mul(Pow(Num(-1), exp), Pow(Num(Rational(-n, d)), exp));
+                if (n < 0) {
+                    // An odd root of a negative number is real; an even root
+                    // is not, so keep it as a formal power.  Rebuilding
+                    // Pow(-1, exp) here recursed forever for exp = 1/2.
+                    if (q.d % 2 == 1)
+                        return Mul(Num(-1), Pow(Num(Rational(-n, d)), exp));
+                    auto e = std::make_shared<Expr>();
+                    e->kind = Kind::Pow;
+                    e->args = {base, exp};
+                    return e;
+                }
                 long long rn = (long long)std::llround(std::pow((double)n, 1.0 / (double)q.d));
                 long long rd = (long long)std::llround(std::pow((double)d, 1.0 / (double)q.d));
                 for (long long k = std::max(0LL, rn - 2); k <= rn + 2; ++k) {
@@ -701,6 +711,8 @@ struct Printer {
             case Kind::Pow: {
                 const Ex& b = a->args[0];
                 const Ex& e = a->args[1];
+                const bool parenBase = b->isAdd() || b->isMul() || b->isPow() ||
+                                       (b->isNum() && b->num.isNeg());
                 if (e->isNum() && e->num.n == 1 && e->num.d == 2) {
                     if (latex) return "\\sqrt{" + pr(b) + "}";
                     return (pretty ? "√" : "sqrt(") + wrap(b, 4, b->isAdd() || b->isMul()) + (pretty ? "" : ")");
@@ -721,18 +733,18 @@ struct Printer {
                     if (n < 0) s += "⁻";
                     n = std::llabs(n);
                     s += sup[n];
-                    return wrap(b, 4, b->isAdd() || b->isMul() || b->isPow()) + s;
+                    return wrap(b, 4, parenBase) + s;
                 }
                 if (latex) {
-                    return "{" + wrap(b, 4, b->isAdd() || b->isMul() || b->isPow()) + "}^{" + pr(e) + "}";
+                    return "{" + wrap(b, 4, parenBase) + "}^{" + pr(e) + "}";
                 }
                 if (e->isNum() && e->num == Rational(-1)) {
                     return "1/" + wrap(b, 4, b->isAdd() || b->isMul());
                 }
                 if (e->isNum() && e->num.isInt()) {
-                    return wrap(b, 4, b->isAdd() || b->isMul() || b->isPow()) + "^" + std::to_string(e->num.n);
+                    return wrap(b, 4, parenBase) + "^" + std::to_string(e->num.n);
                 }
-                return wrap(b, 4, b->isAdd() || b->isMul() || b->isPow()) + "^(" + pr(e) + ")";
+                return wrap(b, 4, parenBase) + "^(" + pr(e) + ")";
             }
             case Kind::Func: {
                 if (a->name == "Deriv") {
@@ -751,6 +763,23 @@ struct Printer {
                 if (a->name == "abs") {
                     if (latex) return "\\left|" + pr(a->args[0]) + "\\right|";
                     return (pretty ? "|" : "abs(") + pr(a->args[0]) + (pretty ? "|" : ")");
+                }
+                if (a->name == "fact" && a->args.size() == 1) {
+                    const Ex& u = a->args[0];
+                    const bool paren = u->isAdd() || u->isMul() || u->isPow() ||
+                                       (u->isNum() && u->num.isNeg());
+                    if (latex) return (paren ? "\\left(" + pr(u) + "\\right)" : pr(u)) + "!";
+                    return (paren ? "(" + pr(u) + ")" : pr(u)) + "!";
+                }
+                if (a->name == "decimal" && a->args.size() == 1 && a->args[0]->isNum()) {
+                    char buf[64];
+                    std::snprintf(buf, sizeof buf, "%.6g", a->args[0]->num.toDouble());
+                    std::string out(buf);
+                    if (out.find('.') != std::string::npos && out.find('e') == std::string::npos) {
+                        while (!out.empty() && out.back() == '0') out.pop_back();
+                        if (!out.empty() && out.back() == '.') out.pop_back();
+                    }
+                    return out;
                 }
                 if (a->name == "exp") {
                     if (latex) return "e^{" + pr(a->args[0]) + "}";

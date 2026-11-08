@@ -57,4 +57,30 @@ Result cauchyMeanValue(const std::string& f, const std::string& g, const std::st
 Result lhopitalLimit(const std::string& numerator, const std::string& denominator,
                      const std::string& x, const std::string& point, const std::string& lang);
 
+// ------------------------------------------------------------- Taylor / Maclaurin
+// Taylor polynomial of order n about x = a, its coefficients and the Lagrange
+// remainder.  a = 0 is the Maclaurin series.
+Result taylorSeries(const std::string& input, const std::string& x, double a, int order,
+                    const std::string& lang);
+
+// ------------------------------------------------------------- integral applications
+// kind = "area" (between f and g), "volume" (revolution about the x or y axis)
+// or "arc_length" (of f on [a, b]).  `axis` is "x" or "y".
+Result integralApplication(const std::string& kind, const std::string& fIn,
+                           const std::string& gIn, const std::string& x, double a, double b,
+                           const std::string& axis, const std::string& lang);
+
+// ------------------------------------------------------------- partial derivatives
+// First and second partial derivatives of f(x, y, ...), the gradient at a point,
+// the Laplacian and an optional directional derivative.
+Result partialDerivatives(const std::string& input, const std::vector<std::string>& vars,
+                          const std::vector<double>& point,
+                          const std::vector<double>& direction, const std::string& lang);
+
+// ------------------------------------------------------------- series convergence
+// Convergence of sum_{n=start}^inf a_n using the geometric, p-series, ratio,
+// root and alternating-series tests, with numeric partial sums.
+Result seriesAnalysis(const std::string& input, const std::string& n, int start,
+                      const std::string& lang);
+
 } // namespace ode

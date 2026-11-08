@@ -389,7 +389,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.auto_fix_high_rounded, size: 19),
+                    : const Icon(Icons.alt_route_rounded, size: 19),
                 label: Text(
                   _busy
                       ? l.t('Analysing…', 'در حال تحلیل…')
@@ -579,12 +579,12 @@ class _EnvelopePageState extends State<EnvelopePage> {
       ymax: 5,
       title: oblique
           ? l.t(
-              'Oblique trajectories — direction field',
-              'مسیرهای مایل — میدان جهت',
+              'Oblique trajectories, direction field',
+              'مسیرهای مایل، میدان جهت',
             )
           : l.t(
-              'Orthogonal trajectories — direction field',
-              'مسیرهای قائم — میدان جهت',
+              'Orthogonal trajectories, direction field',
+              'مسیرهای قائم، میدان جهت',
             ),
       caption: oblique
           ? l.t(

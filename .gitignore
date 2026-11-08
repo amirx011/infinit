@@ -31,3 +31,6 @@ app/linux/flutter/ephemeral/
 .vscode/
 *.swp
 .DS_Store
+
+# CTest scratch
+core/Testing/

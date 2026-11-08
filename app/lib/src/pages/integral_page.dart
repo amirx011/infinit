@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../app_state.dart';
+import '../charts.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
@@ -174,6 +176,7 @@ class _IntegralPageState extends State<IntegralPage> {
   Widget build(BuildContext context) {
     final l = widget.l10n;
     final c = context.colors;
+    final showGraphs = SettingsScope.maybeOf(context)?.showGraphs ?? true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -186,8 +189,8 @@ class _IntegralPageState extends State<IntegralPage> {
                 icon: Icons.integration_instructions_rounded,
                 title: l.t('Integrals', 'انتگرال'),
                 subtitle: l.t(
-                  'Single, double and triple integrals — indefinite or definite with numeric bounds.',
-                  'انتگرال یگانه، دوگانه و سه‌گانه — نامعین یا معین با کران عددی.',
+                  'Single, double and triple integrals: indefinite or definite with numeric bounds.',
+                  'انتگرال یگانه، دوگانه و سه‌گانه: نامعین یا معین با کران عددی.',
                 ),
               ),
               const SizedBox(height: 18),
@@ -392,7 +395,7 @@ class _IntegralPageState extends State<IntegralPage> {
               'تغییر متغیر، قاعدهٔ زنجیره‌ای را برمی‌گرداند؛ دنبال تابع درونی و مشتقش بگردید.',
             ),
             l.t(
-              'For definite integrals, apply the bounds after finding the antiderivative — and mind the variable order in 2D and 3D.',
+              'For definite integrals, apply the bounds after finding the antiderivative, and mind the variable order in 2D and 3D.',
               'در انتگرال معین، پس از یافتن پادمشتق کران‌ها را اعمال کنید و در دوگانه و سه‌گانه ترتیب متغیرها را در نظر بگیرید.',
             ),
           ],
@@ -437,6 +440,49 @@ class _IntegralPageState extends State<IntegralPage> {
             key: _resultKey,
             child: ResultView(result: _result!, l10n: l),
           ),
+          if (showGraphs &&
+              _result!.ok &&
+              _result!.normalized != null &&
+              _dimension == 1) ...[
+            const SizedBox(height: 16),
+            if (!_result!.definite && _result!.solution != null)
+              MultiCurvePlot(
+                engine: widget.engine,
+                l10n: l,
+                variable: _result!.variable.isEmpty ? 'x' : _result!.variable,
+                curves: [
+                  PlotCurveSpec(
+                    expression: _result!.normalized!.plain,
+                    color: c.accent,
+                    label: l.t('Integrand f(x)', 'انتگرال‌ده f(x)'),
+                  ),
+                  PlotCurveSpec(
+                    expression: _result!.solution!.plain,
+                    color: c.accentAlt,
+                    label: l.t('Antiderivative F(x)', 'پادمشتق F(x)'),
+                  ),
+                ],
+                xmin: -8,
+                xmax: 8,
+                title: l.t('Integrand and antiderivative', 'انتگرال‌ده و پادمشتق'),
+                caption: l.t(
+                  'F is one antiderivative of f: its slope at every x equals f(x). The family differs only by the constant C, which shifts the curve vertically.',
+                  'F یک پادمشتق از f است: شیب آن در هر x برابر f(x) است. اعضای خانواده فقط با ثابت C فرق می‌کنند که منحنی را عمودی جابه‌جا می‌کند.',
+                ),
+              )
+            else
+              CurvePlot(
+                engine: widget.engine,
+                l10n: l,
+                expression: _result!.normalized!.plain,
+                variable: _result!.variable.isEmpty ? 'x' : _result!.variable,
+                title: l.t('Integrand over the bounds', 'انتگرال‌ده روی کران‌ها'),
+                caption: l.t(
+                  'The definite integral is the signed area between this curve and the x-axis, accumulated from the lower to the upper bound.',
+                  'انتگرال معین مساحت علامت‌دار بین این منحنی و محور x است که از کران پایین تا بالا انباشته می‌شود.',
+                ),
+              ),
+          ],
         ],
       ],
     );
