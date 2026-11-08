@@ -8,6 +8,11 @@ import 'package:flutter/services.dart';
 abstract class SettingsPersistence {
   Future<Map<String, String>> load();
   Future<void> save(Map<String, String> values);
+
+  /// Android cannot recolor a launcher icon in place, so the native side
+  /// switches to the pre-rendered icon for this palette.  Other platforms use
+  /// their static icon and inherit this no-op.
+  Future<void> setLauncherPalette(String palette) async {}
 }
 
 class PlatformSettingsPersistence implements SettingsPersistence {
@@ -46,6 +51,16 @@ class PlatformSettingsPersistence implements SettingsPersistence {
     }
   }
 
+  @override
+  Future<void> setLauncherPalette(String palette) async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<bool>('set_launcher_icon', palette);
+    } catch (_) {
+      // Some launchers ignore component changes; the UI palette still applies.
+    }
+  }
+
   File _file() {
     final xdg = Platform.environment['XDG_CONFIG_HOME'];
     final home = Platform.environment['HOME'];
@@ -71,4 +86,7 @@ class MemorySettingsPersistence implements SettingsPersistence {
       ..clear()
       ..addAll(values);
   }
+
+  @override
+  Future<void> setLauncherPalette(String palette) async {}
 }

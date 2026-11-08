@@ -125,7 +125,7 @@ class OdePalette {
   ];
 
   static OdePalette byId(String id) =>
-      all.firstWhere((p) => p.id == id, orElse: () => ocean);
+      all.firstWhere((p) => p.id == id, orElse: () => rose);
 }
 
 @immutable

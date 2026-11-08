@@ -12,6 +12,15 @@ Future<AppSettings> _settings() async {
   return settings;
 }
 
+class _RecordingPersistence extends MemorySettingsPersistence {
+  String? launcherPalette;
+
+  @override
+  Future<void> setLauncherPalette(String palette) async {
+    launcherPalette = palette;
+  }
+}
+
 /// Native calls run on a background isolate, so widget tests must give the real
 /// event loop time to deliver the result before pumping a frame. Poll for the
 /// expected widget so slow CI runners do not fail on a fixed delay.
@@ -50,6 +59,7 @@ void main() {
     final settings = await _settings();
     expect(settings.themeMode, ThemeMode.dark);
     expect(settings.locale.languageCode, 'en');
+    expect(settings.palette, 'rose');
 
     await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
@@ -824,6 +834,30 @@ void main() {
     expect(find.textContaining('[−2, 2]'), findsWidgets);
     expect(find.textContaining('[0, 2]'), findsWidgets);
     expect(find.byKey(const ValueKey('domain-chart')), findsOneWidget);
+  });
+
+  test('palette changes follow the launcher icon', () async {
+    final persistence = _RecordingPersistence();
+    final settings = AppSettings(persistence: persistence);
+    await settings.load();
+    expect(settings.palette, 'rose');
+    expect(persistence.launcherPalette, 'rose');
+
+    await settings.setPalette('emerald');
+    expect(settings.palette, 'emerald');
+    expect(persistence.launcherPalette, 'emerald');
+
+    await settings.resetDefaults();
+    expect(settings.palette, 'rose');
+    expect(persistence.launcherPalette, 'rose');
+  });
+
+  test('an unknown stored palette falls back to rose', () async {
+    final settings = AppSettings(
+      persistence: MemorySettingsPersistence({'palette': 'unknown'}),
+    );
+    await settings.load();
+    expect(settings.palette, 'rose');
   });
 
   testWidgets('changes the accent palette from settings', (tester) async {

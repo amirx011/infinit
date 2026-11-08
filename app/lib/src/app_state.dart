@@ -30,7 +30,7 @@ class AppSettings extends ChangeNotifier {
   Locale _locale = const Locale('en');
   double _textScale = 1.0;
   bool _reduceMotion = false;
-  String _palette = 'ocean';
+  String _palette = 'rose';
   bool _highContrast = false;
   bool _compact = false;
   int _startPage = 0;
@@ -84,6 +84,7 @@ class AppSettings extends ChangeNotifier {
     }
     _loaded = true;
     notifyListeners();
+    await _persistence.setLauncherPalette(_palette);
   }
 
   static double _readTextScale(String? raw) {
@@ -102,8 +103,8 @@ class AppSettings extends ChangeNotifier {
   }
 
   static String _knownPalette(String? raw) => switch (raw) {
-    'indigo' || 'emerald' || 'amber' || 'rose' || 'graphite' => raw!,
-    _ => 'ocean',
+    'ocean' || 'indigo' || 'emerald' || 'amber' || 'rose' || 'graphite' => raw!,
+    _ => 'rose',
   };
 
   static int _readDecimalPlaces(String? raw) {
@@ -152,6 +153,7 @@ class AppSettings extends ChangeNotifier {
     _palette = palette;
     notifyListeners();
     await _persist();
+    await _persistence.setLauncherPalette(palette);
   }
 
   Future<void> setHighContrast(bool value) async {
@@ -208,6 +210,7 @@ class AppSettings extends ChangeNotifier {
     _resetFields();
     notifyListeners();
     await _persist();
+    await _persistence.setLauncherPalette(_palette);
   }
 
   void _resetFields() {
@@ -215,7 +218,7 @@ class AppSettings extends ChangeNotifier {
     _locale = const Locale('en');
     _textScale = 1.0;
     _reduceMotion = false;
-    _palette = 'ocean';
+    _palette = 'rose';
     _highContrast = false;
     _compact = false;
     _startPage = 0;
