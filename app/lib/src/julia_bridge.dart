@@ -66,15 +66,19 @@ class JuliaBridge {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((_) {
-        // Diagnostics are intentionally ignored; the UI never exposes the
-        // engine choice and the fallback is silent.
-      });
+            // Diagnostics are intentionally ignored; the UI never exposes the
+            // engine choice and the fallback is silent.
+          });
       process.exitCode.then((_) {
         _available = false;
         _process = null;
         _failPending('Julia sidecar stopped.');
       });
-      final pong = await _send('ping', const {}, timeout: const Duration(seconds: 12));
+      final pong = await _send(
+        'ping',
+        const {},
+        timeout: const Duration(seconds: 12),
+      );
       _available = pong != null && pong['pong'] == true;
       if (!_available) _permanentlyUnavailable = true;
       return _available;
@@ -160,7 +164,9 @@ class JuliaBridge {
       '${exeDir.path}/../julia',
       '${exeDir.path}/../../julia',
     ]) {
-      if (File('$candidate/src/InfinitBridge.jl').existsSync()) return candidate;
+      if (File('$candidate/src/InfinitBridge.jl').existsSync()) {
+        return candidate;
+      }
     }
     return null;
   }
@@ -191,11 +197,9 @@ class JuliaBridge {
     final completer = Completer<Map<String, dynamic>>();
     _pending[id] = completer;
     try {
-      process.stdin.writeln(jsonEncode({
-        'id': id,
-        'method': method,
-        'params': params,
-      }));
+      process.stdin.writeln(
+        jsonEncode({'id': id, 'method': method, 'params': params}),
+      );
       await process.stdin.flush();
       return await completer.future.timeout(timeout);
     } catch (_) {
@@ -217,7 +221,9 @@ class JuliaBridge {
       if (decoded['ok'] == true) {
         final result = decoded['result'];
         completer.complete(
-          result is Map ? Map<String, dynamic>.from(result) : <String, dynamic>{},
+          result is Map
+              ? Map<String, dynamic>.from(result)
+              : <String, dynamic>{},
         );
       } else {
         completer.complete(<String, dynamic>{

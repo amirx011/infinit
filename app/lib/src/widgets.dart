@@ -1584,7 +1584,7 @@ class ResultView extends StatelessWidget {
         children.add(const SizedBox(height: 8));
         children.add(
           TypeBadge(
-            l10n.t(result.typeEn, result.typeFa),
+            l10n.isFa ? result.typeFa : result.typeEn,
             icon: Icons.sell_outlined,
           ),
         );

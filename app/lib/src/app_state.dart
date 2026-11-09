@@ -66,9 +66,7 @@ class AppSettings extends ChangeNotifier {
         'system' => ThemeMode.system,
         _ => ThemeMode.dark,
       };
-      _locale = Locale(
-        isSupportedLanguage(locale ?? '') ? locale! : 'en',
-      );
+      _locale = Locale(isSupportedLanguage(locale ?? '') ? locale! : 'en');
       _textScale = _readTextScale(values[_textScaleKey]);
       _reduceMotion = values[_reduceMotionKey] == 'true';
       _palette = _knownPalette(values[_paletteKey]);

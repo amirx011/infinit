@@ -1,4 +1,8 @@
 {
+  "__meta.english_name": "Persian",
+  "__meta.native_name": "فارسی",
+  "__meta.rtl": "true",
+  "__meta.order": "1",
   "error.bad_characters": "ورودی کاراکتر نامعتبر دارد.",
   "error.singular": "تابع در x = {point} تعریف نشده است (نقطهٔ تکین).",
   "error.singular_unknown": "تابع در نقطهٔ تکین تعریف نشده است.",
@@ -1368,5 +1372,13 @@
   "ui.vertical_asymptotes_at": "مجانب‌های عمودی در {points}",
   "ui.numeric_estimate_samples": "تخمین عددی از {n} نمونه.",
   "ui.near_point": "نزدیک {var} → {point}",
-  "ui.slope_label": "شیب = {slope}"
+  "ui.slope_label": "شیب = {slope}",
+  "step.note.origin_saddle": "مبدأ یک زین است.",
+  "step.note.origin_stable_node": "مبدأ گرهٔ پایدار است.",
+  "step.note.origin_unstable_node": "مبدأ گرهٔ ناپایدار است.",
+  "step.note.origin_stable_degenerate_node": "مبدأ گرهٔ تبهگن پایدار است.",
+  "step.note.origin_unstable_degenerate_node": "مبدأ گرهٔ تبهگن ناپایدار است.",
+  "step.note.origin_center": "مبدأ یک مرکز است.",
+  "step.note.origin_stable_spiral": "مبدأ یک مارپیچ پایدار است.",
+  "step.note.origin_unstable_spiral": "مبدأ یک مارپیچ ناپایدار است."
 }

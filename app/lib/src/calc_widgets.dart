@@ -233,9 +233,8 @@ class HypothesisRow extends StatelessWidget {
               children: [
                 Text(
                   check.name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  style: Theme.of(context).textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (check.detail.isNotEmpty)
                   Text(
@@ -406,7 +405,10 @@ double? exToDouble(ExView? e) {
 }
 
 /// Chooses a symmetric plot window around the values a page cares about.
-(double, double) plotWindowAround(Iterable<double> values, {double fallback = 6}) {
+(double, double) plotWindowAround(
+  Iterable<double> values, {
+  double fallback = 6,
+}) {
   final finite = values.where((v) => v.isFinite).toList();
   if (finite.isEmpty) return (-fallback, fallback);
   final lo = finite.reduce(math.min);

@@ -561,7 +561,7 @@ class _SettingsPageState extends State<SettingsPage> {
             prefixIcon: Icon(Icons.translate_rounded, color: c.muted),
           ),
           items: [
-            for (final language in kAppLanguages)
+            for (final language in appLanguages)
               DropdownMenuItem(
                 value: language.code,
                 child: Text(

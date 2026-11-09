@@ -49,10 +49,7 @@ class LocalizedSentence extends StatelessWidget {
         children: [
           text,
           for (final widget in math)
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: widget,
-            ),
+            Directionality(textDirection: TextDirection.ltr, child: widget),
         ],
       ),
     );

@@ -213,7 +213,7 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
             l10n: l,
             title: l.t('ui.worked_example'),
             idea: l.t('ui.try_these_values_then_change_one_number_and_comp'),
-            points: spec.examples.map((e) => l.t(e, e)).toList(growable: false),
+            points: spec.examples,
           ),
         ],
         if (_error != null) ...[

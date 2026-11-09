@@ -318,13 +318,13 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                   PlotCurveSpec(
                     expression: _f.text.trim(),
                     color: c.accent,
-                    label: l.t('f(x)', 'f(x)'),
+                    label: 'f(x)',
                   ),
                   if (_g.text.trim().isNotEmpty)
                     PlotCurveSpec(
                       expression: _g.text.trim(),
                       color: c.accentAlt,
-                      label: l.t('g(x)', 'g(x)'),
+                      label: 'g(x)',
                     ),
                 ],
                 xmin: _plotLo(),

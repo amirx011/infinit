@@ -1,4 +1,8 @@
 {
+  "__meta.english_name": "English",
+  "__meta.native_name": "English",
+  "__meta.rtl": "false",
+  "__meta.order": "0",
   "error.bad_characters": "The input contains an invalid character.",
   "error.singular": "The function is undefined at x = {point} (singular point).",
   "error.singular_unknown": "The function is undefined at a singular point.",
@@ -1368,5 +1372,13 @@
   "ui.vertical_asymptotes_at": "Vertical asymptotes at {points}",
   "ui.numeric_estimate_samples": "Numeric estimate from {n} samples.",
   "ui.near_point": "Near {var} → {point}",
-  "ui.slope_label": "slope = {slope}"
+  "ui.slope_label": "slope = {slope}",
+  "step.note.origin_saddle": "The origin is a saddle.",
+  "step.note.origin_stable_node": "The origin is a stable node.",
+  "step.note.origin_unstable_node": "The origin is an unstable node.",
+  "step.note.origin_stable_degenerate_node": "The origin is a stable degenerate node.",
+  "step.note.origin_unstable_degenerate_node": "The origin is an unstable degenerate node.",
+  "step.note.origin_center": "The origin is a centre.",
+  "step.note.origin_stable_spiral": "The origin is a stable spiral.",
+  "step.note.origin_unstable_spiral": "The origin is an unstable spiral."
 }

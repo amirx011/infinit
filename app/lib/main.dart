@@ -99,7 +99,7 @@ class InfinitApp extends StatelessWidget {
           themeMode: settings.themeMode,
           locale: settings.locale,
           supportedLocales: [
-            for (final language in kAppLanguages) Locale(language.code),
+            for (final language in appLanguages) Locale(language.code),
           ],
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,

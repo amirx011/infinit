@@ -279,7 +279,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                   if (isLhopital)
                     LabelledField(
                       controller: _point,
-                      label: l.t('x →', 'x ←'),
+                      label: l.isRtl ? 'x ←' : 'x →',
                       width: 100,
                     )
                   else ...[

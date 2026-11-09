@@ -56,7 +56,9 @@ class I18n {
     String language,
   ) async {
     try {
-      final decoded = jsonDecode(await assets.loadString('$_prefix$language.json'));
+      final decoded = jsonDecode(
+        await assets.loadString('$_prefix$language.json'),
+      );
       if (decoded is! Map) return null;
       return decoded.map(
         (key, value) => MapEntry(key.toString(), value.toString()),
@@ -73,6 +75,17 @@ class I18n {
     return false;
   }
 
+  /// Languages that have a loaded catalogue, in declaration order.
+  Iterable<String> get languages => _catalogues.keys;
+
+  /// Every key of the default catalogue (the reference set for parity).
+  Iterable<String> get keys =>
+      _catalogues[defaultLanguage]?.keys ?? const <String>[];
+
+  /// A raw value for one language, without fallback.  Used by metadata
+  /// lookups (display names, direction) and by the export tooling.
+  String? value(String language, String key) => _catalogues[language]?[key];
+
   /// The English source of a key, used as the lookup key in the legacy Dart
   /// tables until every language has its own JSON catalogue.
   String? english(String key) => _catalogues['en']?[key];
@@ -80,11 +93,7 @@ class I18n {
   /// Looks up [key] for [language]; falls back to the default language, then to
   /// the key itself.  Only plain values (numbers, symbols) belong in [params];
   /// formulas travel as separate math widgets.
-  String text(
-    String language,
-    String key, [
-    Map<String, Object?>? params,
-  ]) {
+  String text(String language, String key, [Map<String, Object?>? params]) {
     final template =
         _catalogues[language]?[key] ?? _catalogues[defaultLanguage]?[key];
     if (template == null) {

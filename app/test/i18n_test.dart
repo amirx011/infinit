@@ -24,7 +24,10 @@ void main() {
   });
 
   test('dotted keys use params and the requested language', () {
-    expect(const L10n(Locale('fa')).t('error.singular', {'point': 0}), 'at x = 0');
+    expect(
+      const L10n(Locale('fa')).t('error.singular', {'point': 0}),
+      'at x = 0',
+    );
     expect(
       const L10n(Locale('en')).t('error.singular', {'point': 2}),
       'undefined at x = 2',
@@ -36,17 +39,20 @@ void main() {
   });
 
   test('untranslated languages fall back to the default catalogue', () {
-    expect(const L10n(Locale('de')).t('error.singular', {'point': 1}), 'at x = 1');
+    expect(
+      const L10n(Locale('de')).t('error.singular', {'point': 1}),
+      'at x = 1',
+    );
   });
 
-  test('legacy English-key tables still resolve', () {
-    expect(const L10n(Locale('fr')).t('System'), isNot('System'));
-    expect(const L10n(Locale('en')).t('Settings'), 'Settings');
-  });
-
-  test('ships the fa and en catalogues', () async {
+  test('ships every language catalogue with its metadata', () async {
     final catalog = await I18n.load();
     expect(catalog.hasKey('error.singular'), isTrue);
     expect(catalog.hasKey('validation.match'), isTrue);
+    expect(catalog.languages.length, 12);
+    for (final code in catalog.languages) {
+      expect(catalog.value(code, '__meta.english_name'), isNotNull);
+      expect(catalog.value(code, '__meta.rtl'), anyOf('true', 'false'));
+    }
   });
 }

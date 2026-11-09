@@ -297,12 +297,12 @@ class _DerivativePageState extends State<DerivativePage> {
                 PlotCurveSpec(
                   expression: _first!.normalized!.plain,
                   color: c.accent,
-                  label: l.t('f(x)', 'f(x)'),
+                  label: 'f(x)',
                 ),
                 PlotCurveSpec(
                   expression: _first!.solution!.plain,
                   color: c.accentAlt,
-                  label: l.t("f′(x)", 'f′(x)'),
+                  label: 'f′(x)',
                 ),
               ],
               xmin: -8,

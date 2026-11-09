@@ -79,7 +79,10 @@ void main() {
 
   test('result accepts an error object and defaults missing lists', () {
     final result = LocalizedResult.fromJson({
-      'error': {'error': 'error.singular', 'params': {'point': 0}},
+      'error': {
+        'error': 'error.singular',
+        'params': {'point': 0},
+      },
     });
 
     expect(result.steps, isEmpty);

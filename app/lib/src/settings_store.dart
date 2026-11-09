@@ -16,8 +16,7 @@ abstract class SettingsPersistence {
 }
 
 class PlatformSettingsPersistence implements SettingsPersistence {
-  static const MethodChannel _channel =
-      MethodChannel('ir.infinit/settings');
+  static const MethodChannel _channel = MethodChannel('ir.infinit/settings');
 
   @override
   Future<Map<String, String>> load() async {
@@ -73,7 +72,7 @@ class PlatformSettingsPersistence implements SettingsPersistence {
 
 class MemorySettingsPersistence implements SettingsPersistence {
   MemorySettingsPersistence([Map<String, String>? initial])
-      : _values = Map<String, String>.from(initial ?? const {});
+    : _values = Map<String, String>.from(initial ?? const {});
 
   final Map<String, String> _values;
 

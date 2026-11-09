@@ -109,7 +109,10 @@ class LocalizedResult {
       value['validations'] ?? value['checks'],
       LocalizedValidation.fromJson,
     ),
-    notices: _list(value['notices'] ?? value['notes'], LocalizedNotice.fromJson),
+    notices: _list(
+      value['notices'] ?? value['notes'],
+      LocalizedNotice.fromJson,
+    ),
     error: _error(value['error']),
   );
 }

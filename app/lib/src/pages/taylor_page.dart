@@ -234,7 +234,7 @@ class _TaylorPageState extends State<TaylorPage> {
                 PlotCurveSpec(
                   expression: r.normalized!.plain,
                   color: c.accent,
-                  label: l.t('f(x)', 'f(x)'),
+                  label: 'f(x)',
                 ),
                 PlotCurveSpec(
                   expression: r.polynomial!.plain,

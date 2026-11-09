@@ -1761,10 +1761,7 @@ class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
         if (y < yMin) yMin = y;
         if (y > yMax) yMax = y;
       }
-      final label = l.t(
-        'y(${_short(curve.x0)}) = ${_short(curve.y0)}',
-        'y(${_short(curve.x0)}) = ${_short(curve.y0)}',
-      );
+      final label = 'y(${_short(curve.x0)}) = ${_short(curve.y0)}';
       series.add(
         PlotSeries(xs: curve.xs, ys: curve.ys, color: color, label: label),
       );

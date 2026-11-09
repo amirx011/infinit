@@ -263,10 +263,7 @@ void main() {
   });
 
   test('parser reports when input was reinterpreted', () {
-    final interpreted = engine.solve({
-      'mode': 'parse',
-      'input': 'e^2t',
-    });
+    final interpreted = engine.solve({'mode': 'parse', 'input': 'e^2t'});
     expect(interpreted.ok, isTrue);
     expect(interpreted.interpretedAs, contains('exp'));
 
