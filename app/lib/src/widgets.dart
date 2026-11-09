@@ -2318,13 +2318,6 @@ class _StepRow extends StatelessWidget {
                     onCopy: onCopy == null ? null : () => onCopy!(step.math),
                   ),
                 ],
-                if (step.noteMath != null) ...[
-                  const SizedBox(height: 7),
-                  Directionality(
-                    textDirection: TextDirection.ltr,
-                    child: MathInline(math: step.noteMath!),
-                  ),
-                ],
                 if (step.noteKey.isNotEmpty) ...[
                   const SizedBox(height: 7),
                   LocalizedSentence(
@@ -2336,6 +2329,13 @@ class _StepRow extends StatelessWidget {
                 ] else if (step.note.isNotEmpty) ...[
                   const SizedBox(height: 7),
                   Text(step.note, style: Theme.of(context).textTheme.bodySmall),
+                ],
+                if (step.noteMath != null) ...[
+                  const SizedBox(height: 7),
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: MathInline(math: step.noteMath!),
+                  ),
                 ],
               ],
             ),

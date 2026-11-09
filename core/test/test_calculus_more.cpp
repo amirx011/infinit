@@ -40,6 +40,10 @@ static void taylorCases() {
         expect(r.ok, "Taylor exp(x) succeeds");
         expect(r.coefficients.size() == 5, "Taylor exp(x) has five coefficients");
         expect(r.steps.size() >= 6, "Taylor exp(x) shows the derivative steps");
+        for (const auto& s : r.steps) {
+            expect(s.title.empty(), "Taylor steps carry no title sentence");
+            expect(!s.titleKey.empty(), "Taylor step titles are keys");
+        }
         if (r.coefficients.size() == 5) {
             expect(toPlain(r.coefficients[0]) == "1", "c0 = 1");
             expect(toPlain(r.coefficients[1]) == "1", "c1 = 1");

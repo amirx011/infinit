@@ -99,13 +99,24 @@ Ex atPoint(const Ex& e, const std::vector<std::string>& vars,
     return simplify(substituteMany(e, m));
 }
 
-void addStep(Result& r, bool en, const std::string& enText, const std::string& faText,
-             const Ex& math = nullptr, const std::string& noteEn = "",
-             const std::string& noteFa = "") {
+void addStep(Result& r, const std::string& titleKey, const Ex& math = nullptr,
+             const std::string& noteKey = "", const std::string& params = "",
+             const std::string& noteMath = "") {
     Step s;
-    s.title = en ? enText : faText;
+    s.titleKey = titleKey;
     s.math = math;
-    s.note = en ? noteEn : noteFa;
+    s.noteKey = noteKey;
+    s.params = params;
+    s.noteMath = noteMath;
+    r.steps.push_back(std::move(s));
+}
+
+void addStepRaw(Result& r, const std::string& titleKey, const Ex& math,
+                const std::string& rawNote) {
+    Step s;
+    s.titleKey = titleKey;
+    s.math = math;
+    s.note = rawNote;
     r.steps.push_back(std::move(s));
 }
 
@@ -173,15 +184,8 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
         r.order = order;
         r.point = toPlain(center);
         r.value = simplify(substitute(f, x, center));
-        addStep(r, en,
-                a == 0.0 ? "Function and Maclaurin centre a = 0"
-                         : "Function and Taylor centre a",
-                a == 0.0 ? "تابع و مرکز مکلورن a = 0" : "تابع و مرکز تیلور a",
-                f,
-                en ? ("Expand f about a = " + toPlain(center) + " up to order " + std::to_string(order) +
-                      ". Maclaurin is the special case a = 0.")
-                   : ("تابع را حول a = " + toPlain(center) + " تا مرتبهٔ " + std::to_string(order) +
-                      " بسط می‌دهیم. مکلورن حالت خاص a = 0 است."));
+        addStep(r, a == 0.0 ? "step.title.function_maclaurin_a0" : "step.title.function_taylor_a",
+            f, "step.note.expand_about_centre", "{\"n\":" + std::to_string(order) + "}");
 
         Ex d = f;
         std::vector<Ex> coeffs;
@@ -199,27 +203,21 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
             coeffFa += "c" + std::to_string(k) + " = " + toPlain(coeff);
 
             if (k == 0) {
-                addStep(r, en, "Value at the centre: c0 = f(a)", "مقدار در مرکز: c0 = f(a)",
-                        valueAt,
-                        en ? ("f(" + toPlain(center) + ") = " + toPlain(valueAt) + ".")
-                           : ("f(" + toPlain(center) + ") = " + toPlain(valueAt) + "."),
-                        "");
+                addStep(r, "step.title.value_at_centre", valueAt, "", "",
+                    "f(" + toPlain(center) + ") = " + toPlain(valueAt));
             } else {
                 const std::string label = std::to_string(k);
-                addStep(r, en, "Derivative of order " + label + " at the centre",
-                        "مشتق مرتبهٔ " + label + " در مرکز", d,
-                        en ? ("f^(" + label + ")(" + toPlain(center) + ") = " + toPlain(valueAt) +
-                              ", so c" + label + " = " + toPlain(coeff) + ".")
-                           : ("f^(" + label + ")(" + toPlain(center) + ") = " + toPlain(valueAt) +
-                              "، پس c" + label + " = " + toPlain(coeff) + "."),
-                        "");
+                addStep(r, "step.title.derivative_order_at_centre", d,
+                    "step.note.derivative_value_and_coefficient",
+                    "{\"order\":" + label + "}",
+                    "f^(" + label + ")(" + toPlain(center) + ") = " + toPlain(valueAt) +
+                    ", c_" + label + " = " + toPlain(coeff));
             }
             d = simplify(diff(d, x));
         }
         r.coefficients = coeffs;
 
-        addStep(r, en, "Coefficients c_k = f^(k)(a) / k!", "ضرایب c_k = f^(k)(a) / k!",
-                nullptr, coeffEn, coeffFa);
+        addStep(r, "step.title.coefficients", nullptr, "", "", coeffEn);
 
         std::vector<Ex> terms;
         Ex shift = Add({Sym(x), Mul(Num(-1), center)});
@@ -247,13 +245,9 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
         }
         r.polynomial = polynomial;
         r.solution = polynomial;
-        addStep(r, en,
-                a == 0.0 ? "Maclaurin polynomial" : "Taylor polynomial",
-                a == 0.0 ? "چندجمله‌ای مکلورن" : "چندجمله‌ای تیلور",
-                polynomial,
-                en ? ("P" + std::to_string(order) + "(x) = " + toPlain(polynomial) + ".")
-                   : ("P" + std::to_string(order) + "(x) = " + toPlain(polynomial) + "."),
-                "");
+        addStep(r, a == 0.0 ? "step.title.maclaurin_polynomial" : "step.title.taylor_polynomial",
+            polynomial, "", "",
+            "P_" + std::to_string(order) + "(x) = " + toPlain(polynomial));
 
         Ex nextDerivative = d;
         Ex xi = Sym("xi");
@@ -268,17 +262,11 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
             // rational centre is not worth an overflow.
         }
         r.remainder = remainder;
-        addStep(r, en, "Lagrange remainder", "باقی‌ماندهٔ لاگرانژ", remainder,
-                en ? ("The error after order " + std::to_string(order) +
-                      " is R" + std::to_string(order) + "(x) = f^(" +
-                      std::to_string(order + 1) + ")(xi)/( " +
-                      std::to_string(order + 1) + ")! (x - a)^(" +
-                      std::to_string(order + 1) + "), with xi between a and x.")
-                   : ("خطا پس از مرتبهٔ " + std::to_string(order) + " برابر است با R" +
-                      std::to_string(order) + "(x) = f^(" + std::to_string(order + 1) +
-                      ")(xi)/(" + std::to_string(order + 1) + ")! (x - a)^(" +
-                      std::to_string(order + 1) + ")، که xi بین a و x است."),
-                "");
+        addStep(r, "step.title.lagrange_remainder", remainder,
+            "step.note.lagrange_remainder", "{\"n\":" + std::to_string(order) + "}",
+            "R_" + std::to_string(order) + "(x) = f^(" + std::to_string(order + 1) +
+            ")(xi)/(" + std::to_string(order + 1) + ")! (x - a)^(" +
+            std::to_string(order + 1) + ")");
         r.assumptions.push_back(en ? "xi lies between a and x."
                                    : "xi بین a و x قرار دارد.");
 
@@ -406,12 +394,9 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
             r.derivative = df;
             Ex integrand = simplify(Sqrt(Add({Num(1), Pow(df, Num(2))})));
             r.integrand = integrand;
-            addStep(r, en, "Arc-length formula", "فرمول طول قوس", integrand,
-                    en ? ("L = integral from " + numStr(a) + " to " + numStr(b) +
-                          " of sqrt(1 + (f')^2) dx, with f' = " + toPlain(df) + ".")
-                       : ("L = انتگرال از " + numStr(a) + " تا " + numStr(b) +
-                          " از sqrt(1 + (f′)^2) dx، با f′ = " + toPlain(df) + "."),
-                    "");
+            addStep(r, "step.title.arc_length_formula", nullptr, "", "",
+                "L = int_" + numStr(a) + "^" + numStr(b) +
+                " sqrt(1 + (f')^2) dx, f' = " + toPlain(df));
             bool exactOk = false;
             std::string method;
             Ex antiderivative = definite(integrand, x, a, b, &exactOk, &method);
@@ -420,12 +405,9 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
             r.hasNumeric = std::isfinite(numeric);
             r.numericValue = numeric;
             r.value = exactOk ? antiderivative : snap(numeric);
-            addStep(r, en, "Evaluate the integral", "محاسبهٔ انتگرال", r.value,
-                    en ? ("The arc length is approximately " + numStr(numeric) +
-                          (exactOk ? " (exact value shown)." : "."))
-                       : ("طول قوس تقریباً " + numStr(numeric) +
-                          (exactOk ? " است (مقدار دقیق نمایش داده شده)." : " است.")),
-                    "");
+            addStep(r, "step.title.evaluate_the_integral", nullptr,
+                exactOk ? "step.note.arc_length_exact" : "step.note.arc_length_approx",
+                "{\"value\":" + numStr(numeric) + "}");
             if (std::isfinite(numeric)) {
                 addCheck(r, "check.numeric_quadrature", true,
                          "check.quadrature_adaptive",
@@ -444,13 +426,8 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
                 Ex radius = Mul(Num(2), Sym("pi"), Sym(x));
                 Ex height = simplify(Add(f, Mul(Num(-1), g)));
                 integrand = simplify(Mul(radius, height));
-                addStep(r, en, "Shell method about the y-axis", "روش پوسته حول محور y",
-                        integrand,
-                        en ? ("V = 2*pi * integral of x*(f - g) dx on [" + numStr(a) + ", " +
-                              numStr(b) + "]. This needs 0 <= a < b.")
-                           : ("V = 2π × انتگرال x(f − g) dx روی [" + numStr(a) + "، " +
-                              numStr(b) + "]. این روش به 0 ≤ a < b نیاز دارد."),
-                        "");
+                addStep(r, "step.title.shell_method", nullptr, "step.note.shell_method", "",
+                    "V = 2 pi int_" + numStr(a) + "^" + numStr(b) + " x (f - g) dx");
                 if (a < 0) {
                     r.warnings.push_back(en
                         ? "Part of the interval is negative; the shell radius x changes sign and "
@@ -462,21 +439,12 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
                 Ex outer = Pow(f, Num(2));
                 Ex inner = Pow(g, Num(2));
                 integrand = simplify(Mul(Sym("pi"), Add(outer, Mul(Num(-1), inner))));
-                addStep(r, en, "Washer method about the x-axis", "روش واشر حول محور x",
-                        integrand,
-                        en ? ("V = pi * integral of (f^2 - g^2) dx on [" + numStr(a) + ", " +
-                              numStr(b) + "], with f the outer radius and g the inner radius.")
-                           : ("V = π × انتگرال (f² − g²) dx روی [" + numStr(a) + "، " +
-                              numStr(b) + "]، که f شعاع بیرونی و g شعاع درونی است."),
-                        "");
+                addStep(r, "step.title.washer_method", nullptr, "step.note.washer_method", "",
+                    "V = pi int_" + numStr(a) + "^" + numStr(b) + " (f^2 - g^2) dx");
             } else {
                 integrand = simplify(Mul(Sym("pi"), Pow(f, Num(2))));
-                addStep(r, en, "Disk method about the x-axis", "روش دیسک حول محور x",
-                        integrand,
-                        en ? ("V = pi * integral of f^2 dx on [" + numStr(a) + ", " + numStr(b) +
-                              "].")
-                           : ("V = π × انتگرال f² dx روی [" + numStr(a) + "، " + numStr(b) + "]."),
-                        "");
+                addStep(r, "step.title.disk_method", nullptr, "", "",
+                    "V = pi int_" + numStr(a) + "^" + numStr(b) + " f^2 dx");
             }
             r.integrand = integrand;
             bool exactOk = false;
@@ -487,12 +455,9 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
             r.hasNumeric = std::isfinite(numeric);
             r.numericValue = numeric;
             r.value = exactOk ? antiderivative : snap(numeric);
-            addStep(r, en, "Volume", "حجم", r.value,
-                    en ? ("V is approximately " + numStr(numeric) +
-                          (exactOk ? " (exact value shown)." : "."))
-                       : ("حجم تقریباً " + numStr(numeric) +
-                          (exactOk ? " است (مقدار دقیق نمایش داده شده)." : " است.")),
-                    "");
+            addStep(r, "step.title.volume", nullptr,
+                exactOk ? "step.note.volume_exact" : "step.note.volume_approx",
+                "{\"value\":" + numStr(numeric) + "}");
             if (std::isfinite(numeric)) {
                 addCheck(r, "check.numeric_quadrature", true,
                          "check.quadrature_adaptive",
@@ -507,12 +472,8 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
         r.typeFa = "مساحت بین دو منحنی";
         Ex diffExpr = simplify(Add(f, Mul(Num(-1), g)));
         r.integrand = diffExpr;
-        addStep(r, en, "Difference of the curves", "تفاضل دو منحنی", diffExpr,
-                en ? ("Area = integral of |f - g| dx on [" + numStr(a) + ", " + numStr(b) +
-                      "]. The upper curve is chosen on each subinterval.")
-                   : ("مساحت = انتگرال |f − g| dx روی [" + numStr(a) + "، " + numStr(b) +
-                      "]. روی هر زیربازه منحنی بالایی انتخاب می‌شود."),
-                "");
+        addStep(r, "step.title.difference_of_curves", nullptr, "step.note.area_setup", "",
+            "A = int_" + numStr(a) + "^" + numStr(b) + " |f - g| dx");
         std::vector<double> cuts = {a};
         for (double c : crossings(diffExpr, x, a, b)) cuts.push_back(c);
         cuts.push_back(b);
@@ -538,27 +499,18 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
             total += numeric;
             if (exactOk && antiderivative) exactTotal = Add(exactTotal, antiderivative);
             else allExact = false;
-            addStep(r, en,
-                    "Piece " + std::to_string(i + 1) + " on [" + numStr(lo) + ", " + numStr(hi) +
-                        "]",
-                    "بخش " + std::to_string(i + 1) + " روی [" + numStr(lo) + "، " + numStr(hi) +
-                        "]",
-                    piece,
-                    en ? ((sign >= 0 ? "f is above g" : "g is above f") +
-                          std::string("; the integral on this piece is ") + numStr(numeric) + ".")
-                       : ((sign >= 0 ? "f بالای g است" : "g بالای f است") +
-                          std::string("؛ انتگرال این بخش ") + numStr(numeric) + " است."));
+            addStep(r, "step.title.piece_interval", nullptr,
+                sign >= 0 ? "step.note.f_above_g" : "step.note.g_above_f",
+                "{\"n\":" + std::to_string(i + 1) + ",\"lo\":" + numStr(lo) +
+                ",\"hi\":" + numStr(hi) + ",\"value\":" + numStr(numeric) + "}");
         }
         r.hasNumeric = std::isfinite(total);
         r.numericValue = total;
         r.value = allExact ? simplify(exactTotal) : snap(total);
         r.solution = r.value;
-        addStep(r, en, "Total area", "مساحت کل", r.value,
-                en ? ("The area is approximately " + numStr(total) +
-                      (allExact ? " (exact value shown)." : "."))
-                   : ("مساحت تقریباً " + numStr(total) +
-                      (allExact ? " است (مقدار دقیق نمایش داده شده)." : " است.")),
-                "");
+        addStep(r, "step.title.total_area", nullptr,
+            allExact ? "step.note.area_exact" : "step.note.area_approx",
+            "{\"value\":" + numStr(total) + "}");
         if (std::isfinite(total)) {
             addCheck(r, "check.numeric_quadrature", true,
                      "check.quadrature_adaptive",
@@ -594,24 +546,9 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
         r.variable = vars[0];
         r.functionF = f;
 
-        addStep(r, en, "Function and variables", "تابع و متغیرها", f,
-                en ? ("f depends on " + [&] {
-                          std::string s;
-                          for (size_t i = 0; i < vars.size(); ++i) {
-                              if (i) s += ", ";
-                              s += vars[i];
-                          }
-                          return s;
-                      }() + ".")
-                   : ("f به متغیرهای " + [&] {
-                          std::string s;
-                          for (size_t i = 0; i < vars.size(); ++i) {
-                              if (i) s += "، ";
-                              s += vars[i];
-                          }
-                          return s;
-                      }() + " وابسته است."),
-                "");
+        addStep(r, "step.title.function_and_variables", nullptr,
+            "step.note.depends_on_variables",
+            "{\"vars\":\"" + [&] { std::string s; for (size_t i = 0; i < vars.size(); ++i) { if (i) s += ", "; s += vars[i]; } return s; }() + "\"}");
 
         std::vector<Ex> first;
         std::string firstEn, firstFa;
@@ -625,10 +562,9 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
             if (!firstEn.empty()) { firstEn += ", "; firstFa += "، "; }
             firstEn += "f_" + v + " = " + toPlain(d);
             firstFa += "f_" + v + " = " + toPlain(d);
-            addStep(r, en, "First partial derivative with respect to " + v,
-                    "مشتق جزئی مرتبهٔ اول نسبت به " + v, d,
-                    en ? ("f_" + v + " = " + toPlain(d) + ".") : "",
-                    en ? "" : ("f_" + v + " = " + toPlain(d) + "."));
+            addStep(r, "step.title.first_partial_wrt", d,
+                "step.note.partial_derivative", "{\"var\":\"" + v + "\",\"order\":1}",
+                "f_" + v + " = " + toPlain(d));
         }
         r.derivative = first.front();
 
@@ -641,10 +577,10 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
             pv.label = "f_" + vars[i] + vars[i];
             pv.value = d;
             r.partials.push_back(pv);
-            addStep(r, en, "Second partial derivative in " + vars[i],
-                    "مشتق جزئی مرتبهٔ دوم نسبت به " + vars[i], d,
-                    en ? ("f_" + vars[i] + vars[i] + " = " + toPlain(d) + ".") : "",
-                    en ? "" : ("f_" + vars[i] + vars[i] + " = " + toPlain(d) + "."));
+            addStep(r, "step.title.second_partial_wrt", d,
+                "step.note.partial_derivative",
+                "{\"var\":\"" + vars[i] + "\",\"order\":2}",
+                "f_" + vars[i] + vars[i] + " = " + toPlain(d));
         }
         for (size_t i = 0; i < vars.size(); ++i) {
             for (size_t j = i + 1; j < vars.size(); ++j) {
@@ -654,15 +590,11 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
                 pv.label = "f_" + vars[i] + vars[j];
                 pv.value = mixed;
                 r.partials.push_back(pv);
-                addStep(r, en, "Mixed partial derivative f_" + vars[i] + vars[j],
-                        "مشتق جزئی مخلوط f_" + vars[i] + vars[j], mixed,
-                        en ? ("Differentiating f_" + vars[i] + " with respect to " + vars[j] +
-                              " gives " + toPlain(mixed) + "; f_" + vars[j] + vars[i] + " = " +
-                              toPlain(mixedOther) + ".")
-                           : ("مشتق f_" + vars[i] + " نسبت به " + vars[j] + " برابر " +
-                              toPlain(mixed) + " است؛ f_" + vars[j] + vars[i] + " = " +
-                              toPlain(mixedOther) + "."),
-                        "");
+                addStep(r, "step.title.mixed_partial", mixed,
+                    "step.note.mixed_partials",
+                    "{\"a\":\"" + vars[i] + "\",\"b\":\"" + vars[j] + "\"}",
+                    "f_" + vars[i] + vars[j] + " = " + toPlain(mixed) + ", f_" +
+                    vars[j] + vars[i] + " = " + toPlain(mixedOther));
                 const bool equal = sameNumber(
                     simplify(Add({mixed, Mul(Num(-1), mixedOther)})), Num(0));
                 addCheck(r, "check.clairaut_symmetry", equal,
@@ -694,18 +626,13 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
                 gradEn += "f_" + vars[i] + r.pointLabel + " = " + toPlain(value);
                 gradFa += "f_" + vars[i] + r.pointLabel + " = " + toPlain(value);
             }
-            addStep(r, en, "Gradient at the point", "گرادیان در نقطه", evaluated,
-                    en ? ("f" + r.pointLabel + " = " + toPlain(evaluated) + "; " + gradEn + ".")
-                       : ("f" + r.pointLabel + " = " + toPlain(evaluated) + "؛ " + gradEn + "."),
-                    "");
+            addStep(r, "step.title.gradient_at_point", evaluated, "step.note.gradient_at_point",
+                "", "f" + r.pointLabel + " = " + toPlain(evaluated) + "; " + gradEn);
             Ex lap = Num(0);
             for (const auto& d : diagonal) lap = Add(lap, atPoint(d, vars, point));
             r.laplacian = simplify(lap);
-            addStep(r, en, "Laplacian at the point", "لاپلاسیان در نقطه", r.laplacian,
-                    en ? ("The Laplacian is the sum of the pure second partials: " +
-                          toPlain(r.laplacian) + ".")
-                       : ("لاپلاسیان مجموع مشتق‌های دوم خالص است: " + toPlain(r.laplacian) + "."),
-                    "");
+            addStep(r, "step.title.laplacian_at_point", r.laplacian,
+                "step.note.laplacian_is_sum", "", toPlain(r.laplacian));
 
             if (direction.size() == vars.size()) {
                 double norm = 0;
@@ -728,12 +655,9 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
                         unitEn += numStr(unit[i]);
                         unitFa += numStr(unit[i]);
                     }
-                    addStep(r, en, "Directional derivative", "مشتق جهت‌دار", r.directional,
-                            en ? ("The unit direction is (" + unitEn +
-                                  "); D_u f = grad f . u = " + toPlain(r.directional) + ".")
-                               : ("جهت یکه (" + unitFa + ") است؛ D_u f = گرادیان · u = " +
-                                  toPlain(r.directional) + "."),
-                            "");
+                    addStep(r, "step.title.directional_derivative", r.directional,
+                        "step.note.unit_direction", "",
+                        "u = (" + unitEn + "), D_u f = " + toPlain(r.directional));
                     bool dok = false;
                     const double dv = evalConst(r.directional, &dok);
                     if (dok && std::isfinite(dv)) {
@@ -871,12 +795,8 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
         r.normalized = a;
         r.lower = {std::to_string(start)};
         r.upper = {"inf"};
-        addStep(r, en, "Series term", "جملهٔ سری", a,
-                en ? ("Study the convergence of the sum from n = " + std::to_string(start) +
-                      " to infinity of a_n, where a_n = " + toPlain(a) + ".")
-                   : ("همگرایی مجموع از n = " + std::to_string(start) + " تا بی‌نهایت از a_n را "
-                      "بررسی می‌کنیم، که a_n = " + toPlain(a) + "."),
-                "");
+        addStep(r, "step.title.series_term", nullptr, "step.note.study_convergence",
+            "{\"n\":" + std::to_string(start) + "}", "a_n = " + toPlain(a));
 
         // A term that is undefined at the first index makes every partial sum
         // meaningless, so reject it with a concrete starting point instead of
@@ -917,12 +837,8 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
         r.partialSum = sum;
         r.hasNumeric = numericOk;
         r.numericValue = sum;
-        addStep(r, en, "Partial sums", "مجموع‌های جزئی", snap(sum),
-                en ? ("After 400 terms the partial sum is " + numStr(sum) +
-                      " and the last term is " + numStr(last) + ".")
-                   : ("پس از ۴۰۰ جمله، مجموع جزئی " + numStr(sum) + " و جملهٔ آخر " +
-                      numStr(last) + " است."),
-                "");
+        addStep(r, "step.title.partial_sums", nullptr, "step.note.partial_sum_after_400",
+            "{\"sum\":" + numStr(sum) + ",\"last\":" + numStr(last) + "}");
 
         // Geometric test: a_(n+1)/a_n is a constant independent of n.
         Ex ratio = simplify(Mul(substitute(a, n, Add(Sym(n), Num(1))), Pow(a, Num(-1))));
@@ -939,12 +855,8 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
             if (r.converges) {
                 r.seriesSum = simplify(Mul(firstTerm, Pow(Add(Num(1), Mul(Num(-1), snap(rv))), Num(-1))));
             }
-            addStep(r, en, "Geometric ratio", "نسبت هندسی", snap(rv),
-                    en ? ("a_(n+1)/a_n = " + numStr(rv) + ", independent of n, so the series is "
-                          "geometric. It converges exactly when |r| < 1.")
-                       : ("a_(n+1)/a_n = " + numStr(rv) + " و مستقل از n است، پس سری هندسی است. "
-                          "دقیقاً وقتی |r| < 1 همگرا می‌شود."),
-                    "");
+            addStep(r, "step.title.geometric_ratio", nullptr, "step.note.geometric_ratio",
+                "{\"r\":" + numStr(rv) + "}");
         }
 
         // Alternating series test.  A sign pattern alone is not enough: the
@@ -966,12 +878,7 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
                 r.seriesTest = "alternating";
                 r.converges = true;
                 decided = true;
-                addStep(r, en, "Alternating-series test", "آزمون سری متناوب", a,
-                        en ? ("The term alternates in sign and |a_n| decreases to 0, so "
-                              "Leibniz's test guarantees convergence (possibly conditional).")
-                           : ("جمله علامت متناوب دارد و |a_n| نزولی به صفر می‌رود، پس آزمون "
-                              "لایب‌نیتس همگرایی (احتمالاً شرطی) را تضمین می‌کند."),
-                        "");
+                addStep(r, "step.title.alternating_series", nullptr, "step.note.leibniz");
             }
         }
 
@@ -985,22 +892,16 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
                 r.seriesTest = "p-series";
                 r.converges = p > 1.0;
                 decided = true;
-                addStep(r, en, "p-series", "سری p", numEx(p),
-                        en ? ("The term behaves like a constant times 1/n^p with p = " +
-                              numStr(p) + ". A p-series converges exactly when p > 1.")
-                           : ("جمله مانند ضریبی از 1/n^p با p = " + numStr(p) +
-                              " رفتار می‌کند. سری p دقیقاً وقتی p > 1 همگرا می‌شود."),
-                        "");
+                addStep(r, "step.title.p_series", nullptr, "step.note.p_series",
+                    "{\"p\":" + numStr(p) + "}");
                 if (pure && r.converges && std::fabs(p - 2.0) < 1e-9) {
                     Ex known = simplify(Mul(Sym("pi"), Sym("pi"), Num(Rational(1, 6))));
                     bool cok = false;
                     const double cv = evalConst(coeff, &cok);
                     if (cok && std::isfinite(cv)) {
                         r.seriesSum = simplify(Mul(snap(cv), known));
-                        addStep(r, en, "Exact sum", "مجموع دقیق", r.seriesSum,
-                                en ? "The Basel sum sum 1/n^2 = pi^2/6 is used here."
-                                   : "از مجموع بازل، sum 1/n^2 = π²/6، استفاده شده است.",
-                                "");
+                        addStep(r, "step.title.exact_sum", nullptr, "step.note.basel_sum", "",
+                            "sum 1/n^2 = pi^2/6");
                     }
                 }
             }
@@ -1017,10 +918,7 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
                 r.seriesTest = "ratio";
                 r.converges = false;
                 decided = true;
-                addStep(r, en, "Ratio test", "آزمون نسبت", nullptr,
-                        en ? "lim |a_(n+1)/a_n| grows without bound, so the series diverges."
-                           : "حد |a_(n+1)/a_n| بی‌کران رشد می‌کند، پس سری واگرا می‌شود.",
-                        "");
+                addStep(r, "step.title.ratio_test", nullptr, "step.note.ratio_unbounded");
             }
             bool limitOk = lim.kind == LimitOutcome::Finite && lim.value;
             double lv = 0;
@@ -1033,16 +931,11 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
                 r.seriesTest = "ratio";
                 if (lv < 1.0 - 1e-9) { r.converges = true; decided = true; }
                 else if (lv > 1.0 + 1e-9) { r.converges = false; decided = true; }
-                addStep(r, en, "Ratio test", "آزمون نسبت", lim.value,
-                        en ? ("lim |a_(n+1)/a_n| = " + numStr(lv) +
-                              (decided ? (r.converges ? "; smaller than 1, so the series converges."
-                                                      : "; larger than 1, so the series diverges.")
-                                       : "; equal to 1, so this test is inconclusive."))
-                           : ("حد |a_(n+1)/a_n| = " + numStr(lv) +
-                              (decided ? (r.converges ? "؛ کوچک‌تر از ۱ است، پس سری همگرا می‌شود."
-                                                      : "؛ بزرگ‌تر از ۱ است، پس سری واگرا می‌شود.")
-                                       : "؛ برابر ۱ است، پس این آزمون بی‌نتیجه است.")),
-                        "");
+                addStep(r, "step.title.ratio_test", nullptr,
+                    decided ? (r.converges ? "step.note.ratio_below_one"
+                    : "step.note.ratio_above_one")
+                    : "step.note.ratio_equal_one",
+                    "{\"value\":" + numStr(lv) + "}");
             }
         }
 
@@ -1063,16 +956,11 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
                 r.seriesTest = "root";
                 if (lv < 1.0 - 1e-9) { r.converges = true; decided = true; }
                 else if (lv > 1.0 + 1e-9) { r.converges = false; decided = true; }
-                addStep(r, en, "Root test", "آزمون ریشه", lim.value,
-                        en ? ("lim |a_n|^(1/n) = " + numStr(lv) +
-                              (decided ? (r.converges ? "; smaller than 1, so the series converges."
-                                                      : "; larger than 1, so the series diverges.")
-                                       : "; equal to 1, so this test is inconclusive."))
-                           : ("حد |a_n|^(1/n) = " + numStr(lv) +
-                              (decided ? (r.converges ? "؛ کوچک‌تر از ۱ است، پس سری همگرا می‌شود."
-                                                      : "؛ بزرگ‌تر از ۱ است، پس سری واگرا می‌شود.")
-                                       : "؛ برابر ۱ است، پس این آزمون بی‌نتیجه است.")),
-                        "");
+                addStep(r, "step.title.root_test", nullptr,
+                    decided ? (r.converges ? "step.note.root_below_one"
+                    : "step.note.root_above_one")
+                    : "step.note.root_equal_one",
+                    "{\"value\":" + numStr(lv) + "}");
             }
         }
 
@@ -1086,46 +974,31 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
             if (termsGrow) {
                 r.seriesTest = "nth-term";
                 r.converges = false;
-                addStep(r, en, "nth-term test", "آزمون جملهٔ nام", snap(last),
-                        en ? ("The terms do not approach 0 (the last sampled term is " +
-                              numStr(last) + "), so the series diverges.")
-                           : ("جمله‌ها به صفر نزدیک نمی‌شوند (جملهٔ نمونهٔ آخر " + numStr(last) +
-                              " است)، پس سری واگرا می‌شود."),
-                        "");
+                addStep(r, "step.title.nth_term_test", nullptr, "step.note.terms_not_zero",
+                    "{\"last\":" + numStr(last) + "}");
             } else {
                 r.seriesTest = "numeric";
                 r.converges = numericOk && std::fabs(last) < 1e-3 &&
                               std::isfinite(sum);
-                addStep(r, en, "Numeric evidence", "شواهد عددی", snap(sum),
-                        en ? ("No elementary test decided the series. The last term is " +
-                              numStr(last) + " and the partial sum is " + numStr(sum) +
-                              "; this is evidence, not a proof.")
-                           : ("هیچ آزمون مقدماتی دربارهٔ سری تصمیم نگرفت. جملهٔ آخر " + numStr(last) +
-                              " و مجموع جزئی " + numStr(sum) + " است؛ این شواهد است، نه اثبات."),
-                        "");
+                addStep(r, "step.title.numeric_evidence", nullptr, "step.note.numeric_evidence",
+                    "{\"last\":" + numStr(last) + ",\"sum\":" + numStr(sum) + "}");
             }
         }
 
         r.seriesVerdict = r.converges ? "converges" : "diverges";
         if (r.seriesTest == "numeric") r.seriesVerdict = "inconclusive";
         if (r.seriesVerdict == "inconclusive") {
-            addStep(r, en, "Conclusion", "نتیجه", snap(r.partialSum),
-                    en ? "No elementary test decided this series. The numeric partial sums are "
-                         "evidence only, so the verdict stays inconclusive."
-                       : "هیچ آزمون مقدماتی دربارهٔ این سری تصمیم نگرفت. مجموع‌های جزئی عددی "
-                         "فقط شواهد هستند، پس نتیجه بی‌نتیجه می‌ماند.",
-                    "");
+            addStep(r, "step.title.conclusion", nullptr, "step.note.inconclusive");
         } else {
-            addStep(r, en, "Conclusion", "نتیجه", r.seriesSum,
-                    en ? ("The series " + std::string(r.converges ? "converges" : "diverges") +
-                          " by the " + r.seriesTest + " test.")
-                       : ("سری بر پایهٔ آزمون " + r.seriesTest + " " +
-                          std::string(r.converges ? "همگرا" : "واگرا") + " است."),
-                    "");
+            addStep(r, "step.title.conclusion", nullptr,
+                r.converges ? "step.note.series_converges_by"
+                : "step.note.series_diverges_by",
+                "{\"test\":\"" + r.seriesTest + "\"}");
         }
         if (r.seriesSum) {
             r.solution = r.seriesSum;
-            addStep(r, en, "Exact sum", "مجموع دقیق", r.seriesSum);
+            addStep(r, "step.title.exact_sum", nullptr, "step.note.basel_sum", "",
+                "sum 1/n^2 = pi^2/6");
         }
         r.ok = true;
     } catch (const std::exception& e) {
