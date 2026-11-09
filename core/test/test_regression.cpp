@@ -812,7 +812,7 @@ int main() {
         expect(r.ok, "Fourier still solves a continuous interior function");
         bool gibbs = false;
         for (const auto& w : r.warnings) {
-            if (w.find("Gibbs") != std::string::npos) gibbs = true;
+            if (w == "step.note.endpoint_jump") gibbs = true;
         }
         expect(gibbs, "Fourier warns about the endpoint jump and Gibbs");
         bool interior = false;

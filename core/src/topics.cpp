@@ -123,6 +123,37 @@ void fail(Result& r, bool en, const std::string& enMsg, const std::string& faMsg
     r.verified = false;
 }
 
+void baseId(Result& r, const std::string& mode, const std::string& typeId,
+            const std::string& variable = "") {
+    r.ok = true;
+    r.mode = mode;
+    r.typeId = typeId;
+    r.variable = variable;
+    r.engine = "native";
+    r.closedForm = true;
+    r.verified = true;
+}
+
+void failCode(Result& r, const std::string& code) {
+    r.ok = false;
+    r.errorCode = code;
+    r.verified = false;
+    r.error.clear();
+}
+
+void failFrom(Result& r, const std::exception& e, const char* where) {
+    if (const auto* coded = dynamic_cast<const EngineError*>(&e)) {
+        r.errorCode = coded->code;
+        r.errorDetail = coded->detail;
+    } else {
+        r.errorCode = "unavailable";
+        r.errorDetail = std::string(where) + ": " + e.what();
+    }
+    r.ok = false;
+    r.verified = false;
+    r.error.clear();
+}
+
 void failDomain(Result& r, bool en, const DomainIssue& issue) {
     r.ok = false;
     r.verified = false;
@@ -465,15 +496,11 @@ enum class NumMethod { Euler, Heun, Rk4 };
 
 Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
     Result r;
-    const std::string nameEn = method == NumMethod::Euler
-                                   ? "Euler method"
-                                   : (method == NumMethod::Heun ? "Improved Euler (Heun)"
-                                                                : "Classical Runge-Kutta (RK4)");
-    const std::string nameFa = method == NumMethod::Euler
-                                   ? "روش اویلر"
-                                   : (method == NumMethod::Heun ? "اویلر بهبودیافته (هیون)"
-                                                                : "رانگ-کوتای کلاسیک (RK4)");
-    base(r, en, "topic", nameEn, nameFa, "x");
+    baseId(r, "topic",
+           method == NumMethod::Euler
+               ? "euler"
+               : (method == NumMethod::Heun ? "heun" : "rk4"),
+           "x");
     const std::string input = req.text("f", "x + y");
     const double x0 = req.number("x0", 0.0);
     const double y0 = req.number("y0", 1.0);
@@ -482,14 +509,14 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
     if (n < 1) n = 1;
     if (n > 200) n = 200;
     if (std::fabs(h) < 1e-12) {
-        fail(r, en, "The step size must be nonzero.", "گام باید ناصفر باشد.");
+        failCode(r, "bad_step");
         return r;
     }
     Ex f;
     try {
         f = parseExpr(input);
     } catch (const std::exception& e) {
-        setFailure(r, en, e, "Could not parse f(x,y): ", "تابع f(x,y) خوانده نشد: ");
+        failFrom(r, e, "numerical ode");
         return r;
     }
     const std::string unknown = unknownFunction(f);
@@ -498,8 +525,6 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
         r.verified = false;
         r.errorCode = "unknown_function";
         r.errorDetail = "unknown function: " + unknown;
-        r.error = en ? ("Unknown function: " + unknown)
-                     : ("تابع " + unknown + " ناشناخته است.");
         return r;
     }
     r.normalized = f;
@@ -522,8 +547,7 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
         bool ok = true;
         const double k1 = evalF(f, "x", x, "y", y, &ok);
         if (!ok || !std::isfinite(k1)) {
-            fail(r, en, "f(x,y) could not be evaluated on the interval.",
-                 "تابع f(x,y) روی بازه قابل محاسبه نبود.");
+            failCode(r, "not_evaluable");
             return r;
         }
         if (method == NumMethod::Euler) {
@@ -531,7 +555,7 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
         } else if (method == NumMethod::Heun) {
             const double k2 = evalF(f, "x", x + h, "y", y + h * k1, &ok);
             if (!ok) {
-                fail(r, en, "f(x,y) could not be evaluated.", "تابع f(x,y) قابل محاسبه نبود.");
+                failCode(r, "not_evaluable");
                 return r;
             }
             y += h * 0.5 * (k1 + k2);
@@ -540,7 +564,7 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
             const double k3 = evalF(f, "x", x + 0.5 * h, "y", y + 0.5 * h * k2, &ok);
             const double k4 = evalF(f, "x", x + h, "y", y + h * k3, &ok);
             if (!ok) {
-                fail(r, en, "f(x,y) could not be evaluated.", "تابع f(x,y) قابل محاسبه نبود.");
+                failCode(r, "not_evaluable");
                 return r;
             }
             y += h / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
@@ -690,21 +714,21 @@ double simpson(const Ex& f, const std::string& x, double a, double b, int interv
 
 Result fourierSeries(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Fourier series", "سری فوریه", "x");
+    baseId(r, "topic", "fourier_series", "x");
     const std::string input = req.text("f", "x");
     const double L = req.number("L", kPi);
     int terms = (int)std::llround(req.number("n", 5.0));
     if (terms < 1) terms = 1;
     if (terms > 20) terms = 20;
     if (std::fabs(L) < 1e-12) {
-        fail(r, en, "The half-period L must be nonzero.", "نیم‌دوره L باید ناصفر باشد.");
+        failCode(r, "bad_half_period");
         return r;
     }
     Ex f;
     try {
         f = parseExpr(input);
     } catch (const std::exception& e) {
-        setFailure(r, en, e, "Could not parse f(x): ", "تابع f(x) خوانده نشد: ");
+        failFrom(r, e, "fourier");
         return r;
     }
     r.normalized = f;
@@ -714,8 +738,6 @@ Result fourierSeries(const TopicRequest& req, bool en) {
         r.verified = false;
         r.errorCode = "unknown_function";
         r.errorDetail = "unknown function: " + unknown;
-        r.error = en ? ("Unknown function: " + unknown)
-                     : ("تابع " + unknown + " ناشناخته است.");
         return r;
     }
     // sec²x and friends are infinite inside [-L, L]; there is no series.
@@ -730,8 +752,7 @@ Result fourierSeries(const TopicRequest& req, bool en) {
         r.verified = false;
         r.errorCode = "not_integrable";
         r.errorDetail = "non-finite or overflowing Fourier coefficient a0";
-        r.error = en ? "This function is not integrable on the interval."
-                     : "این تابع روی بازه انتگرال‌پذیر نیست.";
+
         return r;
     }
     std::vector<Ex> parts;
@@ -753,8 +774,7 @@ Result fourierSeries(const TopicRequest& req, bool en) {
             r.errorCode = "not_integrable";
             r.errorDetail = "non-finite or overflowing Fourier coefficient at n = " +
                             std::to_string(n);
-            r.error = en ? "This function is not integrable on the interval."
-                         : "این تابع روی بازه انتگرال‌پذیر نیست.";
+
             return r;
         }
         coeffs << n << "\t" << numStr(an, 10) << "\t" << numStr(bn, 10) << "\n";
@@ -776,11 +796,7 @@ Result fourierSeries(const TopicRequest& req, bool en) {
     if (okLeft && okRight && std::isfinite(fLeft) && std::isfinite(fRight)) {
         const double jump = std::fabs(fLeft - fRight);
         if (jump > 1e-6 * (1.0 + std::fabs(fLeft) + std::fabs(fRight))) {
-            r.warnings.push_back(
-                en ? "Jump at the endpoints: the periodic extension is discontinuous, so "
-                     "the series converges slowly and shows the Gibbs phenomenon near -L and L."
-                   : "پرش در دو سر بازه: ادامهٔ متناوب تابع پیوسته نیست، پس سری به‌کندی "
-                     "همگرا می‌شود و نزدیک -L و L پدیدهٔ گیبس دیده می‌شود.");
+            r.warnings.push_back("step.note.endpoint_jump");
             addCheck(r, "check.endpoint_jump", true, "check.gibbs_slow", "",
                      "f(-L) - f(L) = " + numStr(fLeft - fRight));
         }
@@ -1094,8 +1110,6 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
         r.verified = false;
         r.errorCode = "unknown_function";
         r.errorDetail = "unknown function: " + unknown;
-        r.error = en ? ("Unknown function: " + unknown)
-                     : ("تابع " + unknown + " ناشناخته است.");
         return r;
     }
     std::string rule;
@@ -1471,7 +1485,7 @@ Result odeStiff(const TopicRequest& req, bool en) {
     const double xend = req.number("xend", 1.0);
     const double h = req.number("h", 0.01);
     if (std::fabs(h) < 1e-12) {
-        fail(r, en, "The step size must be nonzero.", "گام باید ناصفر باشد.");
+        failCode(r, "bad_step");
         return r;
     }
     if (std::fabs((xend - x0) / h) > 5000) {

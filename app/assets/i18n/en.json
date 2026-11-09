@@ -964,5 +964,13 @@
   "ui.type.related_rates": "Related rates",
   "ui.type.mvt": "Mean value theorem",
   "ui.type.cauchy": "Cauchy's mean value theorem",
-  "ui.type.lhopital": "L'Hopital's rule"
+  "ui.type.lhopital": "L'Hopital's rule",
+  "error.bad_step": "The step size must be nonzero.",
+  "error.bad_half_period": "The half-period L must be nonzero.",
+  "error.not_evaluable": "f(x,y) could not be evaluated on the interval.",
+  "step.note.endpoint_jump": "Jump at the endpoints: the periodic extension is discontinuous, so the series converges slowly and shows the Gibbs phenomenon near -L and L.",
+  "ui.type.euler": "Euler method",
+  "ui.type.heun": "Improved Euler (Heun)",
+  "ui.type.rk4": "Classical Runge-Kutta (RK4)",
+  "ui.type.fourier_series": "Fourier series"
 }

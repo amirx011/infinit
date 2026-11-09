@@ -700,6 +700,10 @@ class ResultView extends StatelessWidget {
       'mvt',
       'cauchy',
       'lhopital',
+      'euler',
+      'heun',
+      'rk4',
+      'fourier_series',
     };
     if (applicationTypes.contains(result.typeId)) {
       return l10n.t('ui.type.${result.typeId}');

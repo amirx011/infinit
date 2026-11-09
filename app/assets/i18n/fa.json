@@ -964,5 +964,13 @@
   "ui.type.related_rates": "نرخ‌های مرتبط",
   "ui.type.mvt": "قضیهٔ مقدار میانگین",
   "ui.type.cauchy": "قضیهٔ کوشی",
-  "ui.type.lhopital": "قاعدهٔ هوپیتال"
+  "ui.type.lhopital": "قاعدهٔ هوپیتال",
+  "error.bad_step": "گام باید ناصفر باشد.",
+  "error.bad_half_period": "نیم‌دوره L باید ناصفر باشد.",
+  "error.not_evaluable": "تابع f(x,y) روی بازه قابل محاسبه نبود.",
+  "step.note.endpoint_jump": "پرش در دو سر بازه: ادامهٔ متناوب تابع پیوسته نیست، پس سری به‌کندی همگرا می‌شود و نزدیک -L و L پدیدهٔ گیبس دیده می‌شود.",
+  "ui.type.euler": "روش اویلر",
+  "ui.type.heun": "اویلر بهبودیافته (هیون)",
+  "ui.type.rk4": "رانگ-کوتای کلاسیک (RK4)",
+  "ui.type.fourier_series": "سری فوریه"
 }

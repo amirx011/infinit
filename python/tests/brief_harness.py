@@ -275,7 +275,7 @@ def check_case(case: dict, native: dict) -> list[str]:
             problems.append(f"a0/2 {native_constant!r} != {oracle_constant!r}")
         if check.get("gibbs"):
             warnings = " ".join(native.get("warnings") or [])
-            if "Gibbs" not in warnings:
+            if "Gibbs" not in warnings and "endpoint_jump" not in warnings:
                 problems.append("no Gibbs note")
         for point in check.get("interior_points") or []:
             found = [

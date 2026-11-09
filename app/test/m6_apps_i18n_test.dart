@@ -70,4 +70,12 @@ void main() {
   test("L'Hopital ships catalogue keys", () async {
     await expectKeyed(await engine.lhopitalAsync('sin(x)', 'x', point: '0'));
   });
+
+  for (final topic in ['euler', 'heun', 'rk4', 'fourier_series']) {
+    test('$topic ships catalogue keys', () async {
+      final result = await engine.topicAsync(topic);
+      await expectKeyed(result);
+      expect(result.typeId, topic);
+    });
+  }
 }
