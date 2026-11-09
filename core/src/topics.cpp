@@ -92,12 +92,15 @@ void addStep(Result& r, bool en, const std::string& enTitle, const std::string& 
     r.steps.push_back(std::move(s));
 }
 
-void addCheck(Result& r, bool en, const std::string& enName, const std::string& faName,
-              bool ok, const std::string& enDetail, const std::string& faDetail) {
+void addCheck(Result& r, const std::string& nameKey, bool ok,
+              const std::string& detailKey = "", const std::string& params = "",
+              const std::string& detailMath = "") {
     Check c;
-    c.name = en ? enName : faName;
+    c.nameKey = nameKey;
     c.ok = ok;
-    c.detail = en ? enDetail : faDetail;
+    c.detailKey = detailKey;
+    c.params = params;
+    c.detailMath = detailMath;
     r.checks.push_back(std::move(c));
 }
 
@@ -175,8 +178,8 @@ Result growthDecay(const TopicRequest& req, bool en) {
             smartNum(r.numericValue),
             "Substitute t = " + numStr(t) + ".",
             "t = " + numStr(t) + " را جای‌گذاری کنید.");
-    addCheck(r, en, "Initial condition", "شرط اولیه", std::fabs(y0 - y0) < 1e-12,
-             "y(0) = " + numStr(y0), "y(0) = " + numStr(y0));
+    addCheck(r, "check.initial_condition", std::fabs(y0 - y0) < 1e-12,
+             "", "", "y(0) = " + numStr(y0));
     return r;
 }
 
@@ -210,10 +213,8 @@ Result newtonCooling(const TopicRequest& req, bool en) {
     addStep(r, en, "Substitute the data", "داده‌ها را جای‌گذاری کنید", solution,
             "T(" + numStr(t) + ") = " + numStr(r.numericValue) + ".",
             "T(" + numStr(t) + ") = " + numStr(r.numericValue) + ".");
-    addCheck(r, en, "Long-term temperature", "دمای بلندمدت",
-             std::fabs(room - room) < 1e-12,
-             "As t grows, T approaches " + numStr(room) + ".",
-             "با بزرگ شدن t، دما به " + numStr(room) + " میل می‌کند.");
+    addCheck(r, "check.long_term_temperature", std::fabs(room - room) < 1e-12,
+             "check.approaches_room", "{\"room\":" + numStr(room) + "}");
     return r;
 }
 
@@ -254,10 +255,9 @@ Result logistic(const TopicRequest& req, bool en) {
     addStep(r, en, "Evaluate", "مقدار را حساب کنید", smartNum(r.numericValue),
             "P(" + numStr(t) + ") = " + numStr(r.numericValue) + ".",
             "P(" + numStr(t) + ") = " + numStr(r.numericValue) + ".");
-    addCheck(r, en, "Carrying capacity", "ظرفیت حمل",
+    addCheck(r, "check.carrying_capacity",
              std::fabs(r.numericValue - carry) < std::fabs(carry) + 1,
-             "The population stays below K = " + numStr(carry) + ".",
-             "جمعیت زیر K = " + numStr(carry) + " می‌ماند.");
+             "check.below_capacity", "{\"k\":" + numStr(carry) + "}");
     return r;
 }
 
@@ -323,8 +323,8 @@ Result mixing(const TopicRequest& req, bool en) {
     addStep(r, en, "Evaluate the amount", "مقدار را حساب کنید", smartNum(numeric),
             "Q(" + numStr(t) + ") = " + numStr(numeric) + ".",
             "Q(" + numStr(t) + ") = " + numStr(numeric) + ".");
-    addCheck(r, en, "Initial amount", "مقدار اولیه", std::fabs(q0 - q0) < 1e-12,
-             "Q(0) = " + numStr(q0) + ".", "Q(0) = " + numStr(q0) + ".");
+    addCheck(r, "check.initial_amount", std::fabs(q0 - q0) < 1e-12,
+             "", "", "Q(0) = " + numStr(q0));
     return r;
 }
 
@@ -481,9 +481,8 @@ Result oscillator(const TopicRequest& req, bool en, bool circuit) {
             "جواب مجموع بخش گذرا و حالت پایدار است.");
 
     const double at0 = (o.kind == 0 ? o.c1 + o.c2 : o.c1) + o.a;
-    addCheck(r, en, "Initial displacement", "جابه‌جایی اولیه",
-             std::fabs(at0 - o.y0) < 1e-9,
-             "y(0) = " + numStr(o.y0) + ".", "y(0) = " + numStr(o.y0) + ".");
+    addCheck(r, "check.initial_displacement", std::fabs(at0 - o.y0) < 1e-9,
+             "", "", "y(0) = " + numStr(o.y0));
     return r;
 }
 
@@ -641,9 +640,8 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
     addStep(r, en, "Read the final value", "مقدار نهایی را بخوانید", smartNum(y),
             "After " + std::to_string(n) + " steps, y(" + numStr(x) + ") ≈ " + numStr(y) + ".",
             "پس از " + std::to_string(n) + " گام، y(" + numStr(x) + ") ≈ " + numStr(y) + ".");
-    addCheck(r, en, "Step count", "تعداد گام", n > 0,
-             "The table contains " + std::to_string(n) + " steps.",
-             "جدول " + std::to_string(n) + " گام دارد.");
+    addCheck(r, "check.step_count", n > 0,
+             "check.table_steps", "{\"n\":" + std::to_string(n) + "}");
     return r;
 }
 
@@ -766,9 +764,8 @@ Result linearSystem(const TopicRequest& req, bool en) {
     addStep(r, en, "Classify the equilibrium", "تعادل را طبقه‌بندی کنید",
             Sym(kindEn), "The origin is a " + kindEn + ".",
             "مبدأ یک " + kindFa + " است.");
-    addCheck(r, en, "Eigenvalue check", "بررسی مقدار ویژه",
-             std::fabs((tr) - (a + d)) < 1e-12, "tr(A) = " + numStr(tr) + ".",
-             "tr(A) = " + numStr(tr) + ".");
+    addCheck(r, "check.eigenvalue", std::fabs((tr) - (a + d)) < 1e-12,
+             "", "", "tr(A) = " + numStr(tr));
     return r;
 }
 
@@ -872,8 +869,8 @@ Result fourierSeries(const TopicRequest& req, bool en) {
     addStep(r, en, "Assemble the partial series", "سری جزئی را بسازید", r.solution,
             "Keeping " + std::to_string(terms) + " harmonics.",
             "با نگه‌داشتن " + std::to_string(terms) + " هارمونیک.");
-    addCheck(r, en, "Constant term", "جملهٔ ثابت", std::isfinite(a0),
-             "a0/2 = " + numStr(a0 / 2.0) + ".", "a0/2 = " + numStr(a0 / 2.0) + ".");
+    addCheck(r, "check.constant_term", std::isfinite(a0),
+             "", "", "a0/2 = " + numStr(a0 / 2.0));
 
     // A jump at the endpoints makes the series converge slowly (Gibbs).
     bool okLeft = false, okRight = false;
@@ -887,11 +884,8 @@ Result fourierSeries(const TopicRequest& req, bool en) {
                      "the series converges slowly and shows the Gibbs phenomenon near -L and L."
                    : "پرش در دو سر بازه: ادامهٔ متناوب تابع پیوسته نیست، پس سری به‌کندی "
                      "همگرا می‌شود و نزدیک -L و L پدیدهٔ گیبس دیده می‌شود.");
-            addCheck(r, en, "Endpoint jump", "پرش دو سر بازه", true,
-                     "f(-L) - f(L) = " + numStr(fLeft - fRight) +
-                         "; expect slow convergence (Gibbs).",
-                     "f(-L) - f(L) = " + numStr(fLeft - fRight) +
-                         "؛ همگرایی کند (گیبس) انتظار می‌رود.");
+            addCheck(r, "check.endpoint_jump", true, "check.gibbs_slow", "",
+                     "f(-L) - f(L) = " + numStr(fLeft - fRight));
         }
     }
 
@@ -912,13 +906,10 @@ Result fourierSeries(const TopicRequest& req, bool en) {
         for (size_t k = 0; k < anVals.size(); ++k)
             scale += std::fabs(anVals[k]) + std::fabs(bnVals[k]);
         const double tolerance = std::max(0.05, 0.25 * scale);
-        addCheck(r, en, "Partial sum at x = " + numStr(xv),
-                 "سری جزئی در x = " + numStr(xv),
-                 err < tolerance,
+        addCheck(r, "check.partial_sum_at_x", err < tolerance,
+                 "", "{\"x\":" + numStr(xv) + "}",
                  "f = " + numStr(fv) + ", partial sum = " + numStr(sv) +
-                     ", |error| = " + numStr(err) + ".",
-                 "f = " + numStr(fv) + "، سری جزئی = " + numStr(sv) +
-                     "، |خطا| = " + numStr(err) + ".");
+                     ", |error| = " + numStr(err));
     }
     return r;
 }
@@ -968,9 +959,7 @@ Result heatEquation(const TopicRequest& req, bool en) {
     addStep(r, en, "Write the series solution", "جواب سری را بنویسید", r.solution,
             "Each mode decays at its own rate.",
             "هر مود با آهنگ خودش میرا می‌شود.");
-    addCheck(r, en, "Boundary conditions", "شرایط مرزی", true,
-             "Every sine term vanishes at x = 0 and x = L.",
-             "هر جملهٔ سینوسی در x = 0 و x = L صفر می‌شود.");
+    addCheck(r, "check.boundary_conditions", true, "check.sine_vanishes");
     return r;
 }
 
@@ -1017,9 +1006,7 @@ Result waveEquation(const TopicRequest& req, bool en) {
     addStep(r, en, "Write the series solution", "جواب سری را بنویسید", r.solution,
             "The initial velocity is taken as zero.",
             "سرعت اولیه صفر گرفته می‌شود.");
-    addCheck(r, en, "Boundary conditions", "شرایط مرزی", true,
-             "Every sine term vanishes at x = 0 and x = L.",
-             "هر جملهٔ سینوسی در x = 0 و x = L صفر می‌شود.");
+    addCheck(r, "check.boundary_conditions", true, "check.sine_vanishes");
     return r;
 }
 
@@ -1069,9 +1056,8 @@ Result laplacePde(const TopicRequest& req, bool en) {
     addStep(r, en, "Write the series solution", "جواب سری را بنویسید", r.solution,
             "The sinh factor enforces the top boundary value.",
             "عامل سینوس هیپربولیک مقدار مرز بالایی را تأمین می‌کند.");
-    addCheck(r, en, "Boundary conditions", "شرایط مرزی", true,
-             "The solution vanishes on x = 0, x = a and y = 0.",
-             "جواب روی x = 0، x = a و y = 0 صفر می‌شود.");
+    addCheck(r, "check.boundary_conditions", true,
+             "check.solution_vanishes_edges");
     return r;
 }
 
@@ -1250,9 +1236,7 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
             rule, rule);
     addStep(r, en, "Write the transform", "تبدیل را بنویسید", r.solution,
             "The result is a function of s.", "نتیجه تابعی از s است.");
-    addCheck(r, en, "Domain", "دامنه", true,
-             "The transform is valid for s large enough.",
-             "تبدیل برای s به‌اندازهٔ کافی بزرگ معتبر است.");
+    addCheck(r, "check.domain", true, "check.transform_domain");
     return r;
 }
 
@@ -1370,8 +1354,7 @@ Result inverseLaplace(const TopicRequest& req, bool en) {
             rule, rule);
     addStep(r, en, "Write the inverse", "معکوس را بنویسید", r.solution,
             "The result is a function of t.", "نتیجه تابعی از t است.");
-    addCheck(r, en, "Table check", "بررسی جدول", true,
-             "The entry is valid for t ≥ 0.", "این سطر برای t ≥ 0 معتبر است.");
+    addCheck(r, "check.table_check", true, "check.table_entry_valid");
     return r;
 }
 
@@ -1605,18 +1588,16 @@ Result odeLinear(const TopicRequest& req, bool en) {
                     "Solve the linear system for the constants.",
                     "دستگاه خطی را برای تعیین ثابت‌ها حل کنید.");
         } else {
-            addCheck(r, en, "Initial conditions", "شرایط اولیه", false,
-                     "The initial conditions are inconsistent with the basis.",
-                     "شرایط اولیه با پایه سازگار نیست.");
+            addCheck(r, "check.initial_conditions", false,
+                     "check.inconsistent_basis");
         }
     }
     r.solution = simplify(solution);
     r.normalized = Sym(charEq.str());
     r.order = (int)n;
     r.closedForm = true;
-    addCheck(r, en, "Root count", "تعداد ریشه", roots.size() == n,
-             std::to_string(n) + " roots were found.",
-             std::to_string(n) + " ریشه پیدا شد.");
+    addCheck(r, "check.root_count", roots.size() == n,
+             "check.roots_found", "{\"n\":" + std::to_string(n) + "}");
     return r;
 }
 
@@ -1690,9 +1671,8 @@ Result odeStiff(const TopicRequest& req, bool en) {
     addStep(r, en, "Read the final value", "مقدار نهایی را بخوانید", smartNum(y),
             "After " + std::to_string(steps) + " steps.",
             "پس از " + std::to_string(steps) + " گام.");
-    addCheck(r, en, "Step count", "تعداد گام", steps > 0,
-             "The table contains " + std::to_string(steps) + " steps.",
-             "جدول " + std::to_string(steps) + " گام دارد.");
+    addCheck(r, "check.step_count", steps > 0,
+             "check.table_steps", "{\"n\":" + std::to_string(steps) + "}");
     return r;
 }
 

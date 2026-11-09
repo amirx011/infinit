@@ -13,9 +13,18 @@ struct Step {
 };
 
 struct Check {
+    // Legacy text fallback for sections that have not migrated yet.
     std::string name;
     bool ok = false;
     std::string detail;
+    // Localisation keys.  When non-empty the UI resolves them from the
+    // catalogue and ignores the legacy text fields.
+    std::string nameKey;
+    std::string detailKey;
+    // Raw JSON object holding plain numeric params, e.g. {"x":0.5}.
+    std::string params;
+    // Optional formula for the detail.  Math never goes inside a sentence.
+    std::string detailMath;
 };
 
 // A point reported by the behaviour / optimisation analyses.

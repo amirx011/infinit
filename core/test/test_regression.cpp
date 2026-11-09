@@ -674,6 +674,25 @@ int main() {
         ode_free(raw);
     }
 
+    // M2: validations serialise keys, plain params and separate math.
+    raw = ode_solve(
+        "{\"mode\":\"topic\",\"topic\":\"fourier_series\",\"lang\":\"en\","
+        "\"f\":\"x^2 + 3*exp(3*x)\",\"L\":3.141592653589793,\"n\":5}");
+    expect(raw != nullptr, "C ABI Fourier response");
+    if (raw) {
+        std::string response(raw);
+        expect(response.find("\"name_key\":\"check.constant_term\"") !=
+                   std::string::npos,
+               "C ABI check carries name_key");
+        expect(response.find("\"detail_math\":\"a0/2 = ") != std::string::npos,
+               "C ABI check carries separate detail math");
+        expect(response.find("\"params\":{\"x\":") != std::string::npos,
+               "C ABI check carries numeric params");
+        expect(response.find("\"name\":\"\"") != std::string::npos,
+               "C ABI migrated check has no name sentence");
+        ode_free(raw);
+    }
+
     // Parser fixtures (P1, P3, P4): superscripts, implicit multiplication and
     // glued functions must all canonicalise to the documented forms.
     {
@@ -773,10 +792,25 @@ int main() {
         }
         expect(gibbs, "Fourier warns about the endpoint jump and Gibbs");
         bool interior = false;
+        bool constantTerm = false;
         for (const auto& c : r.checks) {
-            if (c.name == "Partial sum at x = 0") interior = true;
+            expect(!c.nameKey.empty(), "every Fourier check has a name key");
+            expect(c.name.empty(), "Fourier check carries no name sentence");
+            expect(!c.detailKey.empty() || !c.detailMath.empty(),
+                   "every Fourier check has a detail key or math");
+            expect(c.detail.empty(), "Fourier check carries no detail sentence");
+            if (c.nameKey == "check.partial_sum_at_x" &&
+                c.params.find("\"x\":0") != std::string::npos) {
+                interior = true;
+            }
+            if (c.nameKey == "check.constant_term") {
+                constantTerm = true;
+                expect(c.detailMath.rfind("a0/2 = ", 0) == 0,
+                       "constant term carries a0/2 as separate math");
+            }
         }
         expect(interior, "Fourier validates the partial sum at an interior point");
+        expect(constantTerm, "Fourier reports the constant term by key");
     }
 
     // E3: a singular endpoint removes only the affected extremum, and the

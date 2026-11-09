@@ -43,7 +43,7 @@ core/src/calculus_apps.cpp	147
 core/src/calculus_more.cpp	131
 core/src/localize.hpp	2
 core/src/ode.cpp	523
-core/src/topics.cpp	215
+core/src/topics.cpp	183
 core/test/test_regression.cpp	1
 scripts/install_linux.sh	1
 testdata/brief_cases.json	1

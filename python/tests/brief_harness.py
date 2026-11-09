@@ -264,8 +264,8 @@ def check_case(case: dict, native: dict) -> list[str]:
                 problems.append(f"b_{n} {bn!r} != {float(oracle_bn)!r}")
         constant_detail = ""
         for item in native.get("checks") or []:
-            if item.get("name") == "Constant term":
-                constant_detail = item.get("detail") or ""
+            if item.get("name_key") == "check.constant_term":
+                constant_detail = item.get("detail_math") or ""
         oracle_constant = float(sp.N(sp.integrate(expr, (X, -L, L)) / (2 * L), 20))
         try:
             native_constant = float(constant_detail.split("=")[-1].strip().rstrip("."))
@@ -278,8 +278,12 @@ def check_case(case: dict, native: dict) -> list[str]:
             if "Gibbs" not in warnings:
                 problems.append("no Gibbs note")
         for point in check.get("interior_points") or []:
-            name = f"Partial sum at x = {point:g}"
-            found = [c for c in native.get("checks") or [] if c.get("name") == name]
+            found = [
+                c
+                for c in native.get("checks") or []
+                if c.get("name_key") == "check.partial_sum_at_x"
+                and close(float((c.get("params") or {}).get("x", "nan")), float(point), 1e-9)
+            ]
             if not found:
                 problems.append(f"no interior validation at x = {point}")
             elif not found[0].get("ok"):

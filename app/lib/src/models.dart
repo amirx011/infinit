@@ -37,17 +37,51 @@ class StepView {
 }
 
 class CheckView {
-  const CheckView({required this.name, required this.ok, required this.detail});
+  const CheckView({
+    required this.name,
+    required this.ok,
+    required this.detail,
+    this.nameKey = '',
+    this.detailKey = '',
+    this.params = const {},
+    this.detailMath,
+  });
 
   final String name;
   final bool ok;
   final String detail;
 
-  static CheckView fromJson(Map value) => CheckView(
-    name: (value['name'] ?? '').toString(),
-    ok: value['ok'] == true,
-    detail: (value['detail'] ?? '').toString(),
-  );
+  /// Catalogue key for the check name; empty for unmigrated sections.
+  final String nameKey;
+
+  /// Catalogue key for the detail sentence; empty when the detail is math.
+  final String detailKey;
+
+  /// Plain numeric params for the two keys above.
+  final Map<String, Object?> params;
+
+  /// Formula rendered as its own left-to-right widget next to the sentences.
+  final ExView? detailMath;
+
+  static CheckView fromJson(Map value) {
+    final math = value['detail_math'];
+    return CheckView(
+      name: (value['name'] ?? '').toString(),
+      ok: value['ok'] == true,
+      detail: (value['detail'] ?? '').toString(),
+      nameKey: (value['name_key'] ?? '').toString(),
+      detailKey: (value['detail_key'] ?? '').toString(),
+      params: value['params'] is Map
+          ? {
+              for (final entry in (value['params'] as Map).entries)
+                entry.key.toString(): entry.value,
+            }
+          : const {},
+      detailMath: math is String && math.isNotEmpty
+          ? ExView(plain: math, pretty: math, latex: math)
+          : ExView.fromJson(math),
+    );
+  }
 }
 
 /// A point reported by the behaviour or optimisation analysis.

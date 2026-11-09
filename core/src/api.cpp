@@ -507,8 +507,14 @@ std::string resultJson(const ode::Result& r) {
     o << ",\"checks\":[";
     for (size_t i = 0; i < r.checks.size(); ++i) {
         if (i) o << ",";
-        o << "{\"name\":" << q(r.checks[i].name) << ",\"ok\":"
-          << (r.checks[i].ok ? "true" : "false") << ",\"detail\":" << q(r.checks[i].detail) << "}";
+        const auto& c = r.checks[i];
+        o << "{\"name\":" << q(c.name) << ",\"ok\":"
+          << (c.ok ? "true" : "false") << ",\"detail\":" << q(c.detail);
+        if (!c.nameKey.empty()) o << ",\"name_key\":" << q(c.nameKey);
+        if (!c.detailKey.empty()) o << ",\"detail_key\":" << q(c.detailKey);
+        if (!c.params.empty()) o << ",\"params\":" << c.params;
+        if (!c.detailMath.empty()) o << ",\"detail_math\":" << q(c.detailMath);
+        o << "}";
     }
     o << "]";
 

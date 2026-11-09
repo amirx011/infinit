@@ -2111,6 +2111,58 @@ class ResultView extends StatelessWidget {
     );
   }
 
+  Widget _checkBody(BuildContext context, CheckView check) {
+    final style = Theme.of(context).textTheme.bodyMedium;
+    final legacy =
+        check.nameKey.isEmpty &&
+        check.detailKey.isEmpty &&
+        check.detailMath == null;
+    if (legacy) {
+      return Text('${check.name}: ${check.detail}', style: style);
+    }
+    final children = <Widget>[];
+    if (check.nameKey.isNotEmpty) {
+      children.add(
+        LocalizedSentence(
+          l10n: l10n,
+          messageKey: check.nameKey,
+          params: check.params,
+          style: style,
+        ),
+      );
+    } else if (check.name.isNotEmpty) {
+      children.add(Text(check.name, style: style));
+    }
+    if (check.detailMath != null) {
+      children.add(const SizedBox(height: 4));
+      children.add(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: MathInline(math: check.detailMath!),
+        ),
+      );
+    }
+    if (check.detailKey.isNotEmpty) {
+      children.add(const SizedBox(height: 2));
+      children.add(
+        LocalizedSentence(
+          l10n: l10n,
+          messageKey: check.detailKey,
+          params: check.params,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    } else if (check.detail.isNotEmpty && check.detailMath == null) {
+      children.add(Text(check.detail, style: style));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+
   Widget _checksCard(BuildContext context) {
     final c = context.colors;
     return SoftCard(
@@ -2136,12 +2188,7 @@ class ResultView extends StatelessWidget {
                     color: check.ok ? c.success : c.warning,
                   ),
                   const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      '${check.name}: ${check.detail}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
+                  Expanded(child: _checkBody(context, check)),
                 ],
               ),
             ),
