@@ -82,13 +82,25 @@ double evalF(const Ex& f, const std::string& x, double xv, const std::string& y 
     return local ? v : std::numeric_limits<double>::quiet_NaN();
 }
 
-void addStep(Result& r, bool en, const std::string& enTitle, const std::string& faTitle,
-             const Ex& math = nullptr, const std::string& enNote = "",
-             const std::string& faNote = "") {
+void addStep(Result& r, const std::string& titleKey, const Ex& math = nullptr,
+             const std::string& noteKey = "", const std::string& params = "",
+             const std::string& noteMath = "") {
     Step s;
-    s.title = en ? enTitle : faTitle;
+    s.titleKey = titleKey;
     s.math = math;
-    s.note = en ? enNote : faNote;
+    s.noteKey = noteKey;
+    s.params = params;
+    s.noteMath = noteMath;
+    r.steps.push_back(std::move(s));
+}
+
+// A step whose note is engine data (a table or a symbolic rule), not prose.
+void addStepRaw(Result& r, const std::string& titleKey, const Ex& math,
+                const std::string& rawNote) {
+    Step s;
+    s.titleKey = titleKey;
+    s.math = math;
+    s.note = rawNote;
     r.steps.push_back(std::move(s));
 }
 
@@ -151,21 +163,11 @@ Result growthDecay(const TopicRequest& req, bool en) {
     r.numericValue = y0 * std::exp(k * t);
     r.point = "t=" + numStr(t);
 
-    addStep(r, en, "State the model", "مدل را بنویسید", Sym("y' = k y"),
-            "A quantity whose rate of change is proportional to its current size.",
-            "کمیتی که آهنگ تغییرش با اندازهٔ فعلی متناسب است.");
-    addStep(r, en, "Solve the separable equation", "معادلهٔ جداشدنی را حل کنید",
-            Sym("y = C e^{k t}"),
-            "Separate dy/y = k dt and integrate both sides.",
-            "دو طرف را به dy/y = k dt جدا کنید و انتگرال بگیرید.");
-    addStep(r, en, "Apply the initial condition", "شرط اولیه را اعمال کنید",
-            Mul(numEx(y0), expEx(Mul(numEx(k), Sym("t")))),
-            "At t = 0, y = y0, so C = y0.",
-            "در t = 0 داریم y = y0، پس C = y0.");
-    addStep(r, en, "Evaluate at the requested time", "در زمان خواسته‌شده حساب کنید",
-            smartNum(r.numericValue),
-            "Substitute t = " + numStr(t) + ".",
-            "t = " + numStr(t) + " را جای‌گذاری کنید.");
+    addStep(r, "step.title.state_the_model", Sym("y' = k y"), "step.note.a_quantity_whose_rate_of_change_is_proportional_to_its_current_size");
+    addStep(r, "step.title.solve_the_separable_equation", Sym("y = C e^{k t}"), "step.note.separate_dy_y_k_dt_and_integrate_both_sides");
+    addStep(r, "step.title.apply_the_initial_condition", Mul(numEx(y0), expEx(Mul(numEx(k), Sym("t")))), "step.note.at_t_0_y_y0_so_c_y0");
+    addStep(r, "step.title.evaluate_at_the_requested_time", smartNum(r.numericValue),
+            "step.note.substitute_t", "{\"t\":" + numStr(t) + "}");
     addCheck(r, "check.initial_condition", std::fabs(y0 - y0) < 1e-12,
              "", "", "y(0) = " + numStr(y0));
     return r;
@@ -187,20 +189,11 @@ Result newtonCooling(const TopicRequest& req, bool en) {
     r.numericValue = room + (t0 - room) * std::exp(-k * t);
     r.point = "t=" + numStr(t);
 
-    addStep(r, en, "State the model", "مدل را بنویسید", Sym("T' = -k (T - T_m)"),
-            "The object cools at a rate proportional to the difference from the room.",
-            "جسم با آهنگی متناسب با اختلاف دما با محیط سرد می‌شود.");
-    addStep(r, en, "Solve the linear equation", "معادلهٔ خطی را حل کنید",
-            Add(numEx(room), Mul(Sym("C"), expEx(Mul(Num(-1), numEx(k), Sym("t"))))),
-            "The general solution is T = Tm + C e^(-kt).",
-            "جواب عمومی T = Tm + C e^(-kt) است.");
-    addStep(r, en, "Apply T(0) = T0", "شرط T(0) = T0 را اعمال کنید",
-            Mul(numEx(t0 - room), expEx(Mul(Num(-1), numEx(k), Sym("t")))),
-            "C = T0 - Tm, so the temperature difference decays exponentially.",
-            "C = T0 - Tm، پس اختلاف دما به‌صورت نمایی کاهش می‌یابد.");
-    addStep(r, en, "Substitute the data", "داده‌ها را جای‌گذاری کنید", solution,
-            "T(" + numStr(t) + ") = " + numStr(r.numericValue) + ".",
-            "T(" + numStr(t) + ") = " + numStr(r.numericValue) + ".");
+    addStep(r, "step.title.state_the_model", Sym("T' = -k (T - T_m)"), "step.note.the_object_cools_at_a_rate_proportional_to_the_difference_from_the_room");
+    addStep(r, "step.title.solve_the_linear_equation", Add(numEx(room), Mul(Sym("C"), expEx(Mul(Num(-1), numEx(k), Sym("t"))))), "step.note.the_general_solution_is_t_tm_c_e_kt");
+    addStep(r, "step.title.apply_t_0_t0", Mul(numEx(t0 - room), expEx(Mul(Num(-1), numEx(k), Sym("t")))), "step.note.c_t0_tm_so_the_temperature_difference_decays_exponentially");
+    addStep(r, "step.title.substitute_the_data", solution, "", "",
+            "T(" + numStr(t) + ") = " + numStr(r.numericValue));
     addCheck(r, "check.long_term_temperature", std::fabs(room - room) < 1e-12,
              "check.approaches_room", "{\"room\":" + numStr(room) + "}");
     return r;
@@ -229,20 +222,11 @@ Result logistic(const TopicRequest& req, bool en) {
     r.numericValue = carry / (1.0 + ratio * std::exp(-rate * t));
     r.point = "t=" + numStr(t);
 
-    addStep(r, en, "State the logistic model", "مدل لجستیک را بنویسید",
-            Sym("P' = r P (1 - P/K)"),
-            "Growth slows as the population approaches the carrying capacity K.",
-            "با نزدیک شدن جمعیت به ظرفیت حمل K، رشد کند می‌شود.");
-    addStep(r, en, "Separate and integrate", "جدا کنید و انتگرال بگیرید",
-            Add(numEx(carry), Mul(Sym("C"), expEx(Mul(Num(-1), numEx(rate), Sym("t"))))),
-            "Partial fractions give the general solution.",
-            "کسرهای جزئی جواب عمومی را می‌دهند.");
-    addStep(r, en, "Apply P(0) = P0", "شرط P(0) = P0 را اعمال کنید", solution,
-            "The constant is fixed by the initial population.",
-            "ثابت با جمعیت اولیه تعیین می‌شود.");
-    addStep(r, en, "Evaluate", "مقدار را حساب کنید", smartNum(r.numericValue),
-            "P(" + numStr(t) + ") = " + numStr(r.numericValue) + ".",
-            "P(" + numStr(t) + ") = " + numStr(r.numericValue) + ".");
+    addStep(r, "step.title.state_the_logistic_model", Sym("P' = r P (1 - P/K)"), "step.note.growth_slows_as_the_population_approaches_the_carrying_capacity_k");
+    addStep(r, "step.title.separate_and_integrate", Add(numEx(carry), Mul(Sym("C"), expEx(Mul(Num(-1), numEx(rate), Sym("t"))))), "step.note.partial_fractions_give_the_general_solution");
+    addStep(r, "step.title.apply_p_0_p0", solution, "step.note.the_constant_is_fixed_by_the_initial_population");
+    addStep(r, "step.title.evaluate", smartNum(r.numericValue), "", "",
+            "P(" + numStr(t) + ") = " + numStr(r.numericValue));
     addCheck(r, "check.carrying_capacity",
              std::fabs(r.numericValue - carry) < std::fabs(carry) + 1,
              "check.below_capacity", "{\"k\":" + numStr(carry) + "}");
@@ -272,16 +256,10 @@ Result mixing(const TopicRequest& req, bool en) {
                        Mul(numEx(q0 - cInf * volume0),
                            expEx(Mul(Num(-1), numEx(rateOut / volume0), Sym("t")))));
         numeric = cInf * volume0 + (q0 - cInf * volume0) * std::exp(-rateOut * t / volume0);
-        addStep(r, en, "Constant volume", "حجم ثابت", Sym("V(t) = V_0"),
-                "The inflow and outflow rates are equal, so the volume stays constant.",
-                "دبی ورودی و خروجی برابر است، پس حجم ثابت می‌ماند.");
-        addStep(r, en, "Write the balance law", "قانون موازنه را بنویسید",
-                Sym("Q' = r c_in - (r/V_0) Q"),
-                "Salt enters at r·cin and leaves at (r/V0)·Q.",
-                "نمک با r·cin وارد و با (r/V0)·Q خارج می‌شود.");
-        addStep(r, en, "Solve the linear equation", "معادلهٔ خطی را حل کنید", solution,
-                "Q(t) = cin V0 + (Q0 - cin V0) e^(-rt/V0).",
-                "Q(t) = cin V0 + (Q0 - cin V0) e^(-rt/V0).");
+        addStep(r, "step.title.constant_volume", Sym("V(t) = V_0"), "step.note.the_inflow_and_outflow_rates_are_equal_so_the_volume_stays_constant");
+        addStep(r, "step.title.write_the_balance_law", Sym("Q' = r c_in - (r/V_0) Q"), "step.note.salt_enters_at_r_cin_and_leaves_at_r_v0_q");
+        addStep(r, "step.title.solve_the_linear_equation", solution, "", "",
+                 "Q(t) = c_in V_0 + (Q_0 - c_in V_0) e^(-r t / V_0)");
     } else {
         const double exponent = -rateOut / a;
         const Ex volume = Add(numEx(volume0), Mul(numEx(a), Sym("t")));
@@ -292,25 +270,17 @@ Result mixing(const TopicRequest& req, bool en) {
                        Mul(numEx(q0 - concIn * volume0), Pow(ratio, numEx(exponent))));
         const double vt = volume0 + a * t;
         numeric = concIn * vt + (q0 - concIn * volume0) * std::pow(vt / volume0, exponent);
-        addStep(r, en, "Variable volume", "حجم متغیر", volume,
-                "The volume changes linearly because the rates differ.",
-                "چون دبی‌ها متفاوت‌اند، حجم به‌صورت خطی تغییر می‌کند.");
-        addStep(r, en, "Write the balance law", "قانون موازنه را بنویسید",
-                Sym("Q' + (r_out/V(t)) Q = r_in c_in"),
-                "The outflow concentration is Q/V(t).",
-                "غلظت خروجی Q/V(t) است.");
-        addStep(r, en, "Solve with an integrating factor", "با عامل انتگرال‌گیر حل کنید",
-                solution, "The integrating factor is V^(rout/a).",
-                "عامل انتگرال‌گیر V^(rout/a) است.");
+        addStep(r, "step.title.variable_volume", volume, "step.note.the_volume_changes_linearly_because_the_rates_differ");
+        addStep(r, "step.title.write_the_balance_law", Sym("Q' + (r_out/V(t)) Q = r_in c_in"), "step.note.the_outflow_concentration_is_q_v_t");
+        addStep(r, "step.title.solve_with_an_integrating_factor", solution, "step.note.the_integrating_factor_is_v_rout_a");
     }
     r.solution = solution;
     r.normalized = Sym("Q' = r_in c_in - r_out Q/V");
     r.hasNumeric = true;
     r.numericValue = numeric;
     r.point = "t=" + numStr(t);
-    addStep(r, en, "Evaluate the amount", "مقدار را حساب کنید", smartNum(numeric),
-            "Q(" + numStr(t) + ") = " + numStr(numeric) + ".",
-            "Q(" + numStr(t) + ") = " + numStr(numeric) + ".");
+    addStep(r, "step.title.evaluate_the_amount", smartNum(numeric), "", "",
+            "Q(" + numStr(t) + ") = " + numStr(numeric));
     addCheck(r, "check.initial_amount", std::fabs(q0 - q0) < 1e-12,
              "", "", "Q(0) = " + numStr(q0));
     return r;
@@ -419,54 +389,30 @@ Result oscillator(const TopicRequest& req, bool en, bool circuit) {
     const std::string mName = circuit ? "L" : "m";
     const std::string cName = circuit ? "R" : "c";
     const std::string kName = circuit ? "1/C" : "k";
-    addStep(r, en, "Write the model", "مدل را بنویسید",
+    addStep(r, "step.title.write_the_model",
             circuit ? Sym("L q'' + R q' + q/C = E_0 cos(w t)")
                     : Sym("m y'' + c y' + k y = F_0 cos(w t)"),
-            circuit ? "Kirchhoff's voltage law around the series circuit."
-                    : "Newton's second law for the mass, spring and dashpot.",
-            circuit ? "قانون ولتاژ کیرشهف در مدار سری."
-                    : "قانون دوم نیوتن برای جرم، فنر و میراگر.");
-    addStep(r, en, "Solve the homogeneous equation", "معادلهٔ همگن را حل کنید",
+            circuit ? "step.note.kirchhoff_voltage_law"
+                    : "step.note.newton_second_law");
+    addStep(r, "step.title.solve_the_homogeneous_equation",
             Add(Mul(numEx(o.m), Pow(Sym("r"), Num(2))), Mul(numEx(o.c), Sym("r")),
                 numEx(o.k)),
-            "The characteristic equation is " + mName + " r^2 + " + cName + " r + " + kName +
-                " = 0.",
-            "معادلهٔ مشخصه " + mName + " r^2 + " + cName + " r + " + kName + " = 0 است.");
+            "step.note.characteristic_equation", "",
+            mName + " r^2 + " + cName + " r + " + kName + " = 0");
     if (o.kind == 0) {
-        addStep(r, en, "Real distinct roots", "ریشه‌های حقیقی متمایز",
-                Add(Sym("r_1 = " + numStr(o.r1)), Sym("r_2 = " + numStr(o.r2))),
-                "The response is a sum of two exponentials.",
-                "پاسخ مجموع دو تابع نمایی است.");
+        addStep(r, "step.title.real_distinct_roots", Add(Sym("r_1 = " + numStr(o.r1)), Sym("r_2 = " + numStr(o.r2))), "step.note.the_response_is_a_sum_of_two_exponentials");
     } else if (o.kind == 1) {
-        addStep(r, en, "Repeated root", "ریشهٔ تکراری",
-                Sym("r = " + numStr(o.r1)),
-                "Critical damping: the response is (C1 + C2 t) e^(rt).",
-                "میرایی بحرانی: پاسخ (C1 + C2 t) e^(rt) است.");
+        addStep(r, "step.title.repeated_root", Sym("r = " + numStr(o.r1)), "step.note.critical_damping_the_response_is_c1_c2_t_e_rt");
     } else {
-        addStep(r, en, "Complex roots", "ریشه‌های مختلط",
-                Add(Sym("alpha = " + numStr(o.alpha)), Sym("beta = " + numStr(o.beta))),
-                "The response oscillates inside a decaying envelope.",
-                "پاسخ داخل یک پوشش میراشونده نوسان می‌کند.");
+        addStep(r, "step.title.complex_roots", Add(Sym("alpha = " + numStr(o.alpha)), Sym("beta = " + numStr(o.beta))), "step.note.the_response_oscillates_inside_a_decaying_envelope");
     }
     if (o.resonance) {
-        addStep(r, en, "Resonance", "تشدید",
-                Sym("y_p = (F_0/(2 m w)) t sin(w t)"),
-                "The forcing frequency equals the natural frequency, so the amplitude grows.",
-                "بسامد نیرو با بسامد طبیعی برابر است، پس دامنه رشد می‌کند.");
+        addStep(r, "step.title.resonance", Sym("y_p = (F_0/(2 m w)) t sin(w t)"), "step.note.the_forcing_frequency_equals_the_natural_frequency_so_the_amplitude_grows");
     } else {
-        addStep(r, en, "Particular solution", "جواب خصوصی",
-                Add(Mul(smartNum(o.a), cosEx(Mul(numEx(o.w), Sym("t")))),
-                    Mul(smartNum(o.b), sinEx(Mul(numEx(o.w), Sym("t"))))),
-                "Substitute A cos(wt) + B sin(wt) and match coefficients.",
-                "A cos(wt) + B sin(wt) را جای‌گذاری و ضرایب را برابر کنید.");
+        addStep(r, "step.title.particular_solution", Add(Mul(smartNum(o.a), cosEx(Mul(numEx(o.w), Sym("t")))), Mul(smartNum(o.b), sinEx(Mul(numEx(o.w), Sym("t"))))), "step.note.substitute_a_cos_wt_b_sin_wt_and_match_coefficients");
     }
-    addStep(r, en, "Apply the initial conditions", "شرایط اولیه را اعمال کنید",
-            Add(Sym("C_1 = " + numStr(o.c1)), Sym("C_2 = " + numStr(o.c2))),
-            "Use the initial displacement and velocity to fix the two constants.",
-            "از جابه‌جایی و سرعت اولیه برای تعیین دو ثابت استفاده کنید.");
-    addStep(r, en, "Write the complete response", "پاسخ کامل را بنویسید", solution,
-            "The solution is the sum of the transient and steady-state parts.",
-            "جواب مجموع بخش گذرا و حالت پایدار است.");
+    addStep(r, "step.title.apply_the_initial_conditions", Add(Sym("C_1 = " + numStr(o.c1)), Sym("C_2 = " + numStr(o.c2))), "step.note.use_the_initial_displacement_and_velocity_to_fix_the_two_constants");
+    addStep(r, "step.title.write_the_complete_response", solution, "step.note.the_solution_is_the_sum_of_the_transient_and_steady_state_parts");
 
     const double at0 = (o.kind == 0 ? o.c1 + o.c2 : o.c1) + o.a;
     addCheck(r, "check.initial_displacement", std::fabs(at0 - o.y0) < 1e-9,
@@ -492,8 +438,7 @@ Result fallingBody(const TopicRequest& req, bool en) {
     if (std::fabs(k) < 1e-12) {
         solution = Add(numEx(v0), Mul(numEx(g), Sym("t")));
         numeric = v0 + g * t;
-        addStep(r, en, "No drag", "بدون مقاومت", Sym("v' = g"),
-                "The velocity grows linearly.", "سرعت به‌صورت خطی رشد می‌کند.");
+        addStep(r, "step.title.no_drag", Sym("v' = g"), "step.note.the_velocity_grows_linearly");
     } else {
         const double terminal = m * g / k;
         // v(t) = mg/k + (v0 - mg/k) e^(-kt/m)
@@ -501,25 +446,17 @@ Result fallingBody(const TopicRequest& req, bool en) {
         solution = Add(Mul(numEx(terminal), Add(Num(1), Mul(Num(-1), decay))),
                        Mul(numEx(v0), decay));
         numeric = terminal * (1.0 - std::exp(-k * t / m)) + v0 * std::exp(-k * t / m);
-        addStep(r, en, "State the model", "مدل را بنویسید", Sym("m v' = m g - k v"),
-                "Gravity pulls down; drag opposes the motion.",
-                "گرانش به پایین می‌کشد و مقاومت مخالف حرکت است.");
-        addStep(r, en, "Solve the linear equation", "معادلهٔ خطی را حل کنید",
-                Add(numEx(terminal), Mul(Sym("C"), expEx(Mul(Num(-1), numEx(k / m), Sym("t"))))),
-                "The terminal velocity is mg/k.",
-                "سرعت حد mg/k است.");
-        addStep(r, en, "Apply v(0) = v0", "شرط v(0) = v0 را اعمال کنید", solution,
-                "The constant is v0 - mg/k.",
-                "ثابت برابر v0 - mg/k است.");
+        addStep(r, "step.title.state_the_model", Sym("m v' = m g - k v"), "step.note.gravity_pulls_down_drag_opposes_the_motion");
+        addStep(r, "step.title.solve_the_linear_equation", Add(numEx(terminal), Mul(Sym("C"), expEx(Mul(Num(-1), numEx(k / m), Sym("t"))))), "step.note.the_terminal_velocity_is_mg_k");
+        addStep(r, "step.title.apply_v_0_v0", solution, "step.note.the_constant_is_v0_mg_k");
     }
     r.solution = solution;
     r.normalized = Sym("m v' = m g - k v");
     r.hasNumeric = true;
     r.numericValue = numeric;
     r.point = "t=" + numStr(t);
-    addStep(r, en, "Evaluate", "مقدار را حساب کنید", smartNum(numeric),
-            "v(" + numStr(t) + ") = " + numStr(numeric) + " m/s.",
-            "v(" + numStr(t) + ") = " + numStr(numeric) + " m/s.");
+    addStep(r, "step.title.evaluate", smartNum(numeric), "", "",
+            "v(" + numStr(t) + ") = " + numStr(numeric) + " m/s");
     return r;
 }
 
@@ -615,19 +552,11 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
     r.hasNumeric = true;
     r.numericValue = y;
     r.point = "x=" + numStr(x);
-    addStep(r, en, "Write the update rule", "قاعدهٔ به‌روزرسانی را بنویسید",
-            method == NumMethod::Euler
-                ? Sym("y_{i+1} = y_i + h f(x_i, y_i)")
-                : (method == NumMethod::Heun
-                       ? Sym("y_{i+1} = y_i + h/2 (f_i + f(x_i+h, y_i+h f_i))")
-                       : Sym("y_{i+1} = y_i + h/6 (k_1 + 2k_2 + 2k_3 + k_4)")),
-            "Start from (x0, y0) and advance one step at a time.",
-            "از (x0, y0) شروع کنید و هر بار یک گام جلو بروید.");
-    addStep(r, en, "Step through the interval", "روی بازه گام بردارید", nullptr,
-            table.str(), table.str());
-    addStep(r, en, "Read the final value", "مقدار نهایی را بخوانید", smartNum(y),
-            "After " + std::to_string(n) + " steps, y(" + numStr(x) + ") ≈ " + numStr(y) + ".",
-            "پس از " + std::to_string(n) + " گام، y(" + numStr(x) + ") ≈ " + numStr(y) + ".");
+    addStep(r, "step.title.write_the_update_rule", method == NumMethod::Euler ? Sym("y_{i+1} = y_i + h f(x_i, y_i)") : (method == NumMethod::Heun ? Sym("y_{i+1} = y_i + h/2 (f_i + f(x_i+h, y_i+h f_i))") : Sym("y_{i+1} = y_i + h/6 (k_1 + 2k_2 + 2k_3 + k_4)")), "step.note.start_from_x0_y0_and_advance_one_step_at_a_time");
+    addStepRaw(r, "step.title.step_through_the_interval", nullptr, table.str());
+    addStep(r, "step.title.read_the_final_value", smartNum(y),
+            "step.note.after_steps_y", "{\"n\":" + std::to_string(n) + "}",
+            "y(" + numStr(x) + ") \xE2\x89\x88 " + numStr(y));
     addCheck(r, "check.step_count", n > 0,
              "check.table_steps", "{\"n\":" + std::to_string(n) + "}");
     return r;
@@ -647,16 +576,10 @@ Result linearSystem(const TopicRequest& req, bool en) {
     r.normalized = Sym("X' = A X");
     r.order = 1;
 
-    addStep(r, en, "Write the coefficient matrix", "ماتریس ضرایب را بنویسید",
-            Sym("A = [[" + numStr(a) + ", " + numStr(b) + "], [" + numStr(c) + ", " + numStr(d) + "]]"),
-            "The system is x' = ax + by, y' = cx + dy.",
-            "دستگاه x' = ax + by و y' = cx + dy است.");
-    addStep(r, en, "Compute trace and determinant", "رد و دترمینان را حساب کنید",
-            Add(Sym("tr = " + numStr(tr)), Sym("det = " + numStr(det))),
-            "The eigenvalues solve lambda^2 - tr lambda + det = 0.",
-            "مقادیر ویژه در lambda^2 - tr lambda + det = 0 صدق می‌کنند.");
+    addStep(r, "step.title.write_the_coefficient_matrix", Sym("A = [[" + numStr(a) + ", " + numStr(b) + "], [" + numStr(c) + ", " + numStr(d) + "]]"), "step.note.the_system_is_x_ax_by_y_cx_dy");
+    addStep(r, "step.title.compute_trace_and_determinant", Add(Sym("tr = " + numStr(tr)), Sym("det = " + numStr(det))), "step.note.the_eigenvalues_solve_lambda_2_tr_lambda_det_0");
 
-    std::string kindEn, kindFa;
+    std::string kindEn, kindFa, kindCode;
     Ex xSol, ySol;
     // Work with exact rationals so irrational eigenvalues stay as sqrt(Δ)/2
     // instead of turning into huge decimal fractions.
@@ -677,16 +600,16 @@ Result linearSystem(const TopicRequest& req, bool en) {
         const Ex l2 = simplify(Mul(Add(trE, Mul(Num(-1), Sqrt(discE))), Num(Rational(1, 2))));
         const double l1d = (tr + std::sqrt(disc)) / 2.0;
         kindEn = det < 0 ? "saddle" : (l1d < 0 ? "stable node" : "unstable node");
+        kindCode = det < 0 ? "saddle" : (l1d < 0 ? "stable_node" : "unstable_node");
         kindFa = det < 0 ? "زین" : (l1d < 0 ? "گرهٔ پایدار" : "گرهٔ ناپایدار");
         Ex v1x, v1y, v2x, v2y;
         eigvec(l1, v1x, v1y);
         eigvec(l2, v2x, v2y);
-        addStep(r, en, "Eigenvalues and eigenvectors", "مقادیر و بردارهای ویژه",
+        addStep(r, "step.title.eigenvalues_and_eigenvectors",
                 Add(Sym("lambda_1 = " + toPlain(l1)), Sym("lambda_2 = " + toPlain(l2))),
-                "v1 = (" + toPlain(v1x) + ", " + toPlain(v1y) + "), v2 = (" + toPlain(v2x) + ", " +
-                    toPlain(v2y) + ").",
-                "v1 = (" + toPlain(v1x) + ", " + toPlain(v1y) + ") و v2 = (" + toPlain(v2x) + ", " +
-                    toPlain(v2y) + ").");
+                "", "",
+                "v_1 = (" + toPlain(v1x) + ", " + toPlain(v1y) + "), v_2 = (" +
+                    toPlain(v2x) + ", " + toPlain(v2y) + ")");
         const Ex e1 = expEx(Mul(l1, Sym("t")));
         const Ex e2 = expEx(Mul(l2, Sym("t")));
         xSol = Add(Mul(Sym("C_1"), v1x, e1), Mul(Sym("C_2"), v2x, e2));
@@ -695,6 +618,7 @@ Result linearSystem(const TopicRequest& req, bool en) {
         const Ex l = simplify(Mul(trE, Num(Rational(1, 2))));
         const double ld = tr / 2.0;
         kindEn = ld < 0 ? "stable degenerate node" : "unstable degenerate node";
+        kindCode = ld < 0 ? "stable_degenerate_node" : "unstable_degenerate_node";
         kindFa = ld < 0 ? "گرهٔ تبهگن پایدار" : "گرهٔ تبهگن ناپایدار";
         const bool scalar = B->isZero() && C->isZero();
         const Ex e = expEx(Mul(l, Sym("t")));
@@ -702,10 +626,7 @@ Result linearSystem(const TopicRequest& req, bool en) {
             // A = lambda I has two independent eigenvectors.
             xSol = Mul(e, Sym("C_1"));
             ySol = Mul(e, Sym("C_2"));
-            addStep(r, en, "Repeated eigenvalue", "مقدار ویژهٔ تکراری",
-                    Sym("lambda = " + toPlain(l)),
-                    "The matrix is a multiple of the identity, so every vector is an eigenvector.",
-                    "ماتریس مضربی از همانی است، پس هر بردار بردار ویژه است.");
+            addStep(r, "step.title.repeated_eigenvalue", Sym("lambda = " + toPlain(l)), "step.note.the_matrix_is_a_multiple_of_the_identity_so_every_vector_is_an_eigenvector");
         } else {
             Ex vx, vy;
             eigvec(l, vx, vy);
@@ -716,16 +637,14 @@ Result linearSystem(const TopicRequest& req, bool en) {
                               Mul(Sym("C_2"), Add(Mul(vx, Sym("t")), wx))));
             ySol = Mul(e, Add(Mul(Sym("C_1"), vy),
                               Mul(Sym("C_2"), Add(Mul(vy, Sym("t")), wy))));
-            addStep(r, en, "Repeated eigenvalue", "مقدار ویژهٔ تکراری",
-                    Sym("lambda = " + toPlain(l)),
-                    "One eigenvector is not enough; a generalized eigenvector adds the t term.",
-                    "یک بردار ویژه کافی نیست؛ بردار ویژهٔ تعمیم‌یافته جملهٔ t را اضافه می‌کند.");
+            addStep(r, "step.title.repeated_eigenvalue", Sym("lambda = " + toPlain(l)), "step.note.one_eigenvector_is_not_enough_a_generalized_eigenvector_adds_the_t_term");
         }
     } else {
         const Ex alpha = simplify(Mul(trE, Num(Rational(1, 2))));
         const Ex beta = simplify(Mul(Sqrt(simplify(Mul(Num(-1), discE))), Num(Rational(1, 2))));
         const double alphaD = tr / 2.0;
         kindEn = std::fabs(alphaD) < 1e-10 ? "center" : (alphaD < 0 ? "stable spiral" : "unstable spiral");
+        kindCode = std::fabs(alphaD) < 1e-10 ? "center" : (alphaD < 0 ? "stable_spiral" : "unstable_spiral");
         kindFa = std::fabs(alphaD) < 1e-10 ? "مرکز" : (alphaD < 0 ? "مارپیچ پایدار" : "مارپیچ ناپایدار");
         const Ex ux = B;
         const Ex uy = simplify(Add(alpha, Mul(Num(-1), A)));
@@ -736,22 +655,17 @@ Result linearSystem(const TopicRequest& req, bool en) {
         xSol = Mul(env, Add(Mul(Sym("C_1"), ux, co), Mul(Sym("C_2"), ux, si)));
         ySol = Mul(env, Add(Mul(Sym("C_1"), Add(Mul(uy, co), Mul(Num(-1), vy, si))),
                             Mul(Sym("C_2"), Add(Mul(uy, si), Mul(vy, co)))));
-        addStep(r, en, "Complex eigenvalues", "مقادیر ویژهٔ مختلط",
-                Add(Sym("alpha = " + toPlain(alpha)), Sym("beta = " + toPlain(beta))),
-                "The real part controls growth; the imaginary part controls rotation.",
-                "بخش حقیقی رشد و بخش موهومی دوران را کنترل می‌کند.");
+        addStep(r, "step.title.complex_eigenvalues", Add(Sym("alpha = " + toPlain(alpha)), Sym("beta = " + toPlain(beta))), "step.note.the_real_part_controls_growth_the_imaginary_part_controls_rotation");
     }
     r.solution = xSol;
     r.functionF = xSol;
     r.functionG = ySol;
     r.typeId = kindEn;
     r.typeFa = kindFa;
-    addStep(r, en, "Write the general solution", "جواب عمومی را بنویسید", xSol,
-            "The second component is y(t) = " + toPretty(ySol) + ".",
-            "مؤلفهٔ دوم y(t) = " + toPretty(ySol) + " است.");
-    addStep(r, en, "Classify the equilibrium", "تعادل را طبقه‌بندی کنید",
-            Sym(kindEn), "The origin is a " + kindEn + ".",
-            "مبدأ یک " + kindFa + " است.");
+    addStep(r, "step.title.write_the_general_solution", xSol,
+            "step.note.second_component_is", "", "y(t) = " + toPretty(ySol));
+    addStep(r, "step.title.classify_the_equilibrium", Sym(kindEn),
+            "step.note.origin_" + kindCode);
     addCheck(r, "check.eigenvalue", std::fabs((tr) - (a + d)) < 1e-12,
              "", "", "tr(A) = " + numStr(tr));
     return r;
@@ -848,15 +762,10 @@ Result fourierSeries(const TopicRequest& req, bool en) {
         if (std::fabs(bn) > 1e-10) parts.push_back(Mul(smartNum(bn), sinEx(arg)));
     }
     r.solution = parts.empty() ? Num(0) : Add(parts);
-    addStep(r, en, "State the series", "سری را بنویسید",
-            Sym("f(x) ~ a_0/2 + sum(a_n cos(n pi x/L) + b_n sin(n pi x/L))"),
-            "The coefficients are integrals over one period.",
-            "ضرایب انتگرال‌هایی روی یک دوره‌اند.");
-    addStep(r, en, "Compute the coefficients", "ضرایب را حساب کنید", nullptr,
-            coeffs.str(), coeffs.str());
-    addStep(r, en, "Assemble the partial series", "سری جزئی را بسازید", r.solution,
-            "Keeping " + std::to_string(terms) + " harmonics.",
-            "با نگه‌داشتن " + std::to_string(terms) + " هارمونیک.");
+    addStep(r, "step.title.state_the_series", Sym("f(x) ~ a_0/2 + sum(a_n cos(n pi x/L) + b_n sin(n pi x/L))"), "step.note.the_coefficients_are_integrals_over_one_period");
+    addStepRaw(r, "step.title.compute_the_coefficients", nullptr, coeffs.str());
+    addStep(r, "step.title.assemble_the_partial_series", r.solution,
+            "step.note.keeping_harmonics", "{\"n\":" + std::to_string(terms) + "}");
     addCheck(r, "check.constant_term", std::isfinite(a0),
              "", "", "a0/2 = " + numStr(a0 / 2.0));
 
@@ -938,15 +847,9 @@ Result heatEquation(const TopicRequest& req, bool en) {
         parts.push_back(Mul(smartNum(bn), basis, decay));
     }
     r.solution = parts.empty() ? Num(0) : Add(parts);
-    addStep(r, en, "Separate the variables", "متغیرها را جدا کنید",
-            Sym("u(x,t) = X(x) T(t)"),
-            "The boundary conditions u(0,t)=u(L,t)=0 give sine eigenfunctions.",
-            "شرایط مرزی u(0,t)=u(L,t)=0 توابع ویژهٔ سینوسی می‌دهند.");
-    addStep(r, en, "Compute the Fourier coefficients", "ضرایب فوریه را حساب کنید",
-            nullptr, coeffs.str(), coeffs.str());
-    addStep(r, en, "Write the series solution", "جواب سری را بنویسید", r.solution,
-            "Each mode decays at its own rate.",
-            "هر مود با آهنگ خودش میرا می‌شود.");
+    addStep(r, "step.title.separate_the_variables", Sym("u(x,t) = X(x) T(t)"), "step.note.the_boundary_conditions_u_0_t_u_l_t_0_give_sine_eigenfunctions");
+    addStepRaw(r, "step.title.compute_the_fourier_coefficients", nullptr, coeffs.str());
+    addStep(r, "step.title.write_the_series_solution", r.solution, "step.note.each_mode_decays_at_its_own_rate");
     addCheck(r, "check.boundary_conditions", true, "check.sine_vanishes");
     return r;
 }
@@ -985,15 +888,9 @@ Result waveEquation(const TopicRequest& req, bool en) {
         parts.push_back(Mul(smartNum(an), basis, mode));
     }
     r.solution = parts.empty() ? Num(0) : Add(parts);
-    addStep(r, en, "Separate the variables", "متغیرها را جدا کنید",
-            Sym("u(x,t) = X(x) T(t)"),
-            "The fixed ends give sine modes; time is harmonic.",
-            "دو انتهای ثابت مودهای سینوسی می‌دهند و زمان هارمونیک است.");
-    addStep(r, en, "Compute the coefficients", "ضرایب را حساب کنید", nullptr,
-            coeffs.str(), coeffs.str());
-    addStep(r, en, "Write the series solution", "جواب سری را بنویسید", r.solution,
-            "The initial velocity is taken as zero.",
-            "سرعت اولیه صفر گرفته می‌شود.");
+    addStep(r, "step.title.separate_the_variables", Sym("u(x,t) = X(x) T(t)"), "step.note.the_fixed_ends_give_sine_modes_time_is_harmonic");
+    addStepRaw(r, "step.title.compute_the_coefficients", nullptr, coeffs.str());
+    addStep(r, "step.title.write_the_series_solution", r.solution, "step.note.the_initial_velocity_is_taken_as_zero");
     addCheck(r, "check.boundary_conditions", true, "check.sine_vanishes");
     return r;
 }
@@ -1035,15 +932,9 @@ Result laplacePde(const TopicRequest& req, bool en) {
         parts.push_back(Mul(smartNum(bn), basis, yPart));
     }
     r.solution = parts.empty() ? Num(0) : Add(parts);
-    addStep(r, en, "Separate the variables", "متغیرها را جدا کنید",
-            Sym("u(x,y) = X(x) Y(y)"),
-            "The zero boundary conditions on three sides give sine modes in x.",
-            "شرایط مرزی صفر روی سه ضلع، مودهای سینوسی در x می‌دهند.");
-    addStep(r, en, "Compute the boundary coefficients", "ضرایب مرزی را حساب کنید",
-            nullptr, coeffs.str(), coeffs.str());
-    addStep(r, en, "Write the series solution", "جواب سری را بنویسید", r.solution,
-            "The sinh factor enforces the top boundary value.",
-            "عامل سینوس هیپربولیک مقدار مرز بالایی را تأمین می‌کند.");
+    addStep(r, "step.title.separate_the_variables", Sym("u(x,y) = X(x) Y(y)"), "step.note.the_zero_boundary_conditions_on_three_sides_give_sine_modes_in_x");
+    addStepRaw(r, "step.title.compute_the_boundary_coefficients", nullptr, coeffs.str());
+    addStep(r, "step.title.write_the_series_solution", r.solution, "step.note.the_sinh_factor_enforces_the_top_boundary_value");
     addCheck(r, "check.boundary_conditions", true,
              "check.solution_vanishes_edges");
     return r;
@@ -1216,14 +1107,9 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
         return r;
     }
     r.solution = simplify(F);
-    addStep(r, en, "Start from the definition", "از تعریف شروع کنید",
-            Sym("F(s) = integral_0^inf e^(-s t) f(t) dt"),
-            "The transform turns differentiation into multiplication by s.",
-            "تبدیل، مشتق‌گیری را به ضرب در s تبدیل می‌کند.");
-    addStep(r, en, "Match a table entry", "با یک سطر جدول تطبیق دهید", f,
-            rule, rule);
-    addStep(r, en, "Write the transform", "تبدیل را بنویسید", r.solution,
-            "The result is a function of s.", "نتیجه تابعی از s است.");
+    addStep(r, "step.title.start_from_the_definition", Sym("F(s) = integral_0^inf e^(-s t) f(t) dt"), "step.note.the_transform_turns_differentiation_into_multiplication_by_s");
+    addStepRaw(r, "step.title.match_a_table_entry", f, rule);
+    addStep(r, "step.title.write_the_transform", r.solution, "step.note.the_result_is_a_function_of_s");
     addCheck(r, "check.domain", true, "check.transform_domain");
     return r;
 }
@@ -1335,13 +1221,9 @@ Result inverseLaplace(const TopicRequest& req, bool en) {
         return r;
     }
     r.solution = simplify(f);
-    addStep(r, en, "Read the transform", "تبدیل را بخوانید", F,
-            "We need the function whose Laplace transform is F(s).",
-            "تابعی را می‌خواهیم که تبدیل لاپلاسش F(s) باشد.");
-    addStep(r, en, "Match a table entry", "با یک سطر جدول تطبیق دهید", nullptr,
-            rule, rule);
-    addStep(r, en, "Write the inverse", "معکوس را بنویسید", r.solution,
-            "The result is a function of t.", "نتیجه تابعی از t است.");
+    addStep(r, "step.title.read_the_transform", F, "step.note.we_need_the_function_whose_laplace_transform_is_f_s");
+    addStepRaw(r, "step.title.match_a_table_entry", nullptr, rule);
+    addStep(r, "step.title.write_the_inverse", r.solution, "step.note.the_result_is_a_function_of_t");
     addCheck(r, "check.table_check", true, "check.table_entry_valid");
     return r;
 }
@@ -1529,10 +1411,7 @@ Result odeLinear(const TopicRequest& req, bool en) {
     }
     charEq << " = 0";
 
-    addStep(r, en, "Write the characteristic equation",
-            "معادلهٔ مشخصه را بنویسید", Sym(charEq.str()),
-            "Replace each derivative by a power of r.",
-            "هر مشتق را با توانی از r جایگزین کنید.");
+    addStep(r, "step.title.write_the_characteristic_equation", Sym(charEq.str()), "step.note.replace_each_derivative_by_a_power_of_r");
     std::ostringstream rootText;
     for (size_t i = 0; i < groups.size(); ++i) {
         if (i) rootText << ", ";
@@ -1541,18 +1420,15 @@ Result odeLinear(const TopicRequest& req, bool en) {
         if (std::fabs(g.first.imag()) > 1e-7) rootText << " ± " << numStr(std::fabs(g.first.imag())) << "i";
         if (g.second > 1) rootText << " (x" << g.second << ")";
     }
-    addStep(r, en, "Find the roots", "ریشه‌ها را پیدا کنید", Sym(rootText.str()),
-            "Real roots give exponentials; complex pairs give sines and cosines.",
-            "ریشه‌های حقیقی نمایی و جفت‌های مختلط سینوس و کسینوس می‌دهند.");
+    addStep(r, "step.title.find_the_roots", Sym(rootText.str()), "step.note.real_roots_give_exponentials_complex_pairs_give_sines_and_cosines");
 
     std::vector<Ex> general;
     for (size_t i = 0; i < basis.size(); ++i) {
         general.push_back(Mul(Sym("C_" + std::to_string(i + 1)), basisExpr(basis[i])));
     }
     Ex generalEx = general.empty() ? Num(0) : Add(general);
-    addStep(r, en, "Write the general solution", "جواب عمومی را بنویسید", generalEx,
-            "There are " + std::to_string(n) + " free constants.",
-            std::to_string(n) + " ثابت آزاد وجود دارد.");
+    addStep(r, "step.title.write_the_general_solution", generalEx,
+            "step.note.free_constants", "{\"n\":" + std::to_string(n) + "}");
 
     std::vector<double> ics = parseList(req.text("ics", ""));
     Ex solution = generalEx;
@@ -1571,10 +1447,7 @@ Result odeLinear(const TopicRequest& req, bool en) {
                 parts.push_back(Mul(smartNum(constants[i]), basisExpr(basis[i])));
             }
             solution = parts.empty() ? Num(0) : Add(parts);
-            addStep(r, en, "Apply the initial conditions",
-                    "شرایط اولیه را اعمال کنید", solution,
-                    "Solve the linear system for the constants.",
-                    "دستگاه خطی را برای تعیین ثابت‌ها حل کنید.");
+            addStep(r, "step.title.apply_the_initial_conditions", solution, "step.note.solve_the_linear_system_for_the_constants");
         } else {
             addCheck(r, "check.initial_conditions", false,
                      "check.inconsistent_basis");
@@ -1650,15 +1523,10 @@ Result odeStiff(const TopicRequest& req, bool en) {
     r.hasNumeric = true;
     r.numericValue = y;
     r.point = "x=" + numStr(x);
-    addStep(r, en, "Write the implicit Euler step", "گام اویلر ضمنی را بنویسید",
-            Sym("y_{n+1} = y_n + h f(x_{n+1}, y_{n+1})"),
-            "Solve z = y + h f(x+h, z) at every step.",
-            "در هر گام z = y + h f(x+h, z) را حل کنید.");
-    addStep(r, en, "Advance through the interval", "روی بازه پیش بروید", nullptr,
-            table.str(), table.str());
-    addStep(r, en, "Read the final value", "مقدار نهایی را بخوانید", smartNum(y),
-            "After " + std::to_string(steps) + " steps.",
-            "پس از " + std::to_string(steps) + " گام.");
+    addStep(r, "step.title.write_the_implicit_euler_step", Sym("y_{n+1} = y_n + h f(x_{n+1}, y_{n+1})"), "step.note.solve_z_y_h_f_x_h_z_at_every_step");
+    addStepRaw(r, "step.title.advance_through_the_interval", nullptr, table.str());
+    addStep(r, "step.title.read_the_final_value", smartNum(y),
+            "step.note.after_steps", "{\"n\":" + std::to_string(steps) + "}");
     addCheck(r, "check.step_count", steps > 0,
              "check.table_steps", "{\"n\":" + std::to_string(steps) + "}");
     return r;

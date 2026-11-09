@@ -2295,11 +2295,20 @@ class _StepRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  step.title,
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
-                ),
+                if (step.titleKey.isNotEmpty)
+                  LocalizedSentence(
+                    l10n: l10n,
+                    messageKey: step.titleKey,
+                    params: step.params,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+                  )
+                else
+                  Text(
+                    step.title,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
                 if (step.math != null) ...[
                   const SizedBox(height: 8),
                   MathBlock(
@@ -2309,7 +2318,22 @@ class _StepRow extends StatelessWidget {
                     onCopy: onCopy == null ? null : () => onCopy!(step.math),
                   ),
                 ],
-                if (step.note.isNotEmpty) ...[
+                if (step.noteMath != null) ...[
+                  const SizedBox(height: 7),
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: MathInline(math: step.noteMath!),
+                  ),
+                ],
+                if (step.noteKey.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  LocalizedSentence(
+                    l10n: l10n,
+                    messageKey: step.noteKey,
+                    params: step.params,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ] else if (step.note.isNotEmpty) ...[
                   const SizedBox(height: 7),
                   Text(step.note, style: Theme.of(context).textTheme.bodySmall),
                 ],

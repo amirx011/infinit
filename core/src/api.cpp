@@ -500,7 +500,12 @@ std::string resultJson(const ode::Result& r) {
         if (i) o << ",";
         const auto& s = r.steps[i];
         o << "{\"title\":" << q(s.title) << ",\"note\":" << q(s.note)
-          << ",\"math\":" << exJson(s.math) << "}";
+          << ",\"math\":" << exJson(s.math);
+        if (!s.titleKey.empty()) o << ",\"title_key\":" << q(s.titleKey);
+        if (!s.noteKey.empty()) o << ",\"note_key\":" << q(s.noteKey);
+        if (!s.params.empty()) o << ",\"params\":" << s.params;
+        if (!s.noteMath.empty()) o << ",\"note_math\":" << q(s.noteMath);
+        o << "}";
     }
     o << "]";
 

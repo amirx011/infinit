@@ -1045,7 +1045,7 @@ void main() {
 
     expect(find.text('Solution path'), findsOneWidget);
     expect(find.text('Simplest answer'), findsOneWidget);
-    expect(find.textContaining('cos'), findsWidgets);
+    expect(find.byType(Math), findsWidgets);
     expect(find.textContaining('= C'), findsNothing);
   });
 

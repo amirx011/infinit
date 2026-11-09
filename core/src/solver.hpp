@@ -7,9 +7,18 @@
 namespace ode {
 
 struct Step {
+    // Legacy text fallback for sections that have not migrated yet.
     std::string title;
     Ex math;             // may be null
     std::string note;
+    // Localisation keys.  When non-empty the UI resolves them from the
+    // catalogue and ignores the legacy text fields.
+    std::string titleKey;
+    std::string noteKey;
+    // Raw JSON object holding plain numeric params, e.g. {"n":4}.
+    std::string params;
+    // Optional formula for the note.  Math never goes inside a sentence.
+    std::string noteMath;
 };
 
 struct Check {

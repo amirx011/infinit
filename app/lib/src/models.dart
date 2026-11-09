@@ -23,16 +23,45 @@ class ExView {
 }
 
 class StepView {
-  const StepView({required this.title, required this.note, this.math});
+  const StepView({
+    required this.title,
+    required this.note,
+    this.math,
+    this.titleKey = '',
+    this.noteKey = '',
+    this.params = const {},
+    this.noteMath,
+  });
 
   final String title;
   final String note;
   final ExView? math;
 
+  /// Catalogue key for the step title; empty for unmigrated sections.
+  final String titleKey;
+
+  /// Catalogue key for the note sentence; empty when the note is math or raw.
+  final String noteKey;
+
+  /// Plain numeric params for the two keys above.
+  final Map<String, Object?> params;
+
+  /// Formula for the note, rendered as its own left-to-right widget.
+  final ExView? noteMath;
+
   static StepView fromJson(Map value) => StepView(
     title: (value['title'] ?? '').toString(),
     note: (value['note'] ?? '').toString(),
     math: ExView.fromJson(value['math']),
+    titleKey: (value['title_key'] ?? '').toString(),
+    noteKey: (value['note_key'] ?? '').toString(),
+    params: value['params'] is Map
+        ? {
+            for (final entry in (value['params'] as Map).entries)
+              entry.key.toString(): entry.value,
+          }
+        : const {},
+    noteMath: ExView.fromJson(value['note_math']),
   );
 }
 

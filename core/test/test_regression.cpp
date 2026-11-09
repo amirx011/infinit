@@ -755,6 +755,30 @@ int main() {
                "Heun x + csc^2(x) at x0=1 matches the known value");
     }
 
+    // M3: topic derivation steps carry catalogue keys and keep formulas out
+    // of the sentence fields.
+    {
+        TopicRequest req;
+        req.topic = "linear_system";
+        req.nums["a"] = 0;
+        req.nums["b"] = 1;
+        req.nums["c"] = -1;
+        req.nums["d"] = 0;
+        Result r = solveTopic(req);
+        expect(r.ok, "linear system solves");
+        bool keyedTitle = false, keyedNote = false, separateMath = false;
+        for (const auto& s : r.steps) {
+            expect(s.title.empty(), "topic steps carry no title sentence");
+            if (!s.titleKey.empty()) keyedTitle = true;
+            if (!s.noteKey.empty()) keyedNote = true;
+            if (!s.titleKey.empty() && !s.noteMath.empty() && s.note.empty())
+                separateMath = true;
+        }
+        expect(keyedTitle, "topic step titles are keys");
+        expect(keyedNote, "topic step notes are keys");
+        expect(separateMath, "formula notes travel as noteMath");
+    }
+
     // E2: a non-integrable Fourier input is refused; a genuine jump keeps the
     // Gibbs note and interior-point validation.
     {
