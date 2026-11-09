@@ -21,18 +21,33 @@ class LinearAlgebraPage extends StatelessWidget {
 
   static const _spec = TopicSpec(
     id: 'linear_system',
-    titleEn: 'Linear algebra',
-    titleFa: 'جبر خطی',
     icon: Icons.view_in_ar_rounded,
-    blurbEn:
-        'Read a 2×2 system through its matrix: trace, determinant and eigenvalues decide whether the origin is a node, saddle, spiral or centre.',
-    blurbFa:
-        'یک دستگاه ۲×۲ را از ماتریسش بخوانید: رد، دترمینان و مقدارهای ویژه تعیین می‌کنند مبدأ گره، زین، مارپیچ یا مرکز باشد.',
+    keyPrefix: 'linear_algebra',
     fields: [
-      TopicField('a', 'a (row 1, col 1)', 'a (سطر ۱، ستون ۱)', initial: '0', numeric: true),
-      TopicField('b', 'b (row 1, col 2)', 'b (سطر ۱، ستون ۲)', initial: '1', numeric: true),
-      TopicField('c', 'c (row 2, col 1)', 'c (سطر ۲، ستون ۱)', initial: '-1', numeric: true),
-      TopicField('d', 'd (row 2, col 2)', 'd (سطر ۲، ستون ۲)', initial: '0', numeric: true),
+      TopicField(
+        'a',
+        labelKey: 'topic.linear_algebra.field.a.label',
+        initial: '0',
+        numeric: true,
+      ),
+      TopicField(
+        'b',
+        labelKey: 'topic.linear_algebra.field.b.label',
+        initial: '1',
+        numeric: true,
+      ),
+      TopicField(
+        'c',
+        labelKey: 'topic.linear_algebra.field.c.label',
+        initial: '-1',
+        numeric: true,
+      ),
+      TopicField(
+        'd',
+        labelKey: 'topic.linear_algebra.field.d.label',
+        initial: '0',
+        numeric: true,
+      ),
     ],
     examples: [
       "x' = y, y' = −x  →  centre",

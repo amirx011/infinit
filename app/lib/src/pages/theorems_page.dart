@@ -368,8 +368,8 @@ class _TheoremsPageState extends State<TheoremsPage> {
           const SizedBox(height: 12),
           MathBlock(
             math: ExView(
-              plain: entry.statementEn,
-              pretty: entry.statementEn,
+              plain: entry.latex,
+              pretty: entry.latex,
               latex: entry.latex,
             ),
             size: 17,
@@ -808,8 +808,8 @@ class _TheoremsPageState extends State<TheoremsPage> {
           const SizedBox(height: 12),
           MathBlock(
             math: ExView(
-              plain: entry.statementEn,
-              pretty: entry.statementEn,
+              plain: entry.latex,
+              pretty: entry.latex,
               latex: entry.latex,
             ),
             size: 15.5,

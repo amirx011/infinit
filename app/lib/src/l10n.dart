@@ -225,7 +225,6 @@ AppLanguage languageFor(String code) => kAppLanguages.firstWhere(
 bool isSupportedLanguage(String code) =>
     kAppLanguages.any((language) => language.code == code);
 
-
 /// Labels introduced by the study articles, the linear-algebra workbench and
 /// the shared topic pages.  They live in one table so every language gets the
 /// same set of keys without touching the older `_extra` maps.
@@ -273,7 +272,8 @@ const _study = <String, Map<String, String>>{
     'Derivative': 'Derivada',
     'Integral': 'Integral',
     'Types of differential equations': 'Tipos de ecuaciones diferenciales',
-    'Applications of differential equations': 'Aplicaciones de las ecuaciones diferenciales',
+    'Applications of differential equations':
+        'Aplicaciones de las ecuaciones diferenciales',
     'Show the answer and steps': 'Mostrar la respuesta y los pasos',
     'Computing…': 'Calculando…',
     'Short answer': 'Respuesta breve',
@@ -282,7 +282,8 @@ const _study = <String, Map<String, String>>{
     'Step by step': 'Paso a paso',
     'Common pitfalls': 'Errores comunes',
     'Examples': 'Ejemplos',
-    'The computation engine is unavailable.': 'El motor de cálculo no está disponible.',
+    'The computation engine is unavailable.':
+        'El motor de cálculo no está disponible.',
   },
   'fr': {
     'Linear algebra': 'Algèbre linéaire',
@@ -291,7 +292,8 @@ const _study = <String, Map<String, String>>{
     'Derivative': 'Dérivée',
     'Integral': 'Intégrale',
     'Types of differential equations': 'Types d’équations différentielles',
-    'Applications of differential equations': 'Applications des équations différentielles',
+    'Applications of differential equations':
+        'Applications des équations différentielles',
     'Show the answer and steps': 'Afficher la réponse et les étapes',
     'Computing…': 'Calcul en cours…',
     'Short answer': 'Réponse courte',
@@ -300,7 +302,8 @@ const _study = <String, Map<String, String>>{
     'Step by step': 'Étape par étape',
     'Common pitfalls': 'Erreurs fréquentes',
     'Examples': 'Exemples',
-    'The computation engine is unavailable.': 'Le moteur de calcul n’est pas disponible.',
+    'The computation engine is unavailable.':
+        'Le moteur de calcul n’est pas disponible.',
   },
   'de': {
     'Linear algebra': 'Lineare Algebra',
@@ -309,7 +312,8 @@ const _study = <String, Map<String, String>>{
     'Derivative': 'Ableitung',
     'Integral': 'Integral',
     'Types of differential equations': 'Arten von Differentialgleichungen',
-    'Applications of differential equations': 'Anwendungen von Differentialgleichungen',
+    'Applications of differential equations':
+        'Anwendungen von Differentialgleichungen',
     'Show the answer and steps': 'Antwort und Schritte anzeigen',
     'Computing…': 'Wird berechnet…',
     'Short answer': 'Kurze Antwort',
@@ -318,7 +322,8 @@ const _study = <String, Map<String, String>>{
     'Step by step': 'Schritt für Schritt',
     'Common pitfalls': 'Häufige Fehler',
     'Examples': 'Beispiele',
-    'The computation engine is unavailable.': 'Die Rechen-Engine ist nicht verfügbar.',
+    'The computation engine is unavailable.':
+        'Die Rechen-Engine ist nicht verfügbar.',
   },
   'ru': {
     'Linear algebra': 'Линейная алгебра',
@@ -327,7 +332,8 @@ const _study = <String, Map<String, String>>{
     'Derivative': 'Производная',
     'Integral': 'Интеграл',
     'Types of differential equations': 'Типы дифференциальных уравнений',
-    'Applications of differential equations': 'Применения дифференциальных уравнений',
+    'Applications of differential equations':
+        'Применения дифференциальных уравнений',
     'Show the answer and steps': 'Показать ответ и шаги',
     'Computing…': 'Вычисление…',
     'Short answer': 'Краткий ответ',
@@ -336,7 +342,8 @@ const _study = <String, Map<String, String>>{
     'Step by step': 'Шаг за шагом',
     'Common pitfalls': 'Типичные ошибки',
     'Examples': 'Примеры',
-    'The computation engine is unavailable.': 'Вычислительный движок недоступен.',
+    'The computation engine is unavailable.':
+        'Вычислительный движок недоступен.',
   },
   'zh': {
     'Linear algebra': '线性代数',
@@ -399,7 +406,8 @@ const _study = <String, Map<String, String>>{
     'Derivative': 'Derivada',
     'Integral': 'Integral',
     'Types of differential equations': 'Tipos de equações diferenciais',
-    'Applications of differential equations': 'Aplicações das equações diferenciais',
+    'Applications of differential equations':
+        'Aplicações das equações diferenciais',
     'Show the answer and steps': 'Mostrar a resposta e os passos',
     'Computing…': 'Calculando…',
     'Short answer': 'Resposta curta',
@@ -408,7 +416,8 @@ const _study = <String, Map<String, String>>{
     'Step by step': 'Passo a passo',
     'Common pitfalls': 'Erros comuns',
     'Examples': 'Exemplos',
-    'The computation engine is unavailable.': 'O motor de cálculo não está disponível.',
+    'The computation engine is unavailable.':
+        'O motor de cálculo não está disponível.',
   },
   'tr': {
     'Linear algebra': 'Lineer cebir',
@@ -417,7 +426,8 @@ const _study = <String, Map<String, String>>{
     'Derivative': 'Türev',
     'Integral': 'İntegral',
     'Types of differential equations': 'Diferansiyel denklem türleri',
-    'Applications of differential equations': 'Diferansiyel denklemlerin uygulamaları',
+    'Applications of differential equations':
+        'Diferansiyel denklemlerin uygulamaları',
     'Show the answer and steps': 'Cevabı ve adımları göster',
     'Computing…': 'Hesaplanıyor…',
     'Short answer': 'Kısa cevap',
@@ -426,7 +436,8 @@ const _study = <String, Map<String, String>>{
     'Step by step': 'Adım adım',
     'Common pitfalls': 'Yaygın hatalar',
     'Examples': 'Örnekler',
-    'The computation engine is unavailable.': 'Hesaplama motoru kullanılamıyor.',
+    'The computation engine is unavailable.':
+        'Hesaplama motoru kullanılamıyor.',
   },
 };
 
@@ -476,6 +487,19 @@ class L10n {
     final fa = faOrParams is String ? faOrParams : null;
     if (code == 'fa' && fa != null) return fa;
     return en;
+  }
+
+  /// Reads the contiguous numbered keys `<prefix>.0`, `<prefix>.1`, ...
+  /// Stops at the first missing index so content lists keep their length in
+  /// the catalogue instead of in code.
+  List<String> tList(String prefix) {
+    final out = <String>[];
+    for (var i = 0; ; i++) {
+      final key = '$prefix.$i';
+      if (!I18n.instance.hasKey(key)) break;
+      out.add(t(key));
+    }
+    return out;
   }
 
   static L10n of(BuildContext context) => L10n(Localizations.localeOf(context));

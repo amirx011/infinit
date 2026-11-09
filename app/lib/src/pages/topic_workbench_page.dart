@@ -93,10 +93,9 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
         final value = double.tryParse(text.replaceAll('−', '-'));
         if (value == null) {
           setState(
-            () => _error = l.t(
-              '“${field.labelEn}” must be a number.',
-              '«${field.labelFa}» باید عدد باشد.',
-            ),
+            () => _error = l.t('ui.field_must_be_a_number', {
+              'field': l.t(field.labelKey),
+            }),
           );
           return;
         }
@@ -152,8 +151,8 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
               PageTitle(
                 tone: c.accent,
                 icon: spec.icon,
-                title: l.t(spec.titleEn, spec.titleFa),
-                subtitle: l.t(spec.blurbEn, spec.blurbFa),
+                title: l.t(spec.titleKey),
+                subtitle: l.t(spec.blurbKey),
               ),
               const SizedBox(height: 18),
               Wrap(
@@ -166,10 +165,10 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
                         width: field.key == 'f' || field.key == 'F' ? 360 : 300,
                         child: LabelledField(
                           controller: _controllers[field.key]!,
-                          label: l.t(field.labelEn, field.labelFa),
-                          hint: field.hintEn.isEmpty
+                          label: l.t(field.labelKey),
+                          hint: field.hintKey.isEmpty
                               ? null
-                              : l.t(field.hintEn, field.hintFa),
+                              : l.t(field.hintKey),
                           width: field.key == 'f' || field.key == 'F'
                               ? 360
                               : 300,
@@ -179,10 +178,8 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
                     else
                       LabelledField(
                         controller: _controllers[field.key]!,
-                        label: l.t(field.labelEn, field.labelFa),
-                        hint: field.hintEn.isEmpty
-                            ? null
-                            : l.t(field.hintEn, field.hintFa),
+                        label: l.t(field.labelKey),
+                        hint: field.hintKey.isEmpty ? null : l.t(field.hintKey),
                         width: 160,
                         onSubmitted: _run,
                       ),
