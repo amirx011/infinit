@@ -319,21 +319,81 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
 
-    expect(find.text('\u062d\u0633\u0627\u0628 \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644 \u0648 \u0627\u0646\u062a\u06af\u0631\u0627\u0644'), findsOneWidget);
-    expect(find.text('\u062a\u0648\u0636\u06cc\u062d\u0627\u062a \u0622\u0645\u0648\u0632\u0634\u06cc'), findsOneWidget);
+    expect(
+      find.text(
+        '\u062d\u0633\u0627\u0628 \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644 \u0648 \u0627\u0646\u062a\u06af\u0631\u0627\u0644',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '\u062a\u0648\u0636\u06cc\u062d\u0627\u062a \u0622\u0645\u0648\u0632\u0634\u06cc',
+      ),
+      findsOneWidget,
+    );
 
-    await _drawerTap(tester, '\u062d\u0633\u0627\u0628 \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644 \u0648 \u0627\u0646\u062a\u06af\u0631\u0627\u0644');
-    await _drawerTap(tester, '\u06a9\u0627\u0631\u0628\u0631\u062f\u0647\u0627\u06cc \u0645\u0634\u062a\u0642');
-    expect(find.text('\u062a\u062d\u0644\u06cc\u0644 \u0631\u0641\u062a\u0627\u0631 \u062a\u0627\u0628\u0639'), findsOneWidget);
-    expect(find.text('\u0645\u0645\u0627\u0633 \u0648 \u062e\u0637 \u0639\u0645\u0648\u062f'), findsOneWidget);
-    expect(find.text('\u0645\u0633\u0627\u06cc\u0644 \u0628\u0647\u06cc\u0646\u0647\u200c\u0633\u0627\u0632\u06cc'), findsOneWidget);
-    expect(find.text('\u0646\u0631\u062e\u200c\u0647\u0627\u06cc \u0645\u0631\u062a\u0628\u0637'), findsOneWidget);
-    await _drawerTap(tester, '\u0642\u0636\u0627\u06cc\u0627\u06cc \u0645\u0647\u0645');
-    expect(find.text('\u0642\u0627\u0639\u062f\u0647\u0654 \u0647\u0648\u067e\u06cc\u062a\u0627\u0644'), findsOneWidget);
-    expect(find.text('\u0642\u0636\u06cc\u0647\u0654 \u0645\u0642\u062f\u0627\u0631 \u0645\u06cc\u0627\u0646\u06af\u06cc\u0646'), findsOneWidget);
-    expect(find.text('\u0642\u0636\u06cc\u0647\u0654 \u0631\u0648\u0644'), findsOneWidget);
-    expect(find.text('\u0642\u0636\u06cc\u0647\u0654 \u06a9\u0648\u0634\u06cc'), findsOneWidget);
-    expect(find.text('\u0642\u0636\u0627\u06cc\u0627\u06cc \u0645\u0634\u062a\u0642\u060c \u06a9\u0627\u0645\u0644'), findsOneWidget);
+    await _drawerTap(
+      tester,
+      '\u062d\u0633\u0627\u0628 \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644 \u0648 \u0627\u0646\u062a\u06af\u0631\u0627\u0644',
+    );
+    await _drawerTap(
+      tester,
+      '\u06a9\u0627\u0631\u0628\u0631\u062f\u0647\u0627\u06cc \u0645\u0634\u062a\u0642',
+    );
+    expect(
+      find.text(
+        '\u062a\u062d\u0644\u06cc\u0644 \u0631\u0641\u062a\u0627\u0631 \u062a\u0627\u0628\u0639',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '\u0645\u0645\u0627\u0633 \u0648 \u062e\u0637 \u0639\u0645\u0648\u062f',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '\u0645\u0633\u0627\u06cc\u0644 \u0628\u0647\u06cc\u0646\u0647\u200c\u0633\u0627\u0632\u06cc',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '\u0646\u0631\u062e\u200c\u0647\u0627\u06cc \u0645\u0631\u062a\u0628\u0637',
+      ),
+      findsOneWidget,
+    );
+    await _drawerTap(
+      tester,
+      '\u0642\u0636\u0627\u06cc\u0627\u06cc \u0645\u0647\u0645',
+    );
+    expect(
+      find.text(
+        '\u0642\u0627\u0639\u062f\u0647\u0654 \u0647\u0648\u067e\u06cc\u062a\u0627\u0644',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '\u0642\u0636\u06cc\u0647\u0654 \u0645\u0642\u062f\u0627\u0631 \u0645\u06cc\u0627\u0646\u06af\u06cc\u0646',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('\u0642\u0636\u06cc\u0647\u0654 \u0631\u0648\u0644'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('\u0642\u0636\u06cc\u0647\u0654 \u06a9\u0648\u0634\u06cc'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        '\u0642\u0636\u0627\u06cc\u0627\u06cc \u0645\u0634\u062a\u0642\u060c \u06a9\u0627\u0645\u0644',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('opens the systems of ODEs workbench', (tester) async {
@@ -365,12 +425,31 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
-    await _drawerTap(tester, '\u0645\u0639\u0627\u062f\u0644\u0627\u062a \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644');
-    await _drawerTap(tester, '\u062f\u0633\u062a\u06af\u0627\u0647\u200c\u0647\u0627 \u0648 \u067e\u0627\u06cc\u062f\u0627\u0631\u06cc');
-    await _drawerTap(tester, '\u062f\u0633\u062a\u06af\u0627\u0647\u200c\u0647\u0627\u06cc \u0645\u0639\u0627\u062f\u0644\u0627\u062a \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644');
+    await _drawerTap(
+      tester,
+      '\u0645\u0639\u0627\u062f\u0644\u0627\u062a \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644',
+    );
+    await _drawerTap(
+      tester,
+      '\u062f\u0633\u062a\u06af\u0627\u0647\u200c\u0647\u0627 \u0648 \u067e\u0627\u06cc\u062f\u0627\u0631\u06cc',
+    );
+    await _drawerTap(
+      tester,
+      '\u062f\u0633\u062a\u06af\u0627\u0647\u200c\u0647\u0627\u06cc \u0645\u0639\u0627\u062f\u0644\u0627\u062a \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644',
+    );
 
-    expect(find.text('\u062f\u0633\u062a\u06af\u0627\u0647\u200c\u0647\u0627\u06cc \u0645\u0639\u0627\u062f\u0644\u0627\u062a \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644'), findsWidgets);
-    expect(find.text('\u0646\u0645\u0627\u06cc\u0634 \u062c\u0648\u0627\u0628 \u0648 \u0645\u0631\u0627\u062d\u0644'), findsOneWidget);
+    expect(
+      find.text(
+        '\u062f\u0633\u062a\u06af\u0627\u0647\u200c\u0647\u0627\u06cc \u0645\u0639\u0627\u062f\u0644\u0627\u062a \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644',
+      ),
+      findsWidgets,
+    );
+    expect(
+      find.text(
+        '\u0646\u0645\u0627\u06cc\u0634 \u062c\u0648\u0627\u0628 \u0648 \u0645\u0631\u0627\u062d\u0644',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('analyses function behaviour and draws the plot', (tester) async {
