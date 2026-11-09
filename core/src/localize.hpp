@@ -27,18 +27,8 @@ inline std::string localizeError(const std::string& message, bool english) {
         const char* en;
     };
     static const Entry entries[] = {
-        {"عبارت نامعتبر است", "invalid expression"},
-        {"عبارت بسیار پیچیده است", "the expression is too deeply nested"},
-        {"عبارت بسیار طولانی است", "the expression is too long"},
-        {"عبارت اضافی در ورودی", "unexpected trailing input"},
-        {"دو طرف معادله لازم است", "both sides of the equation are required"},
-        {"sqrt به آرگومان نیاز دارد", "sqrt requires an argument"},
-        {"نماد مشتق نامعتبر است", "invalid derivative symbol"},
-        {"عدد بسیار بزرگ: ", "number too large: "},
         {"کران‌ها باید عددی باشند", "the bounds must be numeric"},
         {"شکل دیفرانسیلی معادله خوانده نشد", "could not read the differential form"},
-        {"تقسیم بر صفر", "division by zero"},
-        {"ورودی خالی است", "empty input"},
     };
 
     for (const auto& e : entries) {

@@ -6,5 +6,16 @@
   "error.unknown_function": "Unknown function.",
   "error.unavailable": "The input could not be analysed.",
   "note.interpreted_as": "Read as:",
-  "validation.match": "The check agrees with the answer."
+  "validation.match": "The check agrees with the answer.",
+  "error.number_too_large": "The number is too large.",
+  "error.unexpected_token": "Unexpected token in the input.",
+  "error.trailing_input": "Unexpected trailing input.",
+  "error.too_complex": "The expression is too deeply nested.",
+  "error.sqrt_argument": "sqrt requires an argument.",
+  "error.invalid_derivative": "Invalid derivative symbol.",
+  "error.invalid_expression": "Invalid expression.",
+  "error.too_long": "The expression is too long.",
+  "error.equation_sides": "Both sides of the equation are required.",
+  "error.empty_request": "The request is empty.",
+  "error.bad_request": "The request is invalid."
 }

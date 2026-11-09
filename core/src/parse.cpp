@@ -35,13 +35,13 @@ struct Lexer {
             std::string num = s.substr(b, i - b);
             size_t dot = num.find('.');
             if (dot == std::string::npos) {
-                if (num.size() > 18) throw std::runtime_error("عدد بسیار بزرگ: " + num);
+                if (num.size() > 18) throw EngineError("number_too_large", "number too large", "number too large: " + num);
                 try { tk.num = Rational(std::stoll(num)); }
-                catch (...) { throw std::runtime_error("عدد بسیار بزرگ: " + num); }
+                catch (...) { throw EngineError("number_too_large", "number too large", "number too large: " + num); }
             } else {
                 std::string ip = num.substr(0, dot), fp = num.substr(dot + 1);
                 if (ip.size() > 18 || fp.size() > 18)
-                    throw std::runtime_error("عدد بسیار بزرگ: " + num);
+                    throw EngineError("number_too_large", "number too large", "number too large: " + num);
                 long long denom = 1;
                 for (size_t k = 0; k < fp.size(); ++k) denom *= 10;
                 long long intpart = ip.empty() ? 0 : std::stoll(ip);
@@ -63,7 +63,7 @@ struct Lexer {
                     long long exp = 0;
                     while (j < s.size() && std::isdigit((unsigned char)s[j])) {
                         exp = exp * 10 + (s[j] - '0');
-                        if (exp > 18) throw std::runtime_error("عدد بسیار بزرگ: " + num);
+                        if (exp > 18) throw EngineError("number_too_large", "number too large", "number too large: " + num);
                         ++j;
                     }
                     i = j;
@@ -123,7 +123,7 @@ struct Lexer {
                                << (unsigned)(unsigned char)s[k] << std::dec;
                     }
                     detail << ")";
-                    throw EngineError("bad_characters", "ورودی کاراکتر نامعتبر دارد.",
+                    throw EngineError("bad_characters", "invalid character",
                                       detail.str());
                 }
         }
@@ -143,7 +143,7 @@ struct Parser {
     void adv() { cur = lx.next(); }
     bool accept(Tok t) { if (cur.t == t) { adv(); return true; } return false; }
     void expect(Tok t, const char* what) {
-        if (cur.t != t) throw std::runtime_error(std::string("انتظار ") + what + " بود");
+        if (cur.t != t) throw EngineError("unexpected_token", "unexpected token", std::string("expected ") + what);
         adv();
     }
 
@@ -153,7 +153,7 @@ struct Parser {
 
     Ex parse() {
         Ex e = sum();
-        if (cur.t != Tok::End) throw std::runtime_error("عبارت اضافی در ورودی");
+        if (cur.t != Tok::End) throw EngineError("trailing_input", "unexpected trailing input");
         return e;
     }
 
@@ -207,7 +207,7 @@ struct Parser {
     }
 
     Ex atom() {
-        if (++depth > 200) throw std::runtime_error("عبارت بسیار پیچیده است");
+        if (++depth > 200) throw EngineError("too_complex", "expression too deeply nested");
         Ex out;
         if (cur.t == Tok::Num) {
             out = Num(cur.num); adv();
@@ -247,7 +247,7 @@ struct Parser {
                     if (!isKnownFunctionName(lower) && lower != "deriv" &&
                         lower != "integral") {
                         throw EngineError("unknown_function",
-                                          "تابع " + name + " ناشناخته است.",
+                                          "unknown function",
                                           "unknown function: " + name);
                     }
                     out = Fn(lower, args);
@@ -257,17 +257,17 @@ struct Parser {
                 for (auto& ch : lower) ch = (char)std::tolower((unsigned char)ch);
                 if (lower == "pi" || lower == "π") out = Sym("pi");
                 else if (lower == "e" && name == "e") out = Sym("e");
-                else if (lower == "sqrt") throw std::runtime_error("sqrt به آرگومان نیاز دارد");
+                else if (lower == "sqrt") throw EngineError("sqrt_argument", "sqrt requires an argument");
                 else out = Sym(name);
             }
             if (cur.t == Tok::Prime) {
                 int order = 0;
                 while (cur.t == Tok::Prime) { ++order; adv(); }
-                if (!out->isSym()) throw std::runtime_error("نماد مشتق نامعتبر است");
+                if (!out->isSym()) throw EngineError("invalid_derivative", "invalid derivative symbol");
                 out = Deriv(out, indep, order);
             }
         } else {
-            throw std::runtime_error("عبارت نامعتبر است");
+            throw EngineError("invalid_expression", "invalid expression");
         }
         // Postfix factorial binds tighter than a power: n! is fact(n).
         while (accept(Tok::Bang)) out = Fn("fact", {out});
@@ -632,7 +632,7 @@ Ex parseWith(const std::string& raw, const std::string& indep, std::string* depO
              const std::vector<std::string>& implicitVars = {}) {
     // Bound the input: the regex preprocessor and the recursive parser should
     // not be exposed to arbitrarily large or adversarial strings.
-    if (raw.size() > 1000) throw std::runtime_error("عبارت بسیار طولانی است");
+    if (raw.size() > 1000) throw EngineError("too_long", "expression too long");
     std::string s = preprocessDifferentials(normalizeInput(raw), indep);
     s = naturalizeImplicit(s, implicitVars);
     s = replaceAll(s, "==", "=");
@@ -658,7 +658,7 @@ Ex parseWith(const std::string& raw, const std::string& indep, std::string* depO
         return e;
     }
     std::string l = s.substr(0, eq), r = s.substr(eq + 1);
-    if (trim(l).empty() || trim(r).empty()) throw std::runtime_error("دو طرف معادله لازم است");
+    if (trim(l).empty() || trim(r).empty()) throw EngineError("equation_sides", "both sides of the equation are required");
     Parser pl(l, indep), pr(r, indep);
     Ex L = pl.parse(), R = pr.parse();
     if (depOut) {

@@ -5,6 +5,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 
 import 'app_state.dart';
 import 'calc_widgets.dart';
+import 'i18n/sentence.dart';
 import 'l10n.dart';
 import 'models.dart';
 import 'theme.dart';
@@ -602,38 +603,18 @@ class ResultView extends StatelessWidget {
   }
 
   String _errorMessage() {
-    switch (result.errorCode) {
-      case 'bad_characters':
-        return l10n.t(
-          'The input contains an invalid character.',
-          'ورودی کاراکتر نامعتبر دارد.',
-        );
-      case 'singular':
-        if (result.hasErrorPoint && result.errorPoint != null) {
-          final point = _formatNumber(result.errorPoint!);
-          return l10n.t(
-            'The function is undefined at x = $point (singular point).',
-            'تابع در x = $point تعریف نشده است (نقطه تکین).',
-          );
-        }
-        return l10n.t(
-          'The function is undefined at a singular point.',
-          'تابع در نقطهٔ تکین تعریف نشده است.',
-        );
-      case 'not_integrable':
-        return l10n.t(
-          'This function is not integrable on the interval.',
-          'این تابع روی بازه انتگرال‌پذیر نیست.',
-        );
-      case 'unknown_function':
-        if (result.error.isNotEmpty) return result.error;
-        return l10n.t('Unknown function.', 'تابع ناشناخته است.');
+    final code = result.errorCode;
+    if (code.isNotEmpty) {
+      final params = <String, Object?>{};
+      if (result.hasErrorPoint && result.errorPoint != null) {
+        params['point'] = _formatNumber(result.errorPoint!);
+      }
+      final key = 'error.$code';
+      final text = l10n.t(key, params);
+      if (text != key) return text;
     }
     if (result.error.isNotEmpty) return result.error;
-    return l10n.t(
-      'The input could not be analysed.',
-      'ورودی قابل تحلیل نبود.',
-    );
+    return l10n.t('error.unavailable');
   }
 
   Widget _interpretationCard(BuildContext context) {
@@ -648,11 +629,18 @@ class ResultView extends StatelessWidget {
           Icon(Icons.info_outline_rounded, size: 18, color: c.accent),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              l10n.t(
-                'Read as ${result.interpretedAs}',
-                'به‌صورت ${result.interpretedAs} خوانده شد',
-              ),
+            child: LocalizedSentence(
+              l10n: l10n,
+              messageKey: 'note.interpreted_as',
+              math: [
+                MathInline(
+                  math: ExView(
+                    plain: result.interpretedAs,
+                    pretty: result.interpretedAs,
+                    latex: result.interpretedAs,
+                  ),
+                ),
+              ],
               style: theme.textTheme.bodySmall?.copyWith(height: 1.6),
             ),
           ),

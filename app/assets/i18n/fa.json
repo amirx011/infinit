@@ -6,5 +6,16 @@
   "error.unknown_function": "تابع ناشناخته است.",
   "error.unavailable": "ورودی قابل تحلیل نبود.",
   "note.interpreted_as": "ورودی به این صورت خوانده شد:",
-  "validation.match": "بررسی با جواب موافق است."
+  "validation.match": "بررسی با جواب موافق است.",
+  "error.number_too_large": "عدد بسیار بزرگ است.",
+  "error.unexpected_token": "نماد غیرمنتظره در ورودی.",
+  "error.trailing_input": "عبارت اضافی در ورودی.",
+  "error.too_complex": "عبارت بسیار پیچیده است.",
+  "error.sqrt_argument": "sqrt به آرگومان نیاز دارد.",
+  "error.invalid_derivative": "نماد مشتق نامعتبر است.",
+  "error.invalid_expression": "عبارت نامعتبر است.",
+  "error.too_long": "عبارت بسیار طولانی است.",
+  "error.equation_sides": "دو طرف معادله لازم است.",
+  "error.empty_request": "درخواست خالی است.",
+  "error.bad_request": "درخواست نامعتبر است."
 }

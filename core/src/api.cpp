@@ -871,28 +871,12 @@ ode::Result handle(const JVal& req) {
     return r;
 }
 
-std::string errorJson(const std::string& message, const std::string& code = "",
-                      const std::string& detail = "") {
-    std::string out = "{\"ok\":false,\"error\":" + q(message) + ",\"mode\":\"ode\"";
+std::string errorJson(const std::string& code, const std::string& detail = "") {
+    std::string out = "{\"ok\":false,\"mode\":\"ode\"";
     if (!code.empty()) out += ",\"error_code\":" + q(code);
     if (!detail.empty()) out += ",\"error_detail\":" + q(detail);
     out += "}";
     return out;
-}
-
-// The request itself may be malformed, so a full JSON parse is not available.
-// A lightweight scan still tells us which language the caller asked for; the
-// API default is English.
-bool requestIsEnglish(const char* request) {
-    if (!request) return true;
-    const std::string s(request);
-    const size_t key = s.find("\"lang\"");
-    if (key == std::string::npos) return true;
-    size_t i = s.find('"', key + 6);
-    if (i == std::string::npos) return true;
-    const size_t end = s.find('"', i + 1);
-    if (end == std::string::npos) return true;
-    return s.substr(i + 1, end - i - 1) != "fa";
 }
 
 } // namespace
@@ -903,9 +887,8 @@ ODE_API const char* ode_core_version(void) { return "1.0.0"; }
 
 ODE_API char* ode_solve(const char* request_json) {
     std::string out;
-    const bool en = requestIsEnglish(request_json);
     try {
-        if (!request_json) throw std::runtime_error(en ? "empty request" : "درخواست خالی است");
+        if (!request_json) throw ode::EngineError("empty_request", "empty request");
         const std::string body(request_json);
         JsonParser parser(body);
         JVal req = parser.value();
@@ -917,13 +900,11 @@ ODE_API char* ode_solve(const char* request_json) {
             out = resultJson(handle(req));
         }
     } catch (const ode::EngineError& e) {
-        out = errorJson(en ? ode::englishForEngineError(e) : e.what(), e.code, e.detail);
+        out = errorJson(e.code.empty() ? "unavailable" : e.code, e.detail);
     } catch (const std::exception& e) {
-        const std::string detail = ode::localizeError(e.what(), en);
-        out = errorJson(en ? std::string("Invalid request: ") + detail
-                           : std::string("درخواست نامعتبر است: ") + detail);
+        out = errorJson("bad_request", e.what());
     } catch (...) {
-        out = errorJson(en ? "Unknown engine error" : "خطای ناشناخته در موتور محاسبات");
+        out = errorJson("unavailable");
     }
     char* buf = (char*)std::malloc(out.size() + 1);
     if (!buf) return nullptr;

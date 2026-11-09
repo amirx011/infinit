@@ -215,10 +215,13 @@ inline std::string englishForEngineError(const EngineError& e) {
 // response.  EngineError carries its own user-facing sentence.
 inline void setFailure(Result& r, bool en, const std::exception& e,
                        const std::string& enPrefix = "", const std::string& faPrefix = "") {
+    (void)en;
+    (void)enPrefix;
+    (void)faPrefix;
     if (const auto* coded = dynamic_cast<const EngineError*>(&e)) {
         r.errorCode = coded->code;
         r.errorDetail = coded->detail;
-        r.error = en ? englishForEngineError(*coded) : coded->what();
+        r.error.clear();
         return;
     }
     r.error = en ? enPrefix + localizeError(e.what(), true) : faPrefix + e.what();

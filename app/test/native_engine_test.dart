@@ -303,7 +303,8 @@ void main() {
     });
     expect(persian.ok, isFalse);
     expect(persian.errorCode, 'bad_characters');
-    expect(persian.error, contains('کاراکتر'));
+    expect(persian.error, isEmpty);
+    expect(persian.errorDetail, isNotEmpty);
   });
 
   test('singular start point returns its location', () {
@@ -322,7 +323,7 @@ void main() {
     expect(result.errorPoint, closeTo(0, 1e-9));
   });
 
-  test('an unknown function is named in the error', () {
+  test('an unknown function is named in the log detail', () {
     final result = engine.solve({
       'mode': 'taylor',
       'input': 'foo(x)',
@@ -330,7 +331,8 @@ void main() {
     });
     expect(result.ok, isFalse);
     expect(result.errorCode, 'unknown_function');
-    expect(result.error, contains('foo'));
+    expect(result.error, isEmpty);
+    expect(result.errorDetail, contains('foo'));
   });
 
   test('application topics keep the correct sign and readable constants', () {

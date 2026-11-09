@@ -127,10 +127,7 @@ void failDomain(Result& r, bool en, const DomainIssue& issue) {
     r.errorDetail = issue.detail;
     r.errorPoint = issue.point;
     r.hasErrorPoint = true;
-    r.error = en
-                  ? ("The function is undefined at x = " + numStr(issue.point) +
-                     " (singular point).")
-                  : ("تابع در x = " + numStr(issue.point) + " تعریف نشده است (نقطه تکین).");
+    r.error.clear();
 }
 
 bool validCoefficient(double v) {
