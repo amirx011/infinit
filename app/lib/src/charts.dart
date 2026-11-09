@@ -910,7 +910,7 @@ class _CurvePlotState extends State<CurvePlot> {
           _sample = null;
           _error = result.error.isEmpty
               ? widget.l10n.t('ui.could_not_sample_the_function')
-              : result.error;
+              : widget.l10n.t(result.error);
         } else {
           _sample = result;
         }
@@ -1156,7 +1156,7 @@ class _FieldPlotState extends State<FieldPlot> {
           _extraSamples = const [];
           _error = result.error.isEmpty
               ? widget.l10n.t('ui.could_not_build_the_direction_field')
-              : result.error;
+              : widget.l10n.t(result.error);
         });
         return;
       }
@@ -1507,7 +1507,7 @@ class _MultiCurvePlotState extends State<MultiCurvePlot> {
         if (!r.ok) {
           failure ??= r.error.isEmpty
               ? widget.l10n.t('ui.could_not_sample_the_function')
-              : r.error;
+              : widget.l10n.t(r.error);
           out.add(null);
         } else {
           out.add(r);

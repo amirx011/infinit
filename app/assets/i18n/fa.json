@@ -1838,5 +1838,12 @@
   "ui.law.exponential_rewrite": "بازنویسی نمایی",
   "ui.law.two_sided": "مقایسهٔ دوطرفه",
   "ui.law.squeeze": "قضیهٔ فشار (کران‌های عددی)",
-  "ui.law.limit_law": "قاعدهٔ حد"
+  "ui.law.limit_law": "قاعدهٔ حد",
+  "plot.empty_window": "پنجرهٔ رسم خالی است.",
+  "plot.numeric_order": "رسم عددی تنها برای مرتبه‌های ۲ تا ۶ پشتیبانی می‌شود.",
+  "plot.linear_requirement": "این رسم عددی معادله‌ای خطی در بالاترین مشتق می‌خواهد.",
+  "plot.isolate_derivative": "بالاترین مشتق از معادله جدا نشد.",
+  "plot.domain_exit": "مسیرهای عددی بلافاصله از دامنه خارج شدند.",
+  "plot.unsupported_form": "این شکل برای رسم پشتیبانی نمی‌شود.",
+  "plot.failed": "رسم نمودار ممکن نشد."
 }

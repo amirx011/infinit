@@ -247,7 +247,7 @@ SampleOutput sampleFunction(const std::string& input, const std::string& x, doub
     try {
         Ex f = withConstants(parseExpr(input), constants);
         if (!(xmin < xmax)) {
-            out.error = "The sampling window is empty.";
+            out.error = "plot.empty_window";
             return out;
         }
         count = std::max(2, std::min(count, 20000));
@@ -263,7 +263,7 @@ SampleOutput sampleFunction(const std::string& input, const std::string& x, doub
         }
         out.ok = true;
     } catch (const std::exception& e) {
-        out.error = e.what();
+        out.error = "plot.failed";
     }
     return out;
 }
@@ -274,7 +274,7 @@ DomainOutput analyseDomain(const std::string& input, const std::string& x, doubl
     try {
         Ex f = parseExpr(input);
         if (!(xmin < xmax)) {
-            out.error = "The sampling window is empty.";
+            out.error = "plot.empty_window";
             return out;
         }
         samples = std::max(401, std::min(samples, 12001));
@@ -702,7 +702,7 @@ DomainOutput analyseDomain(const std::string& input, const std::string& x, doubl
         }
         out.ok = true;
     } catch (const std::exception& e) {
-        out.error = e.what();
+        out.error = "plot.failed";
     }
     return out;
 }
@@ -939,7 +939,7 @@ FieldOutput analyseField(const std::string& input, const std::string& x, const s
     FieldOutput out;
     try {
         if (!(xmin < xmax) || !(ymin < ymax)) {
-            out.error = "The field window is empty.";
+            out.error = "plot.empty_window";
             return out;
         }
         std::string dep;
@@ -948,7 +948,7 @@ FieldOutput analyseField(const std::string& input, const std::string& x, const s
         Ex slope;
         std::string why;
         if (extractSlope(F, x, depVar, slope, why) != SlopeResult::Ok) {
-            out.error = why;
+            out.error = "plot.unsupported_form";
             return out;
         }
         // A quadratic in y' has two solution branches (Clairaut and Lagrange
@@ -1030,7 +1030,7 @@ FieldOutput analyseField(const std::string& input, const std::string& x, const s
         }
         out.ok = true;
     } catch (const std::exception& e) {
-        out.error = e.what();
+        out.error = "plot.failed";
     }
     return out;
 }
@@ -1052,7 +1052,7 @@ TrajectoryOutput analyseTrajectory(const std::string& input, const std::string& 
     TrajectoryOutput out;
     try {
         if (!(xmin < xmax)) {
-            out.error = "The sampling window is empty.";
+            out.error = "plot.empty_window";
             return out;
         }
         std::string dep;
@@ -1060,7 +1060,7 @@ TrajectoryOutput analyseTrajectory(const std::string& input, const std::string& 
         const std::string depVar = dep.empty() ? y : dep;
         const int order = maxDerivativeOrder(F, depVar, x);
         if (order < 2 || order > 6) {
-            out.error = "The numeric solution plot supports orders 2 to 6.";
+            out.error = "plot.numeric_order";
             return out;
         }
         out.order = order;
@@ -1069,7 +1069,7 @@ TrajectoryOutput analyseTrajectory(const std::string& input, const std::string& 
         Ex G = substituteSubexpr(F, Deriv(Sym(depVar), x, order), marker);
         std::vector<Ex> cs;
         if (!polyCoeffs(expand(G), "__q", cs) || cs.size() != 2 || cs[1]->isZero()) {
-            out.error = "This numeric plot needs an equation linear in the highest derivative.";
+            out.error = "plot.linear_requirement";
             return out;
         }
         Ex rhs = simplify(Mul(Num(-1), cs[0], Pow(cs[1], Num(-1))));
@@ -1081,7 +1081,7 @@ TrajectoryOutput analyseTrajectory(const std::string& input, const std::string& 
                                          Sym("__d" + std::to_string(k)));
         }
         if (maxDerivativeOrder(rhsState, depVar, x) > 0) {
-            out.error = "The highest derivative could not be isolated from the equation.";
+            out.error = "plot.isolate_derivative";
             return out;
         }
         out.rhs = toPlain(rhs);
@@ -1189,10 +1189,10 @@ TrajectoryOutput analyseTrajectory(const std::string& input, const std::string& 
         }
         out.ok = !out.curves.empty();
         if (!out.ok && out.error.empty()) {
-            out.error = "The numeric trajectories left their domain immediately.";
+            out.error = "plot.domain_exit";
         }
     } catch (const std::exception& e) {
-        out.error = e.what();
+        out.error = "plot.failed";
     }
     return out;
 }
@@ -1203,7 +1203,7 @@ SurfaceOutput sampleSurface(const std::string& input, const std::string& x,
     SurfaceOutput out;
     try {
         if (!(xmin < xmax) || !(ymin < ymax)) {
-            out.error = "The sampling window is empty.";
+            out.error = "plot.empty_window";
             return out;
         }
         Ex f = parseODEExpr(input, x, nullptr, {x, y, "e", "pi"});
@@ -1227,7 +1227,7 @@ SurfaceOutput sampleSurface(const std::string& input, const std::string& x,
         }
         out.ok = true;
     } catch (const std::exception& e) {
-        out.error = e.what();
+        out.error = "plot.failed";
     }
     return out;
 }

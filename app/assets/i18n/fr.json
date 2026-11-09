@@ -1838,5 +1838,12 @@
   "ui.law.exponential_rewrite": "exponential rewrite",
   "ui.law.two_sided": "two-sided comparison",
   "ui.law.squeeze": "squeeze theorem (numeric bounds)",
-  "ui.law.limit_law": "limit law"
+  "ui.law.limit_law": "limit law",
+  "plot.empty_window": "The sampling window is empty.",
+  "plot.numeric_order": "The numeric solution plot supports orders 2 to 6.",
+  "plot.linear_requirement": "This numeric plot needs an equation linear in the highest derivative.",
+  "plot.isolate_derivative": "The highest derivative could not be isolated from the equation.",
+  "plot.domain_exit": "The numeric trajectories left their domain immediately.",
+  "plot.unsupported_form": "This form is not supported for plotting.",
+  "plot.failed": "The plot could not be drawn."
 }

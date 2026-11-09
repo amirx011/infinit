@@ -73,6 +73,6 @@ key with plain/math params. The `enTitle`/`enNote` tables, the bilingual
 - The engine never returns a user-facing sentence: steps/checks carry keys,
   failures carry codes (`error.<code>`), and technical exception text stays in
   `errorDetail` for logs only.
-- Chart/plot diagnostics in `graph.cpp` are developer-facing English strings
-  surfaced through the generic `ui.plot_error` message; they are not part of
-  the Persian language catalogue.
+- Chart/plot diagnostics are keys too (`plot.*`); the UI resolves them with
+  `L10n.t`, and exceptions are reduced to `plot.failed` instead of leaking raw
+  technical text.
