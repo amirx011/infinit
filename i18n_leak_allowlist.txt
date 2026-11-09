@@ -39,7 +39,6 @@ app/lib/src/widgets.dart	12
 app/test/native_engine_test.dart	1
 app/test/widget_test.dart	21
 core/src/calculus_api.cpp	113
-core/src/calculus_apps.cpp	138
 core/src/calculus_more.cpp	25
 core/src/localize.hpp	2
 core/src/ode.cpp	523

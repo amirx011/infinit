@@ -134,9 +134,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
     }
     final f = _f.text.trim();
     if (f.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_a_function'),
-      );
+      setState(() => _error = l.t('ui.enter_a_function'));
       return;
     }
     final xVar = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
@@ -190,13 +188,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
             });
             return;
           }
-          r = await engine.meanValueAsync(
-            f,
-            x: xVar,
-            a: a,
-            b: b,
-            lang: lang,
-          );
+          r = await engine.meanValueAsync(f, x: xVar, a: a, b: b, lang: lang);
         case TheoremMode.catalogue:
           return;
       }
@@ -239,7 +231,9 @@ class _TheoremsPageState extends State<TheoremsPage> {
                     ? Icons.compare_arrows_rounded
                     : Icons.rule_rounded,
                 title: entry.title(l),
-                subtitle: l.t('ui.state_the_theorem_verify_its_hypotheses_then_fin'),
+                subtitle: l.t(
+                  'ui.state_the_theorem_verify_its_hypotheses_then_fin',
+                ),
               ),
               const SizedBox(height: 18),
               _statementBlock(entry),
@@ -324,9 +318,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                       )
                     : const Icon(Icons.verified_outlined, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.checking')
-                      : l.t('ui.check_the_theorem'),
+                  _busy ? l.t('ui.checking') : l.t('ui.check_the_theorem'),
                 ),
               ),
             ],
@@ -346,7 +338,10 @@ class _TheoremsPageState extends State<TheoremsPage> {
         ],
         if (result != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: result, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: result, l10n: l),
+          ),
         ],
       ],
     );
@@ -367,9 +362,8 @@ class _TheoremsPageState extends State<TheoremsPage> {
         children: [
           Text(
             entry.statement(widget.l10n),
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(height: 1.85),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(height: 1.85),
           ),
           const SizedBox(height: 12),
           MathBlock(
@@ -437,8 +431,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
             icon: Icons.fact_check_outlined,
           ),
           const SizedBox(height: 14),
-          for (final check in checks)
-            HypothesisRow(check: check, l10n: l),
+          for (final check in checks) HypothesisRow(check: check, l10n: l),
           if (!isLhopital && r.rolleApplies && widget.mode != TheoremMode.rolle)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -459,8 +452,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
             const SizedBox(height: 6),
             _valueRow(
               l.t('ui.secant_slope'),
-              r.slope ??
-                  const ExView(plain: '?', pretty: '?', latex: '?'),
+              r.slope ?? const ExView(plain: '?', pretty: '?', latex: '?'),
             ),
           ],
           if (!isLhopital && points.isNotEmpty) ...[
@@ -499,23 +491,17 @@ class _TheoremsPageState extends State<TheoremsPage> {
           ],
           if (isLhopital && !r.limitExists && !r.limitInfinite) ...[
             const SizedBox(height: 6),
-            _textValueRow(
-              l.t('ui.limit'),
-              l.t('ui.does_not_exist'),
-            ),
+            _textValueRow(l.t('ui.limit'), l.t('ui.does_not_exist')),
           ],
-          if (points.isEmpty &&
-              !isLhopital &&
-              r.warnings.isNotEmpty) ...[
+          if (points.isEmpty && !isLhopital && r.warnings.isNotEmpty) ...[
             const SizedBox(height: 8),
             for (final w in r.warnings)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Text(
-                  w,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: c.warning),
+                  l.t(w),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: c.warning),
                 ),
               ),
           ],
@@ -574,12 +560,8 @@ class _TheoremsPageState extends State<TheoremsPage> {
     final xVar = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
 
     if (widget.mode == TheoremMode.lhopital) {
-      final point = double.tryParse(
-        (_fieldPoint ?? '0').replaceAll('−', '-'),
-      );
-      final window = point == null
-          ? (-3.0, 3.0)
-          : (point - 3, point + 3);
+      final point = double.tryParse((_fieldPoint ?? '0').replaceAll('−', '-'));
+      final window = point == null ? (-3.0, 3.0) : (point - 3, point + 3);
       return MultiCurvePlot(
         engine: widget.engine,
         l10n: l,
@@ -589,11 +571,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
         height: 320,
         title: l.t('ui.numerator_and_denominator_near_the_point'),
         curves: [
-          PlotCurveSpec(
-            expression: f,
-            color: c.accent,
-            label: 'f($xVar)',
-          ),
+          PlotCurveSpec(expression: f, color: c.accent, label: 'f($xVar)'),
           PlotCurveSpec(
             expression: _fieldG ?? 'x',
             color: c.creative,
@@ -654,9 +632,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
     final tangents = <PlotSeries>[];
     for (var i = 0; i < r.points.length; i++) {
       final cv = exToDouble(r.points[i]);
-      final fv = i < r.pointValues.length
-          ? exToDouble(r.pointValues[i])
-          : null;
+      final fv = i < r.pointValues.length ? exToDouble(r.pointValues[i]) : null;
       if (cv == null) continue;
       if (fv != null) {
         markers.add(
@@ -712,12 +688,15 @@ class _TheoremsPageState extends State<TheoremsPage> {
               PageTitle(
                 icon: Icons.menu_book_rounded,
                 title: l.t('ui.theorems_of_the_derivative'),
-                subtitle: l.t('ui.every_theorem_stated_in_full_hypotheses_conclusi'),
+                subtitle: l.t(
+                  'ui.every_theorem_stated_in_full_hypotheses_conclusi',
+                ),
               ),
               const SizedBox(height: 14),
               Text(
                 l.t('ui.these_are_the_results_the_rest_of_the_calculus_r'),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.8),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(height: 1.8),
               ),
             ],
           ),
@@ -736,7 +715,11 @@ class _TheoremsPageState extends State<TheoremsPage> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.lightbulb_outline_rounded, size: 19, color: c.accentAlt),
+                  Icon(
+                    Icons.lightbulb_outline_rounded,
+                    size: 19,
+                    color: c.accentAlt,
+                  ),
                   const SizedBox(width: 9),
                   Text(
                     l.t('ui.the_mistakes_that_cost_marks'),
@@ -810,9 +793,8 @@ class _TheoremsPageState extends State<TheoremsPage> {
               Expanded(
                 child: Text(
                   entry.title(l),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(fontSize: 15),
+                  style: Theme.of(context).textTheme.titleMedium
+                      ?.copyWith(fontSize: 15),
                 ),
               ),
             ],
@@ -820,7 +802,8 @@ class _TheoremsPageState extends State<TheoremsPage> {
           const SizedBox(height: 10),
           Text(
             entry.statement(l),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.85),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(height: 1.85),
           ),
           const SizedBox(height: 12),
           MathBlock(
@@ -834,16 +817,15 @@ class _TheoremsPageState extends State<TheoremsPage> {
           const SizedBox(height: 12),
           Text(
             entry.why(l),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.75),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(height: 1.75),
           ),
           if (entry.hypotheses(l).isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
               l.t('ui.hypotheses'),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: c.text,
-              ),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.w700, color: c.text),
             ),
             const SizedBox(height: 6),
             for (final h in entry.hypotheses(l))

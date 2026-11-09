@@ -231,20 +231,32 @@ std::vector<double> allRoots(const Ex& f, const std::string& x, double lo, doubl
     return merged;
 }
 
-std::string trendName(int sign, bool en) {
-    if (sign > 0) return en ? "increasing" : "صعودی";
-    if (sign < 0) return en ? "decreasing" : "نزولی";
-    return en ? "constant" : "ثابت";
+std::string trendCode(int sign, bool zero) {
+    if (sign > 0) return "increasing";
+    if (sign < 0) return "decreasing";
+    return zero ? "constant" : "undecided";
 }
 
-void addStep(Result& r, bool en, const std::string& enText, const std::string& faText,
-             const Ex& math = nullptr, const std::string& noteEn = "",
-             const std::string& noteFa = "") {
+void addStep(Result& r, const std::string& titleKey, const Ex& math = nullptr,
+             const std::string& noteKey = "", const std::string& params = "",
+             const std::string& noteMath = "") {
     Step s;
-    s.title = en ? enText : faText;
+    s.titleKey = titleKey;
     s.math = math;
-    s.note = en ? noteEn : noteFa;
+    s.noteKey = noteKey;
+    s.params = params;
+    s.noteMath = noteMath;
     r.steps.push_back(std::move(s));
+}
+
+void setAppFailure(Result& r, const std::exception& e, const char* where) {
+    if (const auto* coded = dynamic_cast<const EngineError*>(&e)) {
+        r.errorCode = coded->code;
+        r.errorDetail = coded->detail;
+        return;
+    }
+    r.errorCode = "unavailable";
+    r.errorDetail = std::string(where) + ": " + e.what();
 }
 
 CriticalPointView makePoint(const Ex& xExpr, const Ex& f, const std::string& x, double xv,
@@ -263,16 +275,14 @@ CriticalPointView makePoint(const Ex& xExpr, const Ex& f, const std::string& x, 
 // ------------------------------------------------------------------ behaviour
 Result analyseFunction(const std::string& input, const std::string& x, double xmin, double xmax,
                        const std::string& lang) {
-    const bool en = lang != "fa";
     Result r;
     r.mode = "behaviour";
     r.typeId = "behaviour";
-    r.typeFa = "تحلیل رفتار تابع";
     r.variable = x;
     r.order = 1;
     try {
         if (!(xmin < xmax)) {
-            r.error = en ? "The interval must satisfy a < b." : "باید a < b باشد.";
+            r.errorCode = "bad_interval";
             return r;
         }
         Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
@@ -281,11 +291,8 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
         Ex ddf = simplify(diff(df, x));
         r.derivative = df;
         r.secondDerivative = ddf;
-        addStep(r, en, "Function and derivatives", "تابع و مشتق‌ها", f,
-                en ? ("f' = " + toPlain(df) + " and f'' = " + toPlain(ddf) + ".")
-                   : "",
-                en ? ""
-                   : ("f′ = " + toPlain(df) + " و f″ = " + toPlain(ddf) + "."));
+        addStep(r, "step.title.function_and_derivatives", f, "", "",
+                "f' = " + toPlain(df) + ", f'' = " + toPlain(ddf));
 
         // Poles first: every later list (critical points, inflections,
         // intercepts, cuts) must ignore points where the function is undefined.
@@ -376,7 +383,7 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
 
         std::vector<double> critical = allRoots(df, x, xmin, xmax);
         std::vector<CriticalPointView> points;
-        std::string critFa, critEn;
+        std::string critMath;
         for (double c : critical) {
             if (nearPole(c) || !finiteAt(f, c) || !finiteAt(df, c)) continue;
             const int left = signLeftOf(df, x, c, xmin, xmax);
@@ -389,31 +396,22 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
             CriticalPointView cp = makePoint(snap(c), f, x, c, kind);
             points.push_back(cp);
 
-            std::string kindText;
-            if (kind == "maximum") kindText = en ? "local maximum" : "بیشینهٔ محلی";
-            else if (kind == "minimum") kindText = en ? "local minimum" : "کمینهٔ محلی";
-            else if (kind == "inflection") kindText = en ? "stationary turning point" : "نقطهٔ تخت";
-            else kindText = en ? "undecided" : "نامشخص";
-            if (!critFa.empty()) { critFa += "، "; critEn += ", "; }
-            critFa += "x = " + toPlain(cp.x);
-            critEn += "x = " + toPlain(cp.x);
-            if (cp.value) {
-                critFa += " (f = " + toPlain(cp.value) + "، " + kindText + ")";
-                critEn += " (f = " + toPlain(cp.value) + ", " + kindText + ")";
-            } else {
-                critFa += " (" + kindText + ")";
-                critEn += " (" + kindText + ")";
-            }
+            const std::string kindCode = kind == "maximum" ? "max"
+                : kind == "minimum" ? "min"
+                : kind == "inflection" ? "flat" : "?";
+            if (!critMath.empty()) critMath += ", ";
+            critMath += "x = " + toPlain(cp.x);
+            if (cp.value) critMath += ", f = " + toPlain(cp.value);
+            critMath += " (" + kindCode + ")";
         }
-        if (points.empty()) {
-            critFa = "در این بازه نقطهٔ بحرانی وجود ندارد.";
-            critEn = "No critical point in this window.";
-        }
-        addStep(r, en, "Critical points", "نقاط بحرانی", df, critEn, critFa);
+        addStep(r, "step.title.critical_points", df,
+                points.empty() ? "step.note.no_critical_points"
+                               : "step.note.critical_points",
+                "", critMath);
 
         std::vector<double> bends = allRoots(ddf, x, xmin, xmax);
         std::vector<CriticalPointView> inflections;
-        std::string infFa, infEn;
+        std::string inflectionMath;
         for (double c : bends) {
             if (nearPole(c) || !finiteAt(f, c) || !finiteAt(ddf, c)) continue;
             const int left = signLeftOf(ddf, x, c, xmin, xmax);
@@ -421,19 +419,14 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
             if (left == 0 || right == 0 || left == right) continue;
             CriticalPointView ip = makePoint(snap(c), f, x, c, "inflection");
             inflections.push_back(ip);
-            if (!infFa.empty()) { infFa += "، "; infEn += ", "; }
-            infFa += "x = " + toPlain(ip.x);
-            infEn += "x = " + toPlain(ip.x);
-            if (ip.value) {
-                infFa += " (f = " + toPlain(ip.value) + ")";
-                infEn += " (f = " + toPlain(ip.value) + ")";
-            }
+            if (!inflectionMath.empty()) inflectionMath += ", ";
+            inflectionMath += "x = " + toPlain(ip.x);
+            if (ip.value) inflectionMath += ", f = " + toPlain(ip.value);
         }
-        if (inflections.empty()) {
-            infFa = "در این بازه نقطهٔ عطفی وجود ندارد.";
-            infEn = "No inflection point in this window.";
-        }
-        addStep(r, en, "Inflection points", "نقاط عطف", ddf, infEn, infFa);
+        addStep(r, "step.title.inflection_points", ddf,
+                inflections.empty() ? "step.note.no_inflection_points"
+                                    : "step.note.inflection_points",
+                "", inflectionMath);
 
         // ------------------------------------------------------------- asymptotes
         std::vector<std::string> asymptotes;
@@ -442,8 +435,7 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
                                  (p.exact ? toPlain(p.at) : toPlain(snap(p.numericAt))));
         }
         for (int sign = -1; sign <= 1; sign += 2) {
-            const std::string sideEn = sign > 0 ? "as x -> +inf" : "as x -> -inf";
-            const std::string sideFa = sign > 0 ? "وقتی x → +∞" : "وقتی x → −∞";
+            const std::string side = sign > 0 ? "x -> +inf" : "x -> -inf";
             Ex inf = infinityPoint(sign);
             LimitOutcome horizontal = limitOf(f, x, inf, 0);
             bool added = false;
@@ -451,8 +443,7 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
                 bool ok = false;
                 const double hv = evalConst(horizontal.value, &ok);
                 if (ok && std::isfinite(hv)) {
-                    asymptotes.push_back("y = " + toPlain(snap(hv)) + " (" +
-                                         (en ? sideEn : sideFa) + ")");
+                    asymptotes.push_back("y = " + toPlain(snap(hv)) + " (" + side + ")");
                     added = true;
                 }
             }
@@ -470,21 +461,18 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
             const double bv = evalConst(intercept.value, &okB);
             if (!okB || !std::isfinite(bv)) continue;
             Ex line = simplify(Add({Mul(snap(mv), Sym(x)), snap(bv)}));
-            asymptotes.push_back("y = " + toPlain(line) + " (" + (en ? sideEn : sideFa) + ")");
+            asymptotes.push_back("y = " + toPlain(line) + " (" + side + ")");
         }
         std::sort(asymptotes.begin(), asymptotes.end());
         asymptotes.erase(std::unique(asymptotes.begin(), asymptotes.end()), asymptotes.end());
-        std::string asyEn, asyFa;
+        std::string asyMath;
         for (const auto& a : asymptotes) {
-            if (!asyEn.empty()) { asyEn += ", "; asyFa += "، "; }
-            asyEn += a;
-            asyFa += a;
+            if (!asyMath.empty()) asyMath += ", ";
+            asyMath += a;
         }
-        if (asymptotes.empty()) {
-            asyEn = "No vertical, horizontal or oblique asymptote was found in this window.";
-            asyFa = "در این بازه هیچ مجانب عمودی، افقی یا مایلی پیدا نشد.";
-        }
-        addStep(r, en, "Asymptotes", "مجانب‌ها", nullptr, asyEn, asyFa);
+        addStep(r, "step.title.asymptotes", nullptr,
+                asymptotes.empty() ? "step.note.no_asymptotes" : "step.note.asymptotes",
+                "", asyMath);
         r.asymptotes = asymptotes;
 
         // ------------------------------------------------------- curve sketch
@@ -503,21 +491,14 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
             r.yIntercept = snap(yv);
             r.hasYIntercept = true;
         }
-        std::string interceptEn = "x-intercepts: ";
-        std::string interceptFa = "طول‌های محور x: ";
-        if (xIntercepts.empty()) {
-            interceptEn += "none in the window";
-            interceptFa += "در این بازه وجود ندارد";
-        } else {
-            for (size_t i = 0; i < xIntercepts.size(); ++i) {
-                if (i) { interceptEn += ", "; interceptFa += "، "; }
-                interceptEn += "x = " + toPlain(xIntercepts[i]);
-                interceptFa += "x = " + toPlain(xIntercepts[i]);
-            }
+        std::string interceptMath;
+        for (size_t i = 0; i < xIntercepts.size(); ++i) {
+            if (i) interceptMath += ", ";
+            interceptMath += "x = " + toPlain(xIntercepts[i]);
         }
         if (r.hasYIntercept) {
-            interceptEn += "; y-intercept: (0, " + toPlain(r.yIntercept) + ")";
-            interceptFa += "؛ عرض از مبدأ: (0، " + toPlain(r.yIntercept) + ")";
+            if (!interceptMath.empty()) interceptMath += ", ";
+            interceptMath += "(0, " + toPlain(r.yIntercept) + ")";
         }
 
         // Sample several interior points so a single undefined midpoint (for
@@ -543,39 +524,24 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
         for (double a : poleCuts) bendCuts.push_back(a);
         for (double a : domainCuts) bendCuts.push_back(a);
         dedupeCuts(bendCuts);
-        std::string concavityEn, concavityFa;
+        std::string concavityMath;
         for (size_t i = 0; i <= bendCuts.size(); ++i) {
             const double lo = (i == 0) ? xmin : bendCuts[i - 1];
             const double hi = (i == bendCuts.size()) ? xmax : bendCuts[i];
             if (hi - lo < 1e-9) continue;
             if (!intervalDefined(lo, hi)) continue;
             const int sign = signIn(ddf, lo, hi);
-            if (!concavityEn.empty()) { concavityEn += ", "; concavityFa += "، "; }
-            concavityEn += "[" + numStr(lo, 4) + ", " + numStr(hi, 4) + "] " +
-                           (sign > 0 ? "concave up" : (sign < 0 ? "concave down" : "undecided"));
-            concavityFa += "[" + numStr(lo, 4) + "، " + numStr(hi, 4) + "] " +
-                           (sign > 0 ? "رو به بالا" : (sign < 0 ? "رو به پایین" : "نامشخص"));
-        }
-        if (concavityEn.empty()) {
-            concavityEn = "concavity could not be classified";
-            concavityFa = "تقعر قابل تعیین نبود";
+            if (!concavityMath.empty()) concavityMath += ", ";
+            concavityMath += "[" + numStr(lo, 4) + ", " + numStr(hi, 4) + "]: " +
+                             (sign > 0 ? "f'' > 0" : (sign < 0 ? "f'' < 0" : "f'' = 0"));
         }
 
         std::vector<std::string> sketch;
-        sketch.push_back(en ? "Window: [" + numStr(xmin, 4) + ", " + numStr(xmax, 4) + "]"
-                            : "بازه: [" + numStr(xmin, 4) + "، " + numStr(xmax, 4) + "]");
-        sketch.push_back(interceptEn);
-        if (!asymptotes.empty()) sketch.push_back("Asymptotes: " + asyEn);
-        if (!points.empty()) {
-            std::string criticalLine = en ? "Critical points: " : "نقاط بحرانی: ";
-            criticalLine += critEn;
-            sketch.push_back(criticalLine);
-        }
-        if (!inflections.empty()) {
-            std::string bendLine = en ? "Inflection points: " : "نقاط عطف: ";
-            bendLine += infEn;
-            sketch.push_back(bendLine);
-        }
+        sketch.push_back("x in [" + numStr(xmin, 4) + ", " + numStr(xmax, 4) + "]");
+        if (!interceptMath.empty()) sketch.push_back(interceptMath);
+        if (!asymptotes.empty()) sketch.push_back(asyMath);
+        if (!points.empty()) sketch.push_back(critMath);
+        if (!inflections.empty()) sketch.push_back(inflectionMath);
         r.sketch = sketch;
 
         // Monotonicity pieces: cut the window at critical points and poles.
@@ -596,45 +562,37 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
             if (p.hi - p.lo < 1e-9) continue;
             if (!intervalDefined(p.lo, p.hi)) continue;
             p.sign = signIn(df, p.lo, p.hi);
-            if (p.sign == 0) {
-                p.trend = identicallyZero(df, x, p.lo, p.hi)
-                              ? trendName(0, en)
-                              : (en ? "undecided" : "نامشخص");
-            } else {
-                p.trend = trendName(p.sign, en);
-            }
+            p.trend = trendCode(p.sign, identicallyZero(df, x, p.lo, p.hi));
             pieces.push_back(p);
         }
-        std::string monoFa, monoEn;
+        std::string monoMath;
         for (const auto& p : pieces) {
-            if (!monoFa.empty()) { monoFa += "، "; monoEn += ", "; }
-            monoFa += "[" + numStr(p.lo, 4) + "، " + numStr(p.hi, 4) + "] " + p.trend;
-            monoEn += "[" + numStr(p.lo, 4) + ", " + numStr(p.hi, 4) + "] " + p.trend;
+            if (!monoMath.empty()) monoMath += ", ";
+            monoMath += "[" + numStr(p.lo, 4) + ", " + numStr(p.hi, 4) + "]: " +
+                        (p.sign > 0 ? "f' > 0" : (p.sign < 0 ? "f' < 0" : "f' = 0"));
         }
-        if (pieces.empty()) {
-            monoFa = "بازهٔ یکنوایی مشخصی پیدا نشد.";
-            monoEn = "No monotonicity interval was found.";
-        }
-        addStep(r, en, "Monotonicity intervals", "بازه‌های یکنوایی", nullptr, monoEn, monoFa);
+        addStep(r, "step.title.monotonicity_intervals", nullptr,
+                pieces.empty() ? "step.note.no_monotonicity_interval"
+                               : "step.note.monotonicity_sign",
+                "", monoMath);
 
-        sketch.push_back((en ? "Monotonicity: " : "یکنوایی: ") + monoEn);
-        sketch.push_back((en ? "Concavity: " : "تقعر: ") + concavityEn);
+        sketch.push_back(monoMath);
+        sketch.push_back(concavityMath);
         r.sketch = sketch;
-        addStep(r, en, "Curve sketch", "رسم نمودار", f, interceptEn, interceptFa);
+        addStep(r, "step.title.curve_sketch", f,
+                interceptMath.empty() ? "step.note.no_intercepts" : "step.note.intercepts",
+                "", interceptMath);
 
         r.critical = points;
         r.inflections = inflections;
         r.pieces = pieces;
         r.solution = f;
         if (points.empty() && inflections.empty()) {
-            r.warnings.push_back(en
-                ? "No critical or inflection point was found in this window; the function is monotone across it."
-                : "در این بازه نقطهٔ بحرانی یا عطفی پیدا نشد؛ تابع روی آن یکنوا است.");
+            r.warnings.push_back("step.note.no_critical_or_inflection");
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Behaviour analysis error: ") + e.what()
-                     : std::string("خطا در تحلیل رفتار تابع: ") + e.what();
+        setAppFailure(r, e, "behaviour");
     }
     return r;
 }
@@ -642,11 +600,9 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
 // ------------------------------------------------------------ tangent & normal
 Result tangentAndNormal(const std::string& input, const std::string& x, const std::string& at,
                         const std::string& lang) {
-    const bool en = lang != "fa";
     Result r;
     r.mode = "tangent";
     r.typeId = "tangent";
-    r.typeFa = "مماس و خط عمود";
     r.variable = x;
     r.point = at;
     try {
@@ -659,63 +615,49 @@ Result tangentAndNormal(const std::string& input, const std::string& x, const st
         bool okA = false;
         const double av = asDouble(a, &okA);
         if (!okA || !std::isfinite(av)) {
-            r.error = en ? "The point a must be a real number." : "نقطهٔ a باید یک عدد حقیقی باشد.";
+            r.errorCode = "point_not_real";
             return r;
         }
         bool okF = false, okM = false;
         const double fv = evalAt(f, x, av, &okF);
         const double mv = evalAt(df, x, av, &okM);
         if (!okF || !std::isfinite(fv)) {
-            r.error = en ? "f is not defined at this point." : "تابع در این نقطه تعریف نشده است.";
+            r.errorCode = "not_defined_at_point";
             return r;
         }
         if (!okM || !std::isfinite(mv)) {
-            r.error = en
-                ? "f is not differentiable at this point, so it has no tangent line there."
-                : "تابع در این نقطه مشتق‌پذیر نیست، پس مماس هم ندارد.";
+            r.errorCode = "not_differentiable_at_point";
             return r;
         }
         r.value = snap(fv);
         r.slope = snap(mv);
         r.tangentSlope = r.slope;
 
-        addStep(r, en, "Curve and point of tangency", "منحنی و نقطهٔ مماس", f,
-                "x = " + toPlain(a), "x = " + toPlain(a));
-        addStep(r, en, "Slope of the tangent", "شیب مماس", df,
-                en ? ("f(a) = " + toPlain(r.value) + " and f'(a) = " + toPlain(r.slope) + ".")
-                   : "",
-                en ? ""
-                   : ("f(a) = " + toPlain(r.value) + " و f′(a) = " + toPlain(r.slope) + "."));
+        addStep(r, "step.title.curve_and_point_of_tangency", f, "", "",
+                "x = " + toPlain(a));
+        addStep(r, "step.title.slope_of_the_tangent", df, "", "",
+                "f(a) = " + toPlain(r.value) + ", f'(a) = " + toPlain(r.slope));
 
         Ex tangent = simplify(Add({r.value, Mul(r.slope, Add({Sym(x), Mul(Num(-1), a)}))}));
         r.tangent = tangent;
-        addStep(r, en, "Tangent line: y = f(a) + f'(a)(x - a)",
-                "خط مماس: y = f(a) + f′(a)(x − a)", tangent,
-                en ? "Point-slope form anchored at the point of tangency." : "",
-                en ? "" : "شکل نقطه‌شیب که در نقطهٔ مماس نوشته شده است.");
+        addStep(r, "step.title.tangent_line", tangent, "step.note.point_slope_form");
 
         if (std::fabs(mv) < 1e-12) {
             r.normal = a;
-            addStep(r, en, "Normal line", "خط عمود", a,
-                    en ? "The tangent is horizontal, so the normal is the vertical line x = a." : "",
-                    en ? "" : "مماس افقی است، پس خط عمود خط قائم x = a است.");
+            addStep(r, "step.title.normal_line", a,
+                    "step.note.horizontal_tangent_vertical_normal");
         } else {
             Ex normalSlope = snap(-1.0 / mv);
             r.normalSlope = normalSlope;
             Ex normal = simplify(Add({r.value, Mul(normalSlope, Add({Sym(x), Mul(Num(-1), a)}))}));
             r.normal = normal;
-            addStep(r, en, "Normal line", "خط عمود", normal,
-                    en ? ("Perpendicular slopes multiply to -1, so the normal slope is " +
-                          toPlain(normalSlope) + ".")
-                       : "",
-                    en ? ""
-                       : ("حاصل‌ضرب شیب دو خط عمود −۱ است، پس شیب خط عمود " +
-                          toPlain(normalSlope) + " است."));
+            addStep(r, "step.title.normal_line", normal,
+                    "step.note.perpendicular_slopes", "",
+                    "m_normal = " + toPlain(normalSlope));
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Tangent/normal error: ") + e.what()
-                     : std::string("خطا در مماس و خط عمود: ") + e.what();
+        setAppFailure(r, e, "tangent");
     }
     return r;
 }
@@ -723,15 +665,13 @@ Result tangentAndNormal(const std::string& input, const std::string& x, const st
 // --------------------------------------------------------------- optimisation
 Result optimiseFunction(const std::string& input, const std::string& x, double xmin, double xmax,
                         const std::string& lang) {
-    const bool en = lang != "fa";
     Result r;
     r.mode = "optimize";
     r.typeId = "optimize";
-    r.typeFa = "مسایل بهینه‌سازی";
     r.variable = x;
     try {
         if (!(xmin < xmax)) {
-            r.error = en ? "The interval must satisfy a < b." : "باید a < b باشد.";
+            r.errorCode = "bad_interval";
             return r;
         }
         Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
@@ -742,15 +682,12 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
             r.verified = false;
             r.errorCode = "unknown_function";
             r.errorDetail = "unknown function: " + unknown;
-            r.error = en ? ("Unknown function: " + unknown)
-                         : ("تابع " + unknown + " ناشناخته است.");
             return r;
         }
         Ex df = simplify(diff(f, x));
         r.derivative = df;
-        addStep(r, en, "Objective function and derivative", "تابع هدف و مشتق", f,
-                en ? ("f' = " + toPlain(df) + ".") : "",
-                en ? "" : ("f′ = " + toPlain(df) + "."));
+        addStep(r, "step.title.objective_function_and_derivative", f, "", "",
+                "f' = " + toPlain(df));
 
         // E4: extra symbols are still bound to zero by the numeric evaluator.
         // Say so instead of hiding the substitution.
@@ -762,16 +699,7 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
             extras.push_back(s);
         }
         if (!extras.empty()) {
-            std::string names;
-            for (size_t i = 0; i < extras.size(); ++i) {
-                if (i) names += ", ";
-                names += extras[i];
-            }
-            r.warnings.push_back(
-                en ? "Extra symbol(s) " + names +
-                         " were treated as 0 for the numeric extrema."
-                   : "نماد(های) اضافی " + names +
-                         " در محاسبهٔ عددی اکسترمم‌ها صفر گرفته شدند.");
+            r.warnings.push_back("step.note.extra_symbols_zero");
         }
 
         // E1: a pole or runaway sample means the closed-interval extremum may
@@ -795,13 +723,7 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
             }
             if (positive && !negative) blow = 1;
             else if (negative && !positive) blow = -1;
-            r.warnings.push_back(
-                en ? "Singular point at x = " + numStr(issue.point) + ": " +
-                         (blow > 0 ? "f tends to +infinity"
-                                   : (blow < 0 ? "f tends to -infinity" : "f is unbounded"))
-                   : "نقطهٔ تکین در x = " + numStr(issue.point) + ": " +
-                         (blow > 0 ? "f به +∞ میل می‌کند"
-                                   : (blow < 0 ? "f به -∞ میل می‌کند" : "f کران‌دار نیست")));
+            r.warnings.push_back("step.note.singular_point_unbounded");
             CriticalPointView sp;
             sp.x = snap(issue.point);
             sp.value = nullptr;
@@ -818,7 +740,7 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
         double bestMin = std::numeric_limits<double>::infinity();
         Ex bestMaxX = nullptr;
         Ex bestMinX = nullptr;
-        std::string candFa, candEn;
+        std::string candMath;
         for (double c : candidates) {
             if (singular &&
                 std::fabs(c - issue.point) <= 1e-6 * (1.0 + std::fabs(issue.point)))
@@ -829,9 +751,10 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
             const bool interior = c > xmin + 1e-9 && c < xmax - 1e-9;
             const std::string kind = interior ? "stationary" : "endpoint";
             all.push_back(makePoint(snap(c), f, x, c, kind));
-            if (!candFa.empty()) { candFa += "، "; candEn += ", "; }
-            candFa += "x = " + numStr(c) + (interior ? " (داخلی)" : " (سر بازه)");
-            candEn += "x = " + numStr(c) + (interior ? " (interior)" : " (endpoint)");
+            if (!candMath.empty()) candMath += ", ";
+            candMath += "x = " + numStr(c) +
+                        (interior ? " ∈ (" + numStr(xmin) + ", " + numStr(xmax) + ")"
+                                  : " ∈ {" + numStr(xmin) + ", " + numStr(xmax) + "}");
             if (v > bestMax) {
                 bestMax = v;
                 bestMaxX = snap(c);
@@ -882,36 +805,21 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
             r.minimum = snap(bestMin);
             r.minimumAt = bestMinX;
         }
-        addStep(r, en, "Candidates on the closed interval", "کاندیدها روی بازهٔ بسته", df,
-                en ? ("Critical points of f'(x)=0 plus both endpoints: " + candEn +
-                      ". An extreme value on a closed interval must occur at one of these.")
-                   : "",
-                en ? ""
-                   : ("نقاط f′(x)=0 به‌همراه دو سر بازه: " + candFa +
-                      ". اکسترمم روی بازهٔ بسته فقط در یکی از این‌ها رخ می‌دهد."));
+        addStep(r, "step.title.candidates_on_closed_interval", df,
+                "step.note.closed_interval_candidates", "", candMath);
         if (bestMaxX) {
-            addStep(r, en, "Maximum point on the interval", "نقطهٔ بیشینه روی بازه",
-                    bestMaxX, "f(" + toPlain(bestMaxX) + ") = " + toPlain(r.maximum) + ".",
-                    "f(" + toPlain(bestMaxX) + ") = " + toPlain(r.maximum) + ".");
+            addStep(r, "step.title.maximum_point_on_interval", bestMaxX, "", "",
+                    "f(" + toPlain(bestMaxX) + ") = " + toPlain(r.maximum));
         } else {
-            addStep(r, en, "No maximum on the interval", "بیشینه‌ای روی بازه وجود ندارد",
-                    nullptr,
-                    "The function is unbounded above near the singular point, so it has no "
-                    "maximum on this closed interval.",
-                    "تابع نزدیک نقطهٔ تکین به بالا کران‌دار نیست، پس روی این بازهٔ بسته "
-                    "بیشینه ندارد.");
+            addStep(r, "step.title.no_maximum_on_interval", nullptr,
+                    "step.note.no_maximum_on_interval");
         }
         if (bestMinX) {
-            addStep(r, en, "Minimum point on the interval", "نقطهٔ کمینه روی بازه",
-                    bestMinX, "f(" + toPlain(bestMinX) + ") = " + toPlain(r.minimum) + ".",
-                    "f(" + toPlain(bestMinX) + ") = " + toPlain(r.minimum) + ".");
+            addStep(r, "step.title.minimum_point_on_interval", bestMinX, "", "",
+                    "f(" + toPlain(bestMinX) + ") = " + toPlain(r.minimum));
         } else {
-            addStep(r, en, "No minimum on the interval", "کمینه‌ای روی بازه وجود ندارد",
-                    nullptr,
-                    "The function is unbounded below near the singular point, so it has no "
-                    "minimum on this closed interval.",
-                    "تابع نزدیک نقطهٔ تکین به پایین کران‌دار نیست، پس روی این بازهٔ بسته "
-                    "کمینه ندارد.");
+            addStep(r, "step.title.no_minimum_on_interval", nullptr,
+                    "step.note.no_minimum_on_interval");
         }
         const bool gridOk =
             (!bestMaxX || !std::isfinite(gridMax) ||
@@ -922,7 +830,7 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
                  gridOk ? "check.no_grid_sample_beats" : "check.grid_sample_beats");
         r.ok = true;
     } catch (const std::exception& e) {
-        setFailure(r, en, e, "Optimisation error: ", "خطا در بهینه‌سازی: ");
+        setAppFailure(r, e, "optimize");
     }
     return r;
 }
@@ -935,19 +843,16 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
 Result relatedRates(const std::string& relation, const std::string& var, const std::string& rateVar,
                     const std::string& t, double qValue, double wValue, double givenRate,
                     const std::string& lang) {
-    const bool en = lang != "fa";
     Result r;
     r.mode = "related_rates";
     r.typeId = "related_rates";
-    r.typeFa = "نرخ‌های مرتبط";
     const std::string time = t.empty() ? "t" : t;
     r.variable = time;
     try {
         const std::string q = var.empty() ? "x" : var;
         const std::string w = rateVar.empty() ? "y" : rateVar;
         if (q == w) {
-            r.error = en ? "The two quantities must have different names."
-                         : "دو کمیت باید نام‌های متفاوت داشته باشند.";
+            r.errorCode = "related_rates_same_names";
             return r;
         }
         Ex F = parseODEExpr(relation, q, nullptr, {q, w, time, "e", "pi"});
@@ -958,28 +863,22 @@ Result relatedRates(const std::string& relation, const std::string& var, const s
         Ex B = simplify(diff(F, w));
         Ex differentiated = simplify(Add({Mul(A, dq), Mul(B, dw)}));
         r.derivative = differentiated;
-        addStep(r, en, "Relation and time derivative", "رابطه و مشتق زمانی", differentiated,
-                en ? ("F = " + toPlain(F) + ". Differentiating F(q,w) = 0 with respect to time "
-                      "gives A q' + B w' = 0, with A = " + toPlain(A) + " and B = " + toPlain(B) + ".")
-                   : "",
-                en ? ""
-                   : ("F = " + toPlain(F) + ". مشتق‌گیری از F(q,w) = 0 نسبت به زمان "
-                      "A q′ + B w′ = 0 را می‌دهد، با A = " + toPlain(A) + " و B = " + toPlain(B) + "."));
+        addStep(r, "step.title.relation_and_time_derivative", differentiated,
+                "step.note.differentiate_relation_in_time", "",
+                "F = " + toPlain(F) + ", A = " + toPlain(A) + ", B = " + toPlain(B) +
+                ", A " + q + "' + B " + w + "' = 0");
 
         if (A->isZero()) {
-            r.warnings.push_back(en
-                ? "The relation does not involve the requested quantity, so its rate is not fixed."
-                : "رابطه شامل کمیت خواسته‌شده نیست، پس نرخ آن تعیین نمی‌شود.");
+            r.warnings.push_back("step.note.relation_missing_quantity");
             r.ok = true;
             return r;
         }
         Ex coefficient = simplify(Mul(Num(-1), B, Pow(A, Num(-1))));
         r.solution = coefficient;
         r.slope = coefficient;
-        addStep(r, en, "Isolate the requested rate", "جدا کردن نرخ خواسته‌شده",
-                coefficient,
-                en ? "Dividing by A leaves the requested rate as a multiple of the known one." : "",
-                en ? "" : "تقسیم بر A نرخ خواسته‌شده را به‌صورت ضریبی از نرخ معلوم باقی می‌گذارد.");
+        addStep(r, "step.title.isolate_requested_rate", coefficient,
+                "step.note.divide_by_coefficient", "",
+                q + "' = -(" + toPlain(B) + "/" + toPlain(A) + ") " + w + "'");
 
         const bool haveInstant =
             std::isfinite(qValue) && std::isfinite(wValue) && std::isfinite(givenRate);
@@ -994,8 +893,7 @@ Result relatedRates(const std::string& relation, const std::string& var, const s
         const double aNum = evalConst(simplify(Aat), &okA);
         const double bNum = evalConst(simplify(Bat), &okB);
         if (!okA || !okB || !std::isfinite(aNum) || !std::isfinite(bNum) || std::fabs(aNum) < 1e-12) {
-            r.error = en ? "The coefficient could not be evaluated at those values."
-                         : "ضریب در آن مقادیر قابل محاسبه نبود.";
+            r.errorCode = "coefficient_not_evaluable";
             return r;
         }
 
@@ -1003,20 +901,14 @@ Result relatedRates(const std::string& relation, const std::string& var, const s
         r.hasNumeric = true;
         r.numericValue = answer;
         r.value = numEx(answer);
-        addStep(r, en, "Requested rate at this instant", "نرخ خواسته‌شده در این لحظه",
-                numEx(answer),
-                en ? ("With " + q + " = " + numStr(qValue) + ", " + w + " = " + numStr(wValue) +
-                      ", A = " + numStr(aNum) + " and B = " + numStr(bNum) + ", the rate is " +
-                      numStr(answer) + " per unit time.")
-                   : "",
-                en ? ""
-                   : ("با " + q + " = " + numStr(qValue) + "، " + w + " = " + numStr(wValue) +
-                      "، A = " + numStr(aNum) + " و B = " + numStr(bNum) + "، نرخ برابر " +
-                      numStr(answer) + " در واحد زمان است."));
+        addStep(r, "step.title.requested_rate_at_this_instant", numEx(answer),
+                "step.note.rate_at_this_instant", "",
+                q + " = " + numStr(qValue) + ", " + w + " = " + numStr(wValue) +
+                ", A = " + numStr(aNum) + ", B = " + numStr(bNum) +
+                ", rate = " + numStr(answer));
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Related-rates error: ") + e.what()
-                     : std::string("خطا در نرخ‌های مرتبط: ") + e.what();
+        setAppFailure(r, e, "related_rates");
     }
     return r;
 }
@@ -1024,15 +916,13 @@ Result relatedRates(const std::string& relation, const std::string& var, const s
 // --------------------------------------------------------- mean value theorems
 Result meanValueTheorems(const std::string& input, const std::string& x, double a, double b,
                          const std::string& lang) {
-    const bool en = lang != "fa";
     Result r;
     r.mode = "mvt";
     r.typeId = "mvt";
-    r.typeFa = "قضیه مقدار میانگین";
     r.variable = x;
     try {
         if (!(a < b)) {
-            r.error = en ? "The interval must satisfy a < b." : "باید a < b باشد.";
+            r.errorCode = "bad_interval";
             return r;
         }
         Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
@@ -1041,17 +931,14 @@ Result meanValueTheorems(const std::string& input, const std::string& x, double 
         const double fa = evalAt(f, x, a, &okFa);
         const double fb = evalAt(f, x, b, &okFb);
         if (!okFa || !okFb || !std::isfinite(fa) || !std::isfinite(fb)) {
-            r.error = en ? "f must be defined at both endpoints."
-                         : "تابع باید در دو سر بازه تعریف شده باشد.";
+            r.errorCode = "mvt_endpoints_undefined";
             return r;
         }
         r.valueA = snap(fa);
         r.valueB = snap(fb);
-        addStep(r, en, "Function and endpoint values", "تابع و مقادیر دو سر", f,
-                en ? ("f(a) = " + numStr(fa) + " and f(b) = " + numStr(fb) + ".")
-                   : "",
-                en ? ""
-                   : ("f(a) = " + numStr(fa) + " و f(b) = " + numStr(fb) + "."));
+        addStep(r, "step.title.function_and_endpoint_values", f,
+                "step.note.endpoint_values", "",
+                "f(a) = " + numStr(fa) + ", f(b) = " + numStr(fb));
 
         const int probes = 32;
         bool continuous = true;
@@ -1086,18 +973,12 @@ Result meanValueTheorems(const std::string& input, const std::string& x, double 
         r.slope = secant;
         const bool rolle = std::fabs(fb - fa) < 1e-9;
         r.rolleApplies = rolle;
-        addStep(r, en, "Secant slope (f(b) - f(a)) / (b - a)",
-                "شیب خط قاطع (f(b) − f(a)) / (b − a)", secant,
-                en ? (rolle ? "f(a) = f(b), so Rolle's theorem applies and the promised tangent is horizontal."
-                            : "The theorem says some interior tangent is parallel to this secant.")
-                   : "",
-                en ? ""
-                   : (rolle ? "چون f(a) = f(b) است قضیهٔ رول برقرار می‌شود و مماس تضمین‌شده افقی است."
-                            : "قضیه می‌گوید مماسی در داخل بازه موازی این خط قاطع است."));
+        addStep(r, "step.title.secant_slope", secant,
+                rolle ? "step.note.rolle_applies" : "step.note.mvt_promise", "",
+                "m_secant = " + toPlain(secant));
 
         Ex target = simplify(Add({df, Mul(Num(-1), secant)}));
-        addStep(r, en, "Solve f'(c) = secant slope for c", "حل معادلهٔ f′(c) = شیب قاطع برای c",
-                substitute(target, x, Sym("c")));
+        addStep(r, "step.title.solve_for_c", substitute(target, x, Sym("c")));
         std::vector<double> roots;
         const bool everyPoint = identicallyZero(target, x, a, b);
         if (everyPoint) {
@@ -1118,16 +999,10 @@ Result meanValueTheorems(const std::string& input, const std::string& x, double 
             r.pointValues.push_back((okF && std::isfinite(fv)) ? snap(fv) : nullptr);
         }
         if (truncated) {
-            r.warnings.push_back(en
-                ? "More than 16 points satisfy the conclusion; only the first 16 are shown."
-                : "بیش از ۱۶ نقطه نتیجهٔ قضیه را برآورده می‌کنند؛ فقط ۱۶ نقطهٔ اول نمایش داده شده‌اند.");
+            r.warnings.push_back("step.note.more_than_16_points");
         }
         if (r.points.empty()) {
-            r.warnings.push_back(en
-                ? "No point satisfying the conclusion was found numerically. Check that the "
-                  "hypotheses really hold across the whole interval."
-                : "هیچ نقطه‌ای که نتیجهٔ قضیه را برآورده کند به‌صورت عددی پیدا نشد. بررسی کنید که "
-                  "فرض‌های قضیه روی تمام بازه برقرار باشند.");
+            r.warnings.push_back("step.note.no_point_satisfies_conclusion");
         } else {
             for (const auto& c : r.points) {
                 bool ok = false;
@@ -1135,48 +1010,38 @@ Result meanValueTheorems(const std::string& input, const std::string& x, double 
                 bool okv = false;
                 const double fv = ok ? evalAt(f, x, cv, &okv) : 0;
                 const bool haveValue = ok && okv && std::isfinite(fv);
-                const std::string pointText = "c = " + toPlain(c) +
-                    (haveValue ? (en ? ", f(c) = " : "، f(c) = ") + numStr(fv) : "");
-                r.steps.push_back({
-                    en ? "The guaranteed point c where f'(c) equals the secant slope"
-                       : "نقطهٔ تضمین‌شدهٔ c که در آن f′(c) برابر شیب قاطع است",
-                    c,
-                    en ? (pointText + ". " + (everyPoint
-                          ? "The equation holds at every interior point; the midpoint is reported as a representative."
-                          : "This interior point is exactly what the Mean Value Theorem promises."))
-                       : (pointText + ". " + (everyPoint
-                          ? "معادله در هر نقطهٔ داخلی برقرار است؛ نقطهٔ میانی به‌عنوان نماینده گزارش می‌شود."
-                          : "این نقطهٔ داخلی دقیقاً همان چیزی است که قضیهٔ مقدار میانگین تضمین می‌کند."))});
+                std::string pointMath = "c = " + toPlain(c);
+                if (haveValue) pointMath += ", f(c) = " + numStr(fv);
+                addStep(r, "step.title.guaranteed_point_of_mvt", c,
+                        everyPoint ? "step.note.mvt_every_point"
+                                   : "step.note.mvt_guaranteed_point",
+                        "", pointMath);
             }
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Mean-value error: ") + e.what()
-                     : std::string("خطا در قضیهٔ مقدار میانگین: ") + e.what();
+        setAppFailure(r, e, "mvt");
     }
     return r;
 }
 
 Result cauchyMeanValue(const std::string& fIn, const std::string& gIn, const std::string& x, double a,
                        double b, const std::string& lang) {
-    const bool en = lang != "fa";
     Result r;
     r.mode = "cauchy";
     r.typeId = "cauchy";
-    r.typeFa = "قضیهٔ کوشی";
     r.variable = x;
     try {
         if (!(a < b)) {
-            r.error = en ? "The interval must satisfy a < b." : "باید a < b باشد.";
+            r.errorCode = "bad_interval";
             return r;
         }
         Ex f = parseODEExpr(fIn, x, nullptr, {x, "e", "pi"});
         Ex g = parseODEExpr(gIn, x, nullptr, {x, "e", "pi"});
         r.functionF = f;
         r.functionG = g;
-        addStep(r, en, "Functions f and g", "توابع f و g", f,
-                en ? ("g = " + toPlain(g) + " (the denominator).") : "",
-                en ? "" : ("g = " + toPlain(g) + " (مخرج)."));
+        addStep(r, "step.title.functions_f_and_g", f, "", "",
+                "g = " + toPlain(g));
 
         bool ok = false;
         const double fa = evalConst(substitute(f, x, numEx(a)), &ok);
@@ -1184,13 +1049,11 @@ Result cauchyMeanValue(const std::string& fIn, const std::string& gIn, const std
         const double ga = evalConst(substitute(g, x, numEx(a)), &ok);
         const double gb = evalConst(substitute(g, x, numEx(b)), &ok);
         if (!std::isfinite(fa) || !std::isfinite(fb) || !std::isfinite(ga) || !std::isfinite(gb)) {
-            r.error = en ? "Both functions must be defined at the endpoints."
-                         : "هر دو تابع باید در دو سر بازه تعریف شده باشند.";
+            r.errorCode = "cauchy_endpoints_undefined";
             return r;
         }
         if (std::fabs(gb - ga) < 1e-12) {
-            r.error = en ? "g(a) = g(b), so Cauchy's theorem does not apply."
-                         : "چون g(a) = g(b) است قضیهٔ کوشی برقرار نمی‌شود.";
+            r.errorCode = "cauchy_equal_endpoints";
             return r;
         }
         r.valueA = snap(fa);
@@ -1202,14 +1065,10 @@ Result cauchyMeanValue(const std::string& fIn, const std::string& gIn, const std
         r.derivative = df;
         r.secondDerivative = dg;
         const double ratio = (fb - fa) / (gb - ga);
-        addStep(r, en, "Derivatives and the ratio of increments",
-                "مشتق‌ها و نسبت تغییرات", Add({df, dg}),
-                en ? ("f' = " + toPlain(df) + ", g' = " + toPlain(dg) +
-                      "; the target ratio is (f(b)-f(a))/(g(b)-g(a)) = " + numStr(ratio) + ".")
-                   : "",
-                en ? ""
-                   : ("f′ = " + toPlain(df) + "، g′ = " + toPlain(dg) +
-                      "؛ نسبت هدف (f(b)−f(a))/(g(b)−g(a)) = " + numStr(ratio) + " است."));
+        addStep(r, "step.title.derivatives_and_ratio_of_increments", Add({df, dg}),
+                "step.note.ratio_of_increments", "",
+                "f' = " + toPlain(df) + ", g' = " + toPlain(dg) +
+                ", ratio = " + numStr(ratio));
 
         Ex target = simplify(Add({df, Mul(Num(-1), Mul(dg, numEx(ratio)))}));
         std::vector<double> roots;
@@ -1229,31 +1088,21 @@ Result cauchyMeanValue(const std::string& fIn, const std::string& gIn, const std
             r.pointValues.push_back((okF && std::isfinite(fv)) ? snap(fv) : nullptr);
         }
         if (truncated) {
-            r.warnings.push_back(en
-                ? "More than 16 points satisfy the conclusion; only the first 16 are shown."
-                : "بیش از ۱۶ نقطه نتیجهٔ قضیه را برآورده می‌کنند؛ فقط ۱۶ نقطهٔ اول نمایش داده شده‌اند.");
+            r.warnings.push_back("step.note.more_than_16_points");
         }
         if (r.points.empty()) {
-            r.warnings.push_back(en ? "No such c was found numerically."
-                                    : "چنین نقطه‌ای به‌صورت عددی پیدا نشد.");
+            r.warnings.push_back("step.note.no_cauchy_point");
         } else {
             for (const auto& c : r.points) {
-                r.steps.push_back({
-                    en ? "The point c guaranteed by Cauchy's theorem"
-                       : "نقطهٔ c که قضیهٔ کوشی تضمین می‌کند",
-                    c,
-                    en ? (everyPoint
-                          ? "The ratio condition holds at every interior point; the midpoint is reported as a representative."
-                          : "At this point the ratio of the derivatives matches the ratio of the function increments.")
-                       : (everyPoint
-                          ? "شرط نسبت در هر نقطهٔ داخلی برقرار است؛ نقطهٔ میانی به‌عنوان نماینده گزارش می‌شود."
-                          : "در این نقطه نسبت مشتق‌ها با نسبت تغییرات توابع برابر است.")});
+                addStep(r, "step.title.guaranteed_point_of_cauchy", c,
+                        everyPoint ? "step.note.cauchy_every_point"
+                                   : "step.note.cauchy_guaranteed_point",
+                        "", "c = " + toPlain(c));
             }
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Cauchy MVT error: ") + e.what()
-                     : std::string("خطا در قضیهٔ کوشی: ") + e.what();
+        setAppFailure(r, e, "cauchy");
     }
     return r;
 }
@@ -1261,11 +1110,9 @@ Result cauchyMeanValue(const std::string& fIn, const std::string& gIn, const std
 // ----------------------------------------------------------------- L'Hopital
 Result lhopitalLimit(const std::string& numerator, const std::string& denominator,
                      const std::string& x, const std::string& point, const std::string& lang) {
-    const bool en = lang != "fa";
     Result r;
     r.mode = "lhopital";
     r.typeId = "lhopital";
-    r.typeFa = "قاعدهٔ هوپیتال";
     r.variable = x;
     r.point = point;
     try {
@@ -1276,9 +1123,8 @@ Result lhopitalLimit(const std::string& numerator, const std::string& denominato
         r.functionF = N;
         r.functionG = D;
         Ex quotient = Mul(N, Pow(D, Num(-1)));
-        addStep(r, en, "Quotient f/g", "کسر f/g", quotient,
-                en ? ("f = " + toPlain(N) + " and g = " + toPlain(D) + ".") : "",
-                en ? "" : ("f = " + toPlain(N) + " و g = " + toPlain(D) + "."));
+        addStep(r, "step.title.quotient_f_over_g", quotient, "", "",
+                "f = " + toPlain(N) + ", g = " + toPlain(D));
 
         std::vector<std::string> rules;
         LimitOutcome out = limitOf(quotient, x, a, 0, &rules);
@@ -1287,37 +1133,29 @@ Result lhopitalLimit(const std::string& numerator, const std::string& denominato
             if (rule == "lhopital") used = true;
         }
         if (used) {
-            addStep(r, en, "The quotient is an indeterminate form, so L'Hopital's rule applies",
-                    "کسر شکل مبهم دارد، پس قاعدهٔ هوپیتال اعمال می‌شود", nullptr,
-                    en ? "Differentiating numerator and denominator separately is allowed only after "
-                         "confirming the indeterminate form."
-                       : "",
-                    en ? "" : "مشتق‌گیری جداگانه از صورت و مخرج تنها پس از تأیید شکل مبهم مجاز است.");
+            addStep(r, "step.title.indeterminate_form", nullptr,
+                    "step.note.lhopital_applies");
         } else {
-            addStep(r, en, "The quotient is not indeterminate here, so the limit is direct",
-                    "کسر در این نقطه مبهم نیست، پس حد مستقیم است", nullptr,
-                    en ? "L'Hopital would be unjustified; the value follows by substitution."
-                       : "",
-                    en ? "" : "استفاده از هوپیتال توجیه ندارد؛ مقدار با جای‌گذاری به دست می‌آید.");
+            addStep(r, "step.title.direct_substitution", nullptr,
+                    "step.note.lhopital_unjustified");
         }
 
         if (out.kind == LimitOutcome::Finite) {
             r.solution = out.value;
             r.limitExists = true;
-            addStep(r, en, "Limit of the quotient", "حد کسر", out.value);
+            addStep(r, "step.title.limit_of_the_quotient", out.value);
         } else if (out.kind == LimitOutcome::PosInf || out.kind == LimitOutcome::NegInf) {
             r.limitInfinite = true;
             r.limitExists = true;
             r.limitSign = out.kind == LimitOutcome::PosInf ? 1 : -1;
-            addStep(r, en, "The quotient diverges", "کسر واگرا می‌شود");
+            addStep(r, "step.title.quotient_diverges");
         } else {
             r.divergent = true;
-            addStep(r, en, "The limit does not exist", "حد وجود ندارد");
+            addStep(r, "step.title.limit_does_not_exist");
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("L'Hopital error: ") + e.what()
-                     : std::string("خطا در قاعدهٔ هوپیتال: ") + e.what();
+        setAppFailure(r, e, "lhopital");
     }
     return r;
 }

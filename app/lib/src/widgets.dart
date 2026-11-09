@@ -418,8 +418,7 @@ class _LearningCardState extends State<LearningCard> {
                 label: Text(
                   _expanded
                       ? l.t('ui.hide_the_detail')
-                      : widget.expandLabel ??
-                            l.t('ui.worked_example_pitfalls'),
+                      : widget.expandLabel ?? l.t('ui.worked_example_pitfalls'),
                 ),
               ),
             ),
@@ -475,8 +474,7 @@ class _LearningCardState extends State<LearningCard> {
           if (widget.example != null) ...[
             const SizedBox(height: 8),
             Text(
-              widget.exampleCaption ??
-                  l.t('ui.a_worked_example'),
+              widget.exampleCaption ?? l.t('ui.a_worked_example'),
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: c.muted,
@@ -693,6 +691,18 @@ class ResultView extends StatelessWidget {
               ? l10n.t('ui.definite_integral')
               : l10n.t('ui.indefinite_integral');
       }
+    }
+    const applicationTypes = <String>{
+      'behaviour',
+      'tangent',
+      'optimize',
+      'related_rates',
+      'mvt',
+      'cauchy',
+      'lhopital',
+    };
+    if (applicationTypes.contains(result.typeId)) {
+      return l10n.t('ui.type.${result.typeId}');
     }
     return l10n.isFa ? result.typeFa : result.typeEn;
   }
@@ -977,9 +987,7 @@ class ResultView extends StatelessWidget {
         ),
       );
     } else if (result.mode == 'wronskian') {
-      children.add(
-        SectionLabel(l10n.t('ui.wronskian_determinant')),
-      );
+      children.add(SectionLabel(l10n.t('ui.wronskian_determinant')));
       children.add(const SizedBox(height: 10));
       if (result.wronskian != null) {
         children.add(
@@ -1199,8 +1207,7 @@ class ResultView extends StatelessWidget {
         ),
         ExView(
           plain: 'f($a) = ${result.valueAt?.plain ?? 'undefined'}',
-          pretty:
-              'f($a) = ${result.valueAt?.pretty ?? l10n.t('ui.undefined')}',
+          pretty: 'f($a) = ${result.valueAt?.pretty ?? l10n.t('ui.undefined')}',
           latex: 'f($a) = ${result.valueAt?.latex ?? '\\text{undefined}'}',
         ),
       ];
@@ -1240,9 +1247,7 @@ class ResultView extends StatelessWidget {
         result.mode == 'lhopital') {
       children.addAll(_theoremAnswer(context));
     } else if (result.mode == 'envelope') {
-      children.add(
-        SectionLabel(l10n.t('ui.envelope_of_the_family')),
-      );
+      children.add(SectionLabel(l10n.t('ui.envelope_of_the_family')));
       children.add(const SizedBox(height: 10));
       if (result.envelope.isEmpty) {
         children.add(
@@ -1253,9 +1258,7 @@ class ResultView extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: c.line),
             ),
-            child: Text(
-              l10n.t('ui.this_family_has_no_envelope'),
-            ),
+            child: Text(l10n.t('ui.this_family_has_no_envelope')),
           ),
         );
       } else {
@@ -1283,9 +1286,7 @@ class ResultView extends StatelessWidget {
       }
       if (result.parametricAvailable) {
         children.add(const SizedBox(height: 14));
-        children.add(
-          SectionLabel(l10n.t('ui.parametric_solution')),
-        );
+        children.add(SectionLabel(l10n.t('ui.parametric_solution')));
         if (result.paramX != null) {
           children.add(const SizedBox(height: 8));
           children.add(
@@ -1305,9 +1306,7 @@ class ResultView extends StatelessWidget {
             ? 'y = ${o.pretty}'
             : '${o.pretty} = C';
         children.add(const SizedBox(height: 16));
-        children.add(
-          SectionLabel(l10n.t('ui.orthogonal_trajectories')),
-        );
+        children.add(SectionLabel(l10n.t('ui.orthogonal_trajectories')));
         children.add(const SizedBox(height: 10));
         children.add(
           MathBlock(
@@ -1409,9 +1408,7 @@ class ResultView extends StatelessWidget {
       }
       if (result.remainder != null) {
         children.add(const SizedBox(height: 14));
-        children.add(
-          SectionLabel(l10n.t('ui.lagrange_remainder')),
-        );
+        children.add(SectionLabel(l10n.t('ui.lagrange_remainder')));
         children.add(const SizedBox(height: 8));
         children.add(MathBlock(math: result.remainder!, size: 17));
       }
@@ -1482,9 +1479,7 @@ class ResultView extends StatelessWidget {
         children.add(const SizedBox(height: 14));
       }
       if (result.partials.isNotEmpty) {
-        children.add(
-          SectionLabel(l10n.t('ui.partial_derivatives')),
-        );
+        children.add(SectionLabel(l10n.t('ui.partial_derivatives')));
         children.add(const SizedBox(height: 8));
         for (final p in result.partials) {
           if (p.value == null) continue;
@@ -1518,9 +1513,7 @@ class ResultView extends StatelessWidget {
       }
       if (result.directional != null) {
         children.add(const SizedBox(height: 14));
-        children.add(
-          SectionLabel(l10n.t('ui.directional_derivative')),
-        );
+        children.add(SectionLabel(l10n.t('ui.directional_derivative')));
         children.add(const SizedBox(height: 8));
         children.add(
           MathBlock(math: result.directional!, accent: true, size: 19),
@@ -1573,9 +1566,7 @@ class ResultView extends StatelessWidget {
           ),
         );
       } else {
-        children.add(
-          SectionLabel(l10n.t('ui.numeric_partial_sum')),
-        );
+        children.add(SectionLabel(l10n.t('ui.numeric_partial_sum')));
         children.add(const SizedBox(height: 8));
         children.add(
           Text(
@@ -1590,10 +1581,7 @@ class ResultView extends StatelessWidget {
       // ODE families, so never append the implicit `= C` suffix here.
       final primary = result.primary;
       children.add(
-        SectionLabel(
-          l10n.t('ui.simplest_answer'),
-          icon: Icons.bolt_rounded,
-        ),
+        SectionLabel(l10n.t('ui.simplest_answer'), icon: Icons.bolt_rounded),
       );
       if (result.typeEn.isNotEmpty && result.typeEn != 'topic') {
         children.add(const SizedBox(height: 8));
@@ -1683,9 +1671,7 @@ class ResultView extends StatelessWidget {
       }
       if (result.parametricAvailable) {
         children.add(const SizedBox(height: 14));
-        children.add(
-          SectionLabel(l10n.t('ui.parametric_solution')),
-        );
+        children.add(SectionLabel(l10n.t('ui.parametric_solution')));
         if (result.paramX != null) {
           children.add(const SizedBox(height: 8));
           children.add(
@@ -1701,9 +1687,7 @@ class ResultView extends StatelessWidget {
       }
       if (result.singular.isNotEmpty) {
         children.add(const SizedBox(height: 14));
-        children.add(
-          SectionLabel(l10n.t('ui.singular_solutions')),
-        );
+        children.add(SectionLabel(l10n.t('ui.singular_solutions')));
         for (final s in result.singular) {
           children.add(
             Padding(
@@ -1795,21 +1779,13 @@ class ResultView extends StatelessWidget {
     final out = <Widget>[];
     if (result.value != null) {
       out.add(
-        _valueLine(
-          context,
-          l10n.t('ui.value_at_the_point_f_a'),
-          result.value!,
-        ),
+        _valueLine(context, l10n.t('ui.value_at_the_point_f_a'), result.value!),
       );
       out.add(const SizedBox(height: 8));
     }
     if (result.slope != null) {
       out.add(
-        _valueLine(
-          context,
-          l10n.t('ui.tangent_slope_f_a'),
-          result.slope!,
-        ),
+        _valueLine(context, l10n.t('ui.tangent_slope_f_a'), result.slope!),
       );
       out.add(const SizedBox(height: 14));
     }
@@ -1896,9 +1872,7 @@ class ResultView extends StatelessWidget {
     }
     if (result.candidates.isNotEmpty) {
       out.add(const SizedBox(height: 8));
-      out.add(
-        SectionLabel(l10n.t('ui.candidates_compared')),
-      );
+      out.add(SectionLabel(l10n.t('ui.candidates_compared')));
       out.add(const SizedBox(height: 10));
       out.add(
         PointTable(
@@ -1982,21 +1956,11 @@ class ResultView extends StatelessWidget {
       return out;
     }
     if (result.slope != null) {
-      out.add(
-        _valueLine(
-          context,
-          l10n.t('ui.secant_slope'),
-          result.slope!,
-        ),
-      );
+      out.add(_valueLine(context, l10n.t('ui.secant_slope'), result.slope!));
       out.add(const SizedBox(height: 10));
     }
     if (result.points.isNotEmpty) {
-      out.add(
-        SectionLabel(
-          l10n.t('ui.point_guaranteed_by_the_theorem'),
-        ),
-      );
+      out.add(SectionLabel(l10n.t('ui.point_guaranteed_by_the_theorem')));
       out.add(const SizedBox(height: 10));
       for (var i = 0; i < result.points.length; i++) {
         final point = result.points[i];
@@ -2078,8 +2042,12 @@ class ResultView extends StatelessWidget {
           Expanded(
             child: Text(
               ok
-                  ? l10n.t('ui.the_functions_are_linearly_independent_on_the_in')
-                  : l10n.t('ui.the_wronskian_is_zero_the_functions_are_linearly'),
+                  ? l10n.t(
+                      'ui.the_functions_are_linearly_independent_on_the_in',
+                    )
+                  : l10n.t(
+                      'ui.the_wronskian_is_zero_the_functions_are_linearly',
+                    ),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
@@ -2093,10 +2061,7 @@ class ResultView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionLabel(
-            l10n.t('ui.solution_path'),
-            icon: Icons.route_outlined,
-          ),
+          SectionLabel(l10n.t('ui.solution_path'), icon: Icons.route_outlined),
           const SizedBox(height: 16),
           for (var i = 0; i < result.steps.length; i++)
             _StepRow(
@@ -2149,9 +2114,8 @@ class ResultView extends StatelessWidget {
           l10n: l10n,
           messageKey: check.detailKey,
           params: check.params,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
       );
     } else if (check.detail.isNotEmpty && check.detailMath == null) {
@@ -2169,10 +2133,7 @@ class ResultView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionLabel(
-            l10n.t('ui.validation'),
-            icon: Icons.verified_outlined,
-          ),
+          SectionLabel(l10n.t('ui.validation'), icon: Icons.verified_outlined),
           if (result.checks.isNotEmpty) const SizedBox(height: 12),
           for (final check in result.checks)
             Padding(
@@ -2197,7 +2158,7 @@ class ResultView extends StatelessWidget {
             for (final w in result.warnings)
               _NoteRow(
                 icon: Icons.info_outline_rounded,
-                text: w,
+                text: l10n.t(w),
                 color: c.warning,
               ),
           ],
