@@ -442,6 +442,9 @@ class L10n {
 
   bool get isRtl => languageFor(code).rtl;
 
+  /// The single source of sentence direction for the UI layer.
+  TextDirection get direction => isRtl ? TextDirection.rtl : TextDirection.ltr;
+
   /// Looks up a stable dotted key in the JSON catalogue.  Until M7 removes the
   /// legacy tables, an English source string keeps resolving through them, so
   /// the second argument is either the Persian source or a parameter map.
