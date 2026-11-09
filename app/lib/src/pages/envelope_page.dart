@@ -138,16 +138,15 @@ class _EnvelopePageState extends State<EnvelopePage> {
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_a_family_of_curves'),
-      );
+      setState(() => _error = l.t('ui.enter_a_family_of_curves'));
       return;
     }
     final mode = _mode;
     final angle = _angleValue();
     if (mode == _TrajectoryMode.oblique && angle == null) {
       setState(
-        () => _error = l.t('ui.the_crossing_angle_must_be_a_number_between_0_an'),
+        () =>
+            _error = l.t('ui.the_crossing_angle_must_be_a_number_between_0_an'),
       );
       return;
     }
@@ -186,7 +185,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -221,8 +220,12 @@ class _EnvelopePageState extends State<EnvelopePage> {
                 subtitle: oblique
                     ? l.t('ui.differentiate_the_family_eliminate_its_parameter')
                     : orthogonal
-                    ? l.t('ui.differentiate_the_family_eliminate_its_parameter_2')
-                    : l.t('ui.eliminate_the_parameter_to_find_the_envelope_and'),
+                    ? l.t(
+                        'ui.differentiate_the_family_eliminate_its_parameter_2',
+                      )
+                    : l.t(
+                        'ui.eliminate_the_parameter_to_find_the_envelope_and',
+                      ),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -282,7 +285,9 @@ class _EnvelopePageState extends State<EnvelopePage> {
                     Expanded(
                       flex: 3,
                       child: Text(
-                        l.t('ui.the_trajectories_meet_every_family_member_at_thi'),
+                        l.t(
+                          'ui.the_trajectories_meet_every_family_member_at_thi',
+                        ),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -323,27 +328,15 @@ class _EnvelopePageState extends State<EnvelopePage> {
                     Row(
                       children: [
                         Expanded(
-                          child: _smallField(
-                            _cv,
-                            l.t('ui.parameter'),
-                            'c',
-                          ),
+                          child: _smallField(_cv, l.t('ui.parameter'), 'c'),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: _smallField(
-                            _xv,
-                            l.t('ui.variable_x'),
-                            'x',
-                          ),
+                          child: _smallField(_xv, l.t('ui.variable_x'), 'x'),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: _smallField(
-                            _yv,
-                            l.t('ui.variable_y'),
-                            'y',
-                          ),
+                          child: _smallField(_yv, l.t('ui.variable_y'), 'y'),
                         ),
                       ],
                     ),
@@ -427,10 +420,12 @@ class _EnvelopePageState extends State<EnvelopePage> {
         ],
         example: const ExView(
           plain: 'y = c,  alpha = 45  =>  y = x + C',
-          pretty: 'y = c، α = 45° ⇒ y = x + C',
+          pretty: 'y = c,  α = 45°  ⇒  y = x + C',
           latex: r'y = c,\quad \alpha = 45^{\circ} \quad\Longrightarrow\quad y = x + C',
         ),
-        exampleCaption: l.t('ui.a_horizontal_family_has_slope_0_the_oblique_traj'),
+        exampleCaption: l.t(
+          'ui.a_horizontal_family_has_slope_0_the_oblique_traj',
+        ),
         pitfall: l.t('ui.the_formula_fails_when_the_trajectory_is_vertica'),
       );
     }
@@ -448,7 +443,9 @@ class _EnvelopePageState extends State<EnvelopePage> {
           pretty: 'x² + y² = c²  ⇒  y = Cx',
           latex: r'x^{2} + y^{2} = c^{2} \quad\Longrightarrow\quad y = Cx',
         ),
-        exampleCaption: l.t('ui.the_circles_have_slope_x_y_the_perpendicular_slo'),
+        exampleCaption: l.t(
+          'ui.the_circles_have_slope_x_y_the_perpendicular_slo',
+        ),
         pitfall: l.t('ui.a_vertical_tangent_has_no_finite_slope_the_solve'),
       );
     }

@@ -920,7 +920,7 @@ class _CurvePlotState extends State<CurvePlot> {
       setState(() {
         _busy = false;
         _sample = null;
-        _error = widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
+        _error = widget.l10n.t('ui.plot_error');
       });
     }
   }
@@ -1191,7 +1191,7 @@ class _FieldPlotState extends State<FieldPlot> {
         _busy = false;
         _field = null;
         _extraSamples = const [];
-        _error = widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
+        _error = widget.l10n.t('ui.plot_error');
       });
     }
   }
@@ -1229,10 +1229,9 @@ class _FieldPlotState extends State<FieldPlot> {
     for (var i = 0; i < field.curves.length; i++) {
       final curve = field.curves[i];
       final color = palette[i % palette.length];
-      final label = l.t(
-        'Solution through (${_short(curve.icX)}, ${_short(curve.icY)})',
-        'جواب گذرنده از (${_short(curve.icX)}, ${_short(curve.icY)})',
-      );
+      final label = l.t('ui.solution_through', {
+        'point': '(${_short(curve.icX)}, ${_short(curve.icY)})',
+      });
       series.add(
         PlotSeries(xs: curve.xs, ys: curve.ys, color: color, label: label),
       );
@@ -1240,7 +1239,11 @@ class _FieldPlotState extends State<FieldPlot> {
     }
     // Original-family curves drawn on top of the orthogonal field. They are
     // sampled with c substituted, so each member keeps its own constant.
-    for (var i = 0; i < _extraSamples.length && i < widget.extraCurves.length; i++) {
+    for (
+      var i = 0;
+      i < _extraSamples.length && i < widget.extraCurves.length;
+      i++
+    ) {
       final sample = _extraSamples[i];
       if (sample == null) continue;
       final curve = widget.extraCurves[i];
@@ -1511,7 +1514,7 @@ class _MultiCurvePlotState extends State<MultiCurvePlot> {
         }
       } catch (e) {
         if (!mounted || generation != _generation) return;
-        failure ??= widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
+        failure ??= widget.l10n.t('ui.plot_error');
         out.add(null);
       }
     }
@@ -1554,9 +1557,8 @@ class _MultiCurvePlotState extends State<MultiCurvePlot> {
                 Expanded(
                   child: Text(
                     widget.title!,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleMedium?.copyWith(fontSize: 14),
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontSize: 14),
                   ),
                 ),
               ],
@@ -1697,7 +1699,9 @@ class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
     if (engine == null) {
       setState(() {
         _busy = false;
-        _error = widget.l10n.t('ui.the_native_engine_is_not_loaded_so_the_solution');
+        _error = widget.l10n.t(
+          'ui.the_native_engine_is_not_loaded_so_the_solution',
+        );
       });
       return;
     }
@@ -1721,7 +1725,9 @@ class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
         _error = result.ok
             ? null
             : (result.error.isEmpty
-                  ? widget.l10n.t('ui.the_solution_curves_could_not_be_computed')
+                  ? widget.l10n.t(
+                      'ui.the_solution_curves_could_not_be_computed',
+                    )
                   : result.error);
       });
     } catch (e) {
@@ -1729,7 +1735,7 @@ class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
       setState(() {
         _busy = false;
         _result = null;
-        _error = widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
+        _error = widget.l10n.t('ui.plot_error');
       });
     }
   }
@@ -1964,7 +1970,9 @@ class _SurfacePlotState extends State<SurfacePlot> {
     if (engine == null) {
       setState(() {
         _busy = false;
-        _error = widget.l10n.t('ui.the_native_engine_is_not_loaded_so_the_surface_c');
+        _error = widget.l10n.t(
+          'ui.the_native_engine_is_not_loaded_so_the_surface_c',
+        );
       });
       return;
     }
@@ -1997,7 +2005,7 @@ class _SurfacePlotState extends State<SurfacePlot> {
       setState(() {
         _busy = false;
         _result = null;
-        _error = widget.l10n.t('Plot error: $e', 'خطای رسم: $e');
+        _error = widget.l10n.t('ui.plot_error');
       });
     }
   }

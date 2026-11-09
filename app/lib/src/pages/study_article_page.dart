@@ -25,6 +25,7 @@ class StudyArticlePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = l10n;
     final c = context.colors;
+    final ideas = article.keyIdeas(l);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -35,17 +36,14 @@ class StudyArticlePage extends StatelessWidget {
               PageTitle(
                 tone: c.accent,
                 icon: Icons.auto_stories_rounded,
-                title: l.t(article.titleEn, article.titleFa),
-                subtitle: l.t(article.subtitleEn, article.subtitleFa),
+                title: article.title(l),
+                subtitle: article.subtitle(l),
               ),
               const SizedBox(height: 20),
-              SectionLabel(
-                l.t('ui.short_answer'),
-                icon: Icons.bolt_rounded,
-              ),
+              SectionLabel(l.t('ui.short_answer'), icon: Icons.bolt_rounded),
               const SizedBox(height: 10),
               Text(
-                l.t(article.shortAnswerEn, article.shortAnswerFa),
+                article.shortAnswer(l),
                 style: Theme.of(context).textTheme.bodyMedium
                     ?.copyWith(height: 1.75),
               ),
@@ -64,7 +62,7 @@ class StudyArticlePage extends StatelessWidget {
                 icon: Icons.lightbulb_outline_rounded,
               ),
               const SizedBox(height: 12),
-              for (var i = 0; i < article.keyIdeasEn.length; i++)
+              for (var i = 0; i < ideas.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
@@ -82,7 +80,7 @@ class StudyArticlePage extends StatelessWidget {
                       const SizedBox(width: 11),
                       Expanded(
                         child: Text(
-                          l.t(article.keyIdeasEn[i], article.keyIdeasFa[i]),
+                          ideas[i],
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(height: 1.65),
                         ),
@@ -105,7 +103,7 @@ class StudyArticlePage extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                l.t(article.exampleProblemEn, article.exampleProblemFa),
+                article.exampleProblem(l),
                 style: Theme.of(context).textTheme.bodyMedium
                     ?.copyWith(height: 1.7, fontWeight: FontWeight.w600),
               ),
@@ -116,7 +114,7 @@ class StudyArticlePage extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                l.t(article.exampleAnswerEn, article.exampleAnswerFa),
+                article.exampleAnswer(l),
                 style: Theme.of(context).textTheme.bodyMedium
                     ?.copyWith(height: 1.7),
               ),
@@ -151,7 +149,7 @@ class StudyArticlePage extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                l.t(article.pitfallsEn, article.pitfallsFa),
+                article.pitfalls(l),
                 style: Theme.of(context).textTheme.bodyMedium
                     ?.copyWith(height: 1.7),
               ),
@@ -166,7 +164,7 @@ class StudyArticlePage extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                l.t(article.sourceEn, article.sourceFa),
+                article.source(l),
                 style: Theme.of(context).textTheme.bodySmall
                     ?.copyWith(height: 1.6, color: c.muted),
               ),
@@ -224,13 +222,13 @@ class _StepBlock extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  l10n.t(step.titleEn, step.titleFa),
+                  step.title(l10n),
                   style: Theme.of(context).textTheme.bodyMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  l10n.t(step.detailEn, step.detailFa),
+                  step.detail(l10n),
                   style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(height: 1.65),
                 ),

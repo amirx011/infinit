@@ -106,7 +106,7 @@ class _SeriesPageState extends State<SeriesPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -128,7 +128,9 @@ class _SeriesPageState extends State<SeriesPage> {
               PageTitle(
                 icon: Icons.waves_rounded,
                 title: l.t('ui.series_convergence'),
-                subtitle: l.t('ui.decide_whether_an_infinite_sum_settles_and_find'),
+                subtitle: l.t(
+                  'ui.decide_whether_an_infinite_sum_settles_and_find',
+                ),
               ),
               const SizedBox(height: 18),
               ExpressionField(
@@ -176,9 +178,7 @@ class _SeriesPageState extends State<SeriesPage> {
                       )
                     : const Icon(Icons.waves_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.computing')
-                      : l.t('ui.test_for_convergence'),
+                  _busy ? l.t('ui.computing') : l.t('ui.test_for_convergence'),
                 ),
               ),
             ],
@@ -203,7 +203,10 @@ class _SeriesPageState extends State<SeriesPage> {
         ],
         if (r != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: r, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: r, l10n: l),
+          ),
           if (showGraphs && r.ok && r.partialSums.length > 1) ...[
             const SizedBox(height: 16),
             _PartialSumPlot(
@@ -273,15 +276,16 @@ class _PartialSumPlot extends StatelessWidget {
         children: [
           Text(
             l10n.t('ui.partial_sums_s_k'),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontSize: 14,
-            ),
+            style: Theme.of(context).textTheme.titleMedium
+                ?.copyWith(fontSize: 14),
           ),
           const SizedBox(height: 12),
           MathPlot(
             spec: PlotSpec(series: series, xLabel: 'k', yLabel: 'S_k'),
             height: 280,
-            caption: l10n.t('ui.each_point_adds_one_more_term_flattening_suggest'),
+            caption: l10n.t(
+              'ui.each_point_adds_one_more_term_flattening_suggest',
+            ),
           ),
         ],
       ),

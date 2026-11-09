@@ -43,9 +43,20 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
   _IntegralApp _kind = _IntegralApp.area;
   String _axis = 'x';
 
-  static const _areaExamples = <String>['x|x^2', 'sin(x)|0', '4-x^2|x^2', 'x^2|2*x'];
+  static const _areaExamples = <String>[
+    'x|x^2',
+    'sin(x)|0',
+    '4-x^2|x^2',
+    'x^2|2*x',
+  ];
   static const _volumeExamples = <String>['x^2|', 'sqrt(x)|0', 'x|0', '1/x|0'];
-  static const _arcExamples = <String>['x^2', 'sin(x)', 'exp(x)', 'ln(x)', 'sqrt(1-x^2)'];
+  static const _arcExamples = <String>[
+    'x^2',
+    'sin(x)',
+    'exp(x)',
+    'ln(x)',
+    'sqrt(1-x^2)',
+  ];
 
   @override
   void didUpdateWidget(covariant IntegralAppsPage oldWidget) {
@@ -131,7 +142,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -153,7 +164,9 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
               PageTitle(
                 icon: Icons.architecture_rounded,
                 title: l.t('ui.integral_applications'),
-                subtitle: l.t('ui.area_between_curves_volume_of_revolution_and_arc'),
+                subtitle: l.t(
+                  'ui.area_between_curves_volume_of_revolution_and_arc',
+                ),
               ),
               const SizedBox(height: 18),
               Wrap(
@@ -198,9 +211,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                     SizedBox(
                       width: 140,
                       child: InputDecorator(
-                        decoration: InputDecoration(
-                          labelText: l.t('ui.axis'),
-                        ),
+                        decoration: InputDecoration(labelText: l.t('ui.axis')),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: _axis,
@@ -215,8 +226,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                                 child: Text(l.t('ui.y_axis_shells')),
                               ),
                             ],
-                            onChanged: (v) =>
-                                setState(() => _axis = v ?? 'x'),
+                            onChanged: (v) => setState(() => _axis = v ?? 'x'),
                           ),
                         ),
                       ),
@@ -255,11 +265,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                 ],
               ),
               const SizedBox(height: 14),
-              ExampleRow(
-                examples: _examples,
-                l10n: l,
-                onPick: _pick,
-              ),
+              ExampleRow(examples: _examples, l10n: l, onPick: _pick),
               const SizedBox(height: 16),
               FilledButton.icon(
                 onPressed: _busy ? null : _run,
@@ -274,9 +280,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                       )
                     : const Icon(Icons.architecture_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.computing')
-                      : l.t('ui.set_up_and_evaluate'),
+                  _busy ? l.t('ui.computing') : l.t('ui.set_up_and_evaluate'),
                 ),
               ),
             ],
@@ -300,7 +304,10 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
         ],
         if (r != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: r, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: r, l10n: l),
+          ),
           if (showGraphs && r.ok) ...[
             const SizedBox(height: 16),
             if (_kind == _IntegralApp.area)
@@ -323,7 +330,9 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                 xmin: _plotLo(),
                 xmax: _plotHi(),
                 title: l.t('ui.curves_and_the_enclosed_region'),
-                caption: l.t('ui.the_area_integral_adds_thin_vertical_strips_of_h'),
+                caption: l.t(
+                  'ui.the_area_integral_adds_thin_vertical_strips_of_h',
+                ),
               )
             else
               CurvePlot(
@@ -337,7 +346,9 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                     : l.t('ui.curve_whose_length_is_measured'),
                 caption: _kind == _IntegralApp.volume
                     ? l.t('ui.rotating_this_curve_about_the_chosen_axis_sweeps')
-                    : l.t('ui.the_arc_length_adds_the_hypotenuses_of_tiny_step'),
+                    : l.t(
+                        'ui.the_arc_length_adds_the_hypotenuses_of_tiny_step',
+                      ),
               ),
           ],
         ],

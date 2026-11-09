@@ -86,18 +86,14 @@ class _BehaviourPageState extends State<BehaviourPage> {
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_an_expression'),
-      );
+      setState(() => _error = l.t('ui.enter_an_expression'));
       return;
     }
     final xVar = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
     final lo = _bound(_xmin, -3);
     final hi = _bound(_xmax, 3);
     if (!(lo < hi)) {
-      setState(
-        () => _error = l.t('ui.the_interval_must_satisfy_a_b'),
-      );
+      setState(() => _error = l.t('ui.the_interval_must_satisfy_a_b'));
       return;
     }
     setState(() {
@@ -125,7 +121,7 @@ class _BehaviourPageState extends State<BehaviourPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -145,7 +141,9 @@ class _BehaviourPageState extends State<BehaviourPage> {
               PageTitle(
                 icon: Icons.insights_rounded,
                 title: l.t('ui.function_behaviour'),
-                subtitle: l.t('ui.first_and_second_derivative_tests_monotonicity_i'),
+                subtitle: l.t(
+                  'ui.first_and_second_derivative_tests_monotonicity_i',
+                ),
               ),
               const SizedBox(height: 18),
               ExpressionField(
@@ -198,9 +196,7 @@ class _BehaviourPageState extends State<BehaviourPage> {
                       )
                     : const Icon(Icons.insights_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.analysing')
-                      : l.t('ui.analyse_the_function'),
+                  _busy ? l.t('ui.analysing') : l.t('ui.analyse_the_function'),
                 ),
               ),
             ],
@@ -228,7 +224,10 @@ class _BehaviourPageState extends State<BehaviourPage> {
         ],
         if (r != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: r, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: r, l10n: l),
+          ),
         ],
       ],
     );

@@ -85,18 +85,14 @@ class _OptimizePageState extends State<OptimizePage> {
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_an_expression'),
-      );
+      setState(() => _error = l.t('ui.enter_an_expression'));
       return;
     }
     final xVar = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
     final lo = _bound(_xmin, -2);
     final hi = _bound(_xmax, 2);
     if (!(lo < hi)) {
-      setState(
-        () => _error = l.t('ui.the_interval_must_satisfy_a_b'),
-      );
+      setState(() => _error = l.t('ui.the_interval_must_satisfy_a_b'));
       return;
     }
     setState(() {
@@ -124,7 +120,7 @@ class _OptimizePageState extends State<OptimizePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -144,7 +140,9 @@ class _OptimizePageState extends State<OptimizePage> {
               PageTitle(
                 icon: Icons.vertical_align_bottom_rounded,
                 title: l.t('ui.optimisation'),
-                subtitle: l.t('ui.largest_and_smallest_value_of_a_function_on_a_cl'),
+                subtitle: l.t(
+                  'ui.largest_and_smallest_value_of_a_function_on_a_cl',
+                ),
               ),
               const SizedBox(height: 18),
               ExpressionField(
@@ -227,7 +225,10 @@ class _OptimizePageState extends State<OptimizePage> {
         ],
         if (r != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: r, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: r, l10n: l),
+          ),
         ],
       ],
     );

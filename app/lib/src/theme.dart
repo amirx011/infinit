@@ -7,8 +7,7 @@ import 'package:flutter/material.dart';
 class OdePalette {
   const OdePalette({
     required this.id,
-    required this.labelEn,
-    required this.labelFa,
+    required this.labelKey,
     required this.darkAccent,
     required this.lightAccent,
     required this.darkAlt,
@@ -20,8 +19,7 @@ class OdePalette {
   });
 
   final String id;
-  final String labelEn;
-  final String labelFa;
+  final String labelKey;
   final Color darkAccent;
   final Color lightAccent;
   final Color darkAlt;
@@ -33,8 +31,7 @@ class OdePalette {
 
   static const ocean = OdePalette(
     id: 'ocean',
-    labelEn: 'Ocean',
-    labelFa: 'اقیانوس',
+    labelKey: 'ui.palette.ocean',
     darkAccent: Color(0xFF5CC8FF),
     lightAccent: Color(0xFF0B5C8A),
     darkAlt: Color(0xFF5EEAD4),
@@ -47,8 +44,7 @@ class OdePalette {
 
   static const indigo = OdePalette(
     id: 'indigo',
-    labelEn: 'Indigo',
-    labelFa: 'نیلی',
+    labelKey: 'ui.palette.indigo',
     darkAccent: Color(0xFF818CF8),
     lightAccent: Color(0xFF4F46E5),
     darkAlt: Color(0xFFC084FC),
@@ -61,8 +57,7 @@ class OdePalette {
 
   static const emerald = OdePalette(
     id: 'emerald',
-    labelEn: 'Emerald',
-    labelFa: 'زمرد',
+    labelKey: 'ui.palette.emerald',
     darkAccent: Color(0xFF34D399),
     lightAccent: Color(0xFF046C4E),
     darkAlt: Color(0xFF2DD4BF),
@@ -75,8 +70,7 @@ class OdePalette {
 
   static const amber = OdePalette(
     id: 'amber',
-    labelEn: 'Amber',
-    labelFa: 'کهربا',
+    labelKey: 'ui.palette.amber',
     darkAccent: Color(0xFFFBBF24),
     lightAccent: Color(0xFF92400E),
     darkAlt: Color(0xFFFB923C),
@@ -89,8 +83,7 @@ class OdePalette {
 
   static const rose = OdePalette(
     id: 'rose',
-    labelEn: 'Rose',
-    labelFa: 'سرخ',
+    labelKey: 'ui.palette.rose',
     darkAccent: Color(0xFFFB7185),
     lightAccent: Color(0xFFBE123C),
     darkAlt: Color(0xFFF0ABFC),
@@ -103,8 +96,7 @@ class OdePalette {
 
   static const graphite = OdePalette(
     id: 'graphite',
-    labelEn: 'Graphite',
-    labelFa: 'گرافیت',
+    labelKey: 'ui.palette.graphite',
     darkAccent: Color(0xFFA8B6CC),
     lightAccent: Color(0xFF475569),
     darkAlt: Color(0xFF7DD3FC),

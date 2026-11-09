@@ -123,7 +123,7 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }

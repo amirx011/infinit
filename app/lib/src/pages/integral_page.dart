@@ -113,9 +113,7 @@ class _IntegralPageState extends State<IntegralPage> {
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_an_expression'),
-      );
+      setState(() => _error = l.t('ui.enter_an_expression'));
       return;
     }
     final singleVar = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
@@ -160,7 +158,7 @@ class _IntegralPageState extends State<IntegralPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -182,7 +180,9 @@ class _IntegralPageState extends State<IntegralPage> {
                 tone: c.success,
                 icon: Icons.integration_instructions_rounded,
                 title: l.t('ui.integrals'),
-                subtitle: l.t('ui.single_double_and_triple_integrals_indefinite_or'),
+                subtitle: l.t(
+                  'ui.single_double_and_triple_integrals_indefinite_or',
+                ),
               ),
               const SizedBox(height: 18),
               Text(
@@ -364,9 +364,7 @@ class _IntegralPageState extends State<IntegralPage> {
                         size: 19,
                       ),
                 label: Text(
-                  _busy
-                      ? l.t('ui.integrating')
-                      : l.t('ui.compute_integral'),
+                  _busy ? l.t('ui.integrating') : l.t('ui.compute_integral'),
                 ),
               ),
             ],
@@ -386,7 +384,9 @@ class _IntegralPageState extends State<IntegralPage> {
             pretty: '∫ 2x cos(x²) dx = sin(x²) + C',
             latex: r'\int 2x\cos\left(x^{2}\right)\,dx = \sin\left(x^{2}\right) + C',
           ),
-          exampleCaption: l.t('ui.with_u_x_du_2x_dx_the_integral_becomes_cos_u_du'),
+          exampleCaption: l.t(
+            'ui.with_u_x_du_2x_dx_the_integral_becomes_cos_u_du',
+          ),
           pitfall: l.t('ui.an_indefinite_integral_without_c_is_incomplete_a'),
         ),
         if (_error != null) ...[
@@ -441,7 +441,9 @@ class _IntegralPageState extends State<IntegralPage> {
                 xmin: -8,
                 xmax: 8,
                 title: l.t('ui.integrand_and_antiderivative'),
-                caption: l.t('ui.f_is_one_antiderivative_of_f_its_slope_at_every'),
+                caption: l.t(
+                  'ui.f_is_one_antiderivative_of_f_its_slope_at_every',
+                ),
               )
             else
               CurvePlot(
@@ -450,7 +452,9 @@ class _IntegralPageState extends State<IntegralPage> {
                 expression: _result!.normalized!.plain,
                 variable: _result!.variable.isEmpty ? 'x' : _result!.variable,
                 title: l.t('ui.integrand_over_the_bounds'),
-                caption: l.t('ui.the_definite_integral_is_the_signed_area_between'),
+                caption: l.t(
+                  'ui.the_definite_integral_is_the_signed_area_between',
+                ),
               ),
           ],
         ],

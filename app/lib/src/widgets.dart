@@ -651,10 +651,7 @@ class ResultView extends StatelessWidget {
     if (result.mode == 'derivative') {
       if (result.implicit) return l10n.t('ui.implicit_derivative');
       if (result.order > 3) {
-        return l10n.t(
-          'Derivative of order ${result.order}',
-          'مشتق مرتبهٔ ${result.order}',
-        );
+        return l10n.t('ui.derivative_of_order', {'order': result.order});
       }
       switch (result.order) {
         case 3:
@@ -897,9 +894,7 @@ class ResultView extends StatelessWidget {
       badges.add(TypeBadge(_typeName(), icon: Icons.category_outlined));
     }
     if (result.order > 0) {
-      badges.add(
-        TypeBadge(l10n.t('Order ${result.order}', 'مرتبه ${result.order}')),
-      );
+      badges.add(TypeBadge(l10n.t('ui.order', {'order': result.order})));
     }
     if (result.mode == 'oblique') {
       final angle = result.trajectoryAngle;
@@ -1052,10 +1047,9 @@ class ResultView extends StatelessWidget {
         children.add(
           _NoteRow(
             icon: Icons.warning_amber_rounded,
-            text: l10n.t(
-              'Improper integral at ${result.singularities.join(', ')}; one-sided limits were used.',
-              'انتگرال ناسره در ${result.singularities.join('، ')}؛ از حدهای یک‌طرفه استفاده شد.',
-            ),
+            text: l10n.t('ui.improper_integral', {
+              'points': result.singularities.join(', '),
+            }),
             color: c.muted,
           ),
         );
@@ -1363,10 +1357,9 @@ class ResultView extends StatelessWidget {
           children.add(
             _NoteRow(
               icon: Icons.straighten_rounded,
-              text: l10n.t(
-                'The family crosses every member at a constant angle α = ${_angleText(result.trajectoryAngle)}.',
-                'خانواده هر عضو را با زاویهٔ ثابت α = ${_angleText(result.trajectoryAngle)} قطع می‌کند.',
-              ),
+              text: l10n.t('ui.oblique_angle', {
+                'angle': _angleText(result.trajectoryAngle),
+              }),
               color: c.muted,
             ),
           );
@@ -2177,30 +2170,7 @@ class ResultView extends StatelessWidget {
   }
 }
 
-String _methodName(String id, L10n l10n) {
-  final en = <String, String>{
-    'substitution': 'Substitution',
-    'parts': 'Integration by parts',
-    'rational': 'Rational functions',
-    'trig': 'Trigonometric powers',
-    'expand': 'Polynomial expansion',
-    'sum': 'Term-by-term',
-    'constant': 'Constant',
-    'table': 'Standard table',
-  };
-  final fa = <String, String>{
-    'substitution': 'تغییر متغیر',
-    'parts': 'جزء‌به‌جزء',
-    'rational': 'توابع گویا',
-    'trig': 'توان‌های مثلثاتی',
-    'expand': 'بسط چندجمله‌ای',
-    'sum': 'جمله‌به‌جمله',
-    'constant': 'تابع ثابت',
-    'table': 'جدول استاندارد',
-  };
-  final map = l10n.isFa ? fa : en;
-  return map[id] ?? id;
-}
+String _methodName(String id, L10n l10n) => l10n.t('ui.method.$id');
 
 class _StepRow extends StatelessWidget {
   const _StepRow({

@@ -1221,13 +1221,13 @@ class _CommandPaletteState extends State<_CommandPalette> {
 }
 
 List<_DrawerEntry> _navSections(L10n l10n) {
-  _DrawerEntry soon(int index, IconData icon, String en, String fa) =>
-      _DrawerEntry.link(index: index, icon: icon, label: l10n.t(en, fa));
+  _DrawerEntry soon(int index, IconData icon, String labelKey) =>
+      _DrawerEntry.link(index: index, icon: icon, label: l10n.t(labelKey));
 
   // An implemented curriculum slot.  It looks like a normal link because the
   // workbench behind it is ready, not a reserved placeholder.
-  _DrawerEntry topic(int index, IconData icon, String en, String fa) =>
-      _DrawerEntry.link(index: index, icon: icon, label: l10n.t(en, fa));
+  _DrawerEntry topic(int index, IconData icon, String labelKey) =>
+      _DrawerEntry.link(index: index, icon: icon, label: l10n.t(labelKey));
 
   return <_DrawerEntry>[
     _DrawerEntry.link(
@@ -1272,226 +1272,79 @@ List<_DrawerEntry> _navSections(L10n l10n) {
               label: l10n.t('ui.oblique_trajectories'),
               hint: l10n.t('ui.constant_angle'),
             ),
-            topic(
-              46,
-              Icons.trending_up_rounded,
-              'Growth & decay',
-              'رشد و واپاشی',
-            ),
-            topic(
-              47,
-              Icons.thermostat_rounded,
-              "Newton's law of cooling",
-              'قانون سرد شدن نیوتن',
-            ),
-            topic(
-              48,
-              Icons.groups_rounded,
-              'Logistic population',
-              'جمعیت لجستیک',
-            ),
-            topic(49, Icons.science_rounded, 'Mixing problems', 'مسایل اختلاط'),
-            topic(
-              50,
-              Icons.architecture_rounded,
-              'Spring–mass systems',
-              'سیستم جرم و فنر',
-            ),
+            topic(46, Icons.trending_up_rounded, 'topic.growth_decay.title'),
+            topic(47, Icons.thermostat_rounded, 'topic.cooling.title'),
+            topic(48, Icons.groups_rounded, 'topic.logistic.title'),
+            topic(49, Icons.science_rounded, 'topic.mixing.title'),
+            topic(50, Icons.architecture_rounded, 'topic.spring_mass.title'),
             topic(
               51,
               Icons.vibration_rounded,
-              'Damped & forced oscillations',
-              'نوسان‌های میرا و اجباری',
+              'topic.damped_oscillation.title',
             ),
-            topic(
-              52,
-              Icons.electrical_services_rounded,
-              'Electrical circuits',
-              'مدارهای الکتریکی',
-            ),
-            topic(
-              53,
-              Icons.arrow_downward_rounded,
-              'Falling bodies with drag',
-              'سقوط با مقاومت هوا',
-            ),
+            topic(52, Icons.electrical_services_rounded, 'topic.circuit.title'),
+            topic(53, Icons.arrow_downward_rounded, 'topic.falling_body.title'),
           ],
         ),
         _DrawerEntry.group(
           icon: Icons.auto_graph_rounded,
           label: l10n.t('ui.series_special_functions'),
           children: [
-            soon(
-              32,
-              Icons.auto_graph_rounded,
-              'Power series solutions',
-              'جواب‌های سری توانی',
-            ),
-            soon(
-              33,
-              Icons.adjust_rounded,
-              'Ordinary & singular points',
-              'نقاط عادی و تکین',
-            ),
-            soon(
-              34,
-              Icons.account_tree_rounded,
-              'Frobenius method',
-              'روش فروبنیوس',
-            ),
-            soon(
-              35,
-              Icons.stacked_line_chart_rounded,
-              'Legendre equations & polynomials',
-              'معادلات و چندجمله‌ای‌های لژاندر',
-            ),
-            soon(
-              36,
-              Icons.cyclone_rounded,
-              'Bessel equations & functions',
-              'معادلات و توابع بسل',
-            ),
+            soon(32, Icons.auto_graph_rounded, 'nav.32.label'),
+            soon(33, Icons.adjust_rounded, 'nav.33.label'),
+            soon(34, Icons.account_tree_rounded, 'nav.34.label'),
+            soon(35, Icons.stacked_line_chart_rounded, 'nav.35.label'),
+            soon(36, Icons.cyclone_rounded, 'nav.36.label'),
           ],
         ),
         _DrawerEntry.group(
           icon: Icons.transform_rounded,
           label: l10n.t('ui.transforms'),
           children: [
-            topic(
-              37,
-              Icons.transform_rounded,
-              'Laplace transform',
-              'تبدیل لاپلاس',
-            ),
-            topic(
-              38,
-              Icons.u_turn_left_rounded,
-              'Inverse Laplace transform',
-              'تبدیل معکوس لاپلاس',
-            ),
-            soon(39, Icons.join_full_rounded, 'Convolution', 'کانولوشن'),
+            topic(37, Icons.transform_rounded, 'topic.laplace.title'),
+            topic(38, Icons.u_turn_left_rounded, 'topic.inverse_laplace.title'),
+            soon(39, Icons.join_full_rounded, 'nav.39.label'),
             topic(
               40,
               Icons.multiline_chart_rounded,
-              'Fourier series',
-              'سری فوریه',
+              'topic.fourier_series.title',
             ),
-            soon(
-              41,
-              Icons.ssid_chart_rounded,
-              'Fourier transform',
-              'تبدیل فوریه',
-            ),
+            soon(41, Icons.ssid_chart_rounded, 'nav.41.label'),
           ],
         ),
         _DrawerEntry.group(
           icon: Icons.calculate_rounded,
           label: l10n.t('ui.numerical_methods'),
           children: [
-            topic(42, Icons.straighten_rounded, 'Euler method', 'روش اویلر'),
-            topic(
-              65,
-              Icons.linear_scale_rounded,
-              'Improved Euler (Heun)',
-              'اویلر بهبودیافته (هیون)',
-            ),
-            topic(
-              43,
-              Icons.stacked_line_chart_rounded,
-              'Runge–Kutta (RK4)',
-              'رانگ–کوتا (RK4)',
-            ),
-            soon(
-              44,
-              Icons.format_list_numbered_rounded,
-              'Multistep methods',
-              'روش‌های چندگامی',
-            ),
-            soon(
-              45,
-              Icons.error_outline_rounded,
-              'Error & convergence',
-              'خطا و همگرایی',
-            ),
+            topic(42, Icons.straighten_rounded, 'topic.euler.title'),
+            topic(65, Icons.linear_scale_rounded, 'topic.heun.title'),
+            topic(43, Icons.stacked_line_chart_rounded, 'nav.43.label'),
+            soon(44, Icons.format_list_numbered_rounded, 'nav.44.label'),
+            soon(45, Icons.error_outline_rounded, 'nav.45.label'),
           ],
         ),
         _DrawerEntry.group(
           icon: Icons.grid_on_rounded,
           label: l10n.t('ui.partial_differential_equations'),
           children: [
-            soon(
-              54,
-              Icons.looks_one_rounded,
-              'First-order PDEs',
-              'معادلات دیفرانسیل جزئی مرتبهٔ اول',
-            ),
-            soon(
-              55,
-              Icons.category_rounded,
-              'Classification of PDEs',
-              'طبقه‌بندی معادلات دیفرانسیل جزئی',
-            ),
-            soon(
-              56,
-              Icons.alt_route_rounded,
-              'Method of characteristics',
-              'روش مشخصه‌ها',
-            ),
-            soon(
-              57,
-              Icons.call_split_rounded,
-              'Separation of variables',
-              'جداسازی متغیرها',
-            ),
-            topic(
-              58,
-              Icons.local_fire_department_rounded,
-              'Heat equation',
-              'معادلهٔ گرما',
-            ),
-            topic(59, Icons.waves_rounded, 'Wave equation', 'معادلهٔ موج'),
-            topic(
-              60,
-              Icons.blur_circular_rounded,
-              'Laplace equation',
-              'معادلهٔ لاپلاس',
-            ),
+            soon(54, Icons.looks_one_rounded, 'nav.54.label'),
+            soon(55, Icons.category_rounded, 'nav.55.label'),
+            soon(56, Icons.alt_route_rounded, 'nav.56.label'),
+            soon(57, Icons.call_split_rounded, 'nav.57.label'),
+            topic(58, Icons.local_fire_department_rounded, 'topic.heat.title'),
+            topic(59, Icons.waves_rounded, 'topic.wave.title'),
+            topic(60, Icons.blur_circular_rounded, 'topic.laplace_pde.title'),
           ],
         ),
         _DrawerEntry.group(
           icon: Icons.hub_rounded,
           label: l10n.t('ui.systems_stability'),
           children: [
-            topic(
-              27,
-              Icons.hub_rounded,
-              'Systems of ODEs',
-              'دستگاه‌های معادلات دیفرانسیل',
-            ),
-            soon(
-              28,
-              Icons.grid_4x4_rounded,
-              'Matrix & eigenvalue methods',
-              'روش‌های ماتریسی و مقدار ویژه',
-            ),
-            soon(
-              29,
-              Icons.scatter_plot_rounded,
-              'Phase portraits',
-              'تصویر فاز',
-            ),
-            soon(
-              30,
-              Icons.place_rounded,
-              'Critical points & stability',
-              'نقاط بحرانی و پایداری',
-            ),
-            soon(
-              31,
-              Icons.pets_rounded,
-              'Predator–prey models',
-              'مدل‌های شکار و شکارچی',
-            ),
+            topic(27, Icons.hub_rounded, 'topic.linear_system.title'),
+            soon(28, Icons.grid_4x4_rounded, 'nav.28.label'),
+            soon(29, Icons.scatter_plot_rounded, 'nav.29.label'),
+            soon(30, Icons.place_rounded, 'nav.30.label'),
+            soon(31, Icons.pets_rounded, 'nav.31.label'),
           ],
         ),
       ],
@@ -1856,7 +1709,9 @@ class _DrawerGroupNodeState extends State<_DrawerGroupNode> {
                           10,
                         ),
                         child: Text(
-                          widget.l10n.t('ui.nothing_has_been_added_to_this_section_yet'),
+                          widget.l10n.t(
+                            'ui.nothing_has_been_added_to_this_section_yet',
+                          ),
                           style: TextStyle(
                             fontFamily: 'Vazirmatn',
                             fontSize: 12,
@@ -2135,15 +1990,13 @@ class _RoundIconButton extends StatelessWidget {
 
 class _OdeForm {
   const _OdeForm({
-    required this.labelEn,
-    required this.labelFa,
+    required this.labelKey,
     required this.standard,
     required this.example,
     required this.order,
   });
 
-  final String labelEn;
-  final String labelFa;
+  final String labelKey;
   final String standard; // LaTeX
   final String example;
   final int order;
@@ -2151,85 +2004,85 @@ class _OdeForm {
 
 const _forms = <_OdeForm>[
   _OdeForm(
-    labelEn: 'Exact',
-    labelFa: 'کامل',
+    labelKey: 'ui.ode_form.exact',
+
     standard: r'M\,dx + N\,dy = 0',
     example: '(2x+y) + (x+2y)y\' = 0',
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Homogeneous',
-    labelFa: 'همگن',
+    labelKey: 'ui.ode_form.homogeneous',
+
     standard: r"y' = f\left(\frac{y}{x}\right)",
     example: "y' = (x^2+y^2)/(x*y)",
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Linear',
-    labelFa: 'خطی',
+    labelKey: 'ui.ode_form.linear',
+
     standard: r"y' + P(x)\,y = Q(x)",
     example: "y' + y/x = x^2",
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Bernoulli',
-    labelFa: 'برنولی',
+    labelKey: 'ui.ode_form.bernoulli',
+
     standard: r"y' + P(x)\,y = Q(x)\,y^n",
     example: "y' = x*y + y^2",
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Clairaut',
-    labelFa: 'کلرو',
+    labelKey: 'ui.ode_form.clairaut',
+
     standard: r"y = x\,y' + f(y')",
     example: "y = x*y' + (y')^2",
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Lagrange',
-    labelFa: 'لاگرانژ',
+    labelKey: 'ui.ode_form.lagrange',
+
     standard: r"y = x\,g(y') + f(y')",
     example: "y = 2*x*y' + (y')^2",
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Riccati',
-    labelFa: 'ریکاتی',
+    labelKey: 'ui.ode_form.riccati',
+
     standard: r"y' = P + Qy + Ry^2",
     example: "y' = y^2 - 2/x^2",
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Separable',
-    labelFa: 'جداشدنی',
+    labelKey: 'ui.ode_form.separable',
+
     standard: r"y' = f(x)\,g(y)",
     example: "y' = y^2",
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Linear substitution',
-    labelFa: 'جایگذاری خطی',
+    labelKey: 'ui.ode_form.linear_substitution',
+
     standard: r"y' = f(ax+by+c)",
     example: "y' = (x+y)^2",
     order: 1,
   ),
   _OdeForm(
-    labelEn: 'Constant coefficients',
-    labelFa: 'ضرایب ثابت',
+    labelKey: 'ui.ode_form.constant_coefficients',
+
     standard: r"y'' + p\,y' + q\,y = f(x)",
     example: "y'' - 3y' + 2y = 0",
     order: 2,
   ),
   _OdeForm(
-    labelEn: 'Direct integration',
-    labelFa: 'انتگرال‌گیری مستقیم',
+    labelKey: 'ui.ode_form.direct_integration',
+
     standard: r"y'' = f(x)",
     example: "y'' = 6x",
     order: 2,
   ),
   _OdeForm(
-    labelEn: 'Oscillator',
-    labelFa: 'نوسانگر',
+    labelKey: 'ui.ode_form.oscillator',
+
     standard: r"y'' + \omega^2 y = 0",
     example: "y'' + y = 0",
     order: 2,
@@ -2274,9 +2127,7 @@ class _HomePageState extends State<_HomePage> {
         const SizedBox(height: 26),
         LayoutBuilder(
           builder: (context, constraints) {
-            final label = SectionLabel(
-              l.t('ui.forms_we_recognise'),
-            );
+            final label = SectionLabel(l.t('ui.forms_we_recognise'));
             final switcher = SegmentedButton<int>(
               showSelectedIcon: false,
               style: const ButtonStyle(
@@ -2284,14 +2135,8 @@ class _HomePageState extends State<_HomePage> {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               segments: [
-                ButtonSegment(
-                  value: 1,
-                  label: Text(l.t('ui.first_order')),
-                ),
-                ButtonSegment(
-                  value: 2,
-                  label: Text(l.t('ui.second_order')),
-                ),
+                ButtonSegment(value: 1, label: Text(l.t('ui.first_order'))),
+                ButtonSegment(value: 2, label: Text(l.t('ui.second_order'))),
               ],
               selected: {_order},
               onSelectionChanged: (v) => setState(() => _order = v.first),
@@ -2333,7 +2178,7 @@ class _HomePageState extends State<_HomePage> {
                   SizedBox(
                     width: itemWidth,
                     child: _FormCard(
-                      label: l.isFa ? form.labelFa : form.labelEn,
+                      label: l.t(form.labelKey),
                       latex: form.standard,
                       onTap: () => widget.onOpen(2, seed: form.example),
                     ),
@@ -2358,7 +2203,9 @@ class _HomePageState extends State<_HomePage> {
               _WideCard(
                 icon: Icons.join_inner_rounded,
                 title: l.t('ui.envelope_trajectories'),
-                subtitle: l.t('ui.envelopes_of_a_family_orthogonal_trajectories_an'),
+                subtitle: l.t(
+                  'ui.envelopes_of_a_family_orthogonal_trajectories_an',
+                ),
                 onTap: () => widget.onOpen(4),
               ),
             ];
@@ -2499,16 +2346,8 @@ class _HomePageState extends State<_HomePage> {
         index: 6,
       ),
       (icon: Icons.linear_scale_rounded, label: l.t('ui.limit'), index: 7),
-      (
-        icon: Icons.timeline_rounded,
-        label: l.t('ui.continuity'),
-        index: 8,
-      ),
-      (
-        icon: Icons.explore_rounded,
-        label: l.t('ui.domain_range'),
-        index: 9,
-      ),
+      (icon: Icons.timeline_rounded, label: l.t('ui.continuity'), index: 8),
+      (icon: Icons.explore_rounded, label: l.t('ui.domain_range'), index: 9),
     ];
     return Wrap(
       spacing: 8,

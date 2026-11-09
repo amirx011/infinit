@@ -135,7 +135,7 @@ class _OdePageState extends State<OdePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = widget.l10n.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = widget.l10n.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -155,7 +155,9 @@ class _OdePageState extends State<OdePage> {
               PageTitle(
                 icon: Icons.functions_rounded,
                 title: l.t('ui.differential_equation'),
-                subtitle: l.t('ui.enter_an_equation_the_exact_solution_and_step_by'),
+                subtitle: l.t(
+                  'ui.enter_an_equation_the_exact_solution_and_step_by',
+                ),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -255,9 +257,7 @@ class _OdePageState extends State<OdePage> {
                           )
                         : const Icon(Icons.play_arrow_rounded, size: 19),
                     label: Text(
-                      _busy
-                          ? l.t('ui.solving')
-                          : l.t('ui.solve_equation'),
+                      _busy ? l.t('ui.solving') : l.t('ui.solve_equation'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -287,7 +287,9 @@ class _OdePageState extends State<OdePage> {
             pretty: "y′ = y  ⇒  y = C eˣ",
             latex: r"y' = y \quad\Longrightarrow\quad y = C\,e^{x}",
           ),
-          exampleCaption: l.t('ui.separable_separate_integrate_both_sides_then_sol'),
+          exampleCaption: l.t(
+            'ui.separable_separate_integrate_both_sides_then_sol',
+          ),
           pitfall: l.t('ui.dividing_by_y_loses_the_constant_solution_y_0_ch'),
         ),
         if (_error != null) ...[
@@ -321,7 +323,9 @@ class _OdePageState extends State<OdePage> {
               xVariable: _fieldX,
               yVariable: _fieldY,
               title: l.t('ui.direction_field_solution_family'),
-              caption: l.t('ui.each_arrow_is_the_local_slope_of_a_solution_the'),
+              caption: l.t(
+                'ui.each_arrow_is_the_local_slope_of_a_solution_the',
+              ),
             )
           else
             OdeSolutionPlot(
@@ -331,7 +335,9 @@ class _OdePageState extends State<OdePage> {
               xVariable: _fieldX,
               yVariable: _fieldY,
               title: l.t('ui.solution_family_numeric_rk4'),
-              caption: l.t('ui.higher_order_equations_have_no_single_slope_fiel'),
+              caption: l.t(
+                'ui.higher_order_equations_have_no_single_slope_fiel',
+              ),
             ),
         ],
         if (_result != null) ...[
@@ -363,4 +369,3 @@ class _OdePageState extends State<OdePage> {
     );
   }
 }
-

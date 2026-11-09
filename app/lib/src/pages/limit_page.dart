@@ -94,9 +94,7 @@ class _LimitPageState extends State<LimitPage> {
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_an_expression'),
-      );
+      setState(() => _error = l.t('ui.enter_an_expression'));
       return;
     }
     final variable = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
@@ -125,7 +123,7 @@ class _LimitPageState extends State<LimitPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -146,7 +144,9 @@ class _LimitPageState extends State<LimitPage> {
                 tone: c.warning,
                 icon: Icons.linear_scale_rounded,
                 title: l.t('ui.limits'),
-                subtitle: l.t('ui.limit_laws_on_the_expression_tree_l_h_pital_for'),
+                subtitle: l.t(
+                  'ui.limit_laws_on_the_expression_tree_l_h_pital_for',
+                ),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -265,9 +265,7 @@ class _LimitPageState extends State<LimitPage> {
                       )
                     : const Icon(Icons.linear_scale_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.computing')
-                      : l.t('ui.compute_the_limit'),
+                  _busy ? l.t('ui.computing') : l.t('ui.compute_the_limit'),
                 ),
               ),
             ],
@@ -287,7 +285,9 @@ class _LimitPageState extends State<LimitPage> {
             pretty: 'lim x→0 sin x / x = 1',
             latex: r'\lim_{x\to 0}\frac{\sin x}{x} = 1',
           ),
-          exampleCaption: l.t('ui.the_expression_is_0_0_at_x_0_the_limit_exists_ev'),
+          exampleCaption: l.t(
+            'ui.the_expression_is_0_0_at_x_0_the_limit_exists_ev',
+          ),
           pitfall: l.t('ui.l_h_pital_applies_to_indeterminate_quotients_onl'),
         ),
         if (_error != null) ...[
@@ -322,10 +322,10 @@ class _LimitPageState extends State<LimitPage> {
             xmax: _plotWindow.$2,
             height: 280,
             color: c.accent,
-            title: l.t(
-              'Near $_plottedVar → $_plottedPoint',
-              'نزدیک $_plottedVar → $_plottedPoint',
-            ),
+            title: l.t('ui.near_point', {
+              'var': _plottedVar,
+              'point': _plottedPoint,
+            }),
             caption: l.t('ui.the_dashed_guide_marks_the_point_being_approache'),
             guides: [
               if (_guideX != null && !(_result!.limitInfinite)) _guideX!,

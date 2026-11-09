@@ -75,9 +75,7 @@ class _TaylorPageState extends State<TaylorPage> {
       return;
     }
     final text = _input.text.trim();
-    final center = double.tryParse(
-      _center.text.trim().replaceAll('−', '-'),
-    );
+    final center = double.tryParse(_center.text.trim().replaceAll('−', '-'));
     if (text.isEmpty || center == null) {
       setState(
         () => _error = l.t('ui.enter_a_function_and_a_numeric_centre_a'),
@@ -106,7 +104,7 @@ class _TaylorPageState extends State<TaylorPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -128,7 +126,9 @@ class _TaylorPageState extends State<TaylorPage> {
               PageTitle(
                 icon: Icons.polyline_rounded,
                 title: l.t('ui.taylor_maclaurin'),
-                subtitle: l.t('ui.approximate_a_function_by_a_polynomial_built_fro'),
+                subtitle: l.t(
+                  'ui.approximate_a_function_by_a_polynomial_built_fro',
+                ),
               ),
               const SizedBox(height: 18),
               ExpressionField(
@@ -154,9 +154,7 @@ class _TaylorPageState extends State<TaylorPage> {
                   SizedBox(
                     width: 150,
                     child: InputDecorator(
-                      decoration: InputDecoration(
-                        labelText: l.t('ui.order_n'),
-                      ),
+                      decoration: InputDecoration(labelText: l.t('ui.order_n')),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<int>(
                           value: _order,
@@ -195,9 +193,7 @@ class _TaylorPageState extends State<TaylorPage> {
                       )
                     : const Icon(Icons.polyline_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.computing')
-                      : l.t('ui.build_the_polynomial'),
+                  _busy ? l.t('ui.computing') : l.t('ui.build_the_polynomial'),
                 ),
               ),
             ],
@@ -221,7 +217,10 @@ class _TaylorPageState extends State<TaylorPage> {
         ],
         if (r != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: r, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: r, l10n: l),
+          ),
           if (showGraphs &&
               r.ok &&
               r.normalized != null &&
@@ -247,7 +246,9 @@ class _TaylorPageState extends State<TaylorPage> {
               xmin: _plotCentre() - 5,
               xmax: _plotCentre() + 5,
               title: l.t('ui.function_and_taylor_polynomial'),
-              caption: l.t('ui.the_polynomial_agrees_with_f_at_the_centre_and_m'),
+              caption: l.t(
+                'ui.the_polynomial_agrees_with_f_at_the_centre_and_m',
+              ),
             ),
           ],
         ],

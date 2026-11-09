@@ -644,7 +644,7 @@ class SolveResult {
   factory SolveResult.fromRaw(String raw) {
     final dynamic decoded = jsonDecode(raw);
     if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('پاسخ موتور محاسباتی معتبر نیست.');
+      throw const FormatException('invalid engine response');
     }
     return SolveResult.fromJson(decoded);
   }

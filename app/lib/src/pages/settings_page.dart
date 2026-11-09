@@ -22,19 +22,19 @@ class _SettingsDestination {
   final String label;
 }
 
-const _startPages = <(int, String, String)>[
-  (0, 'Home', 'خانه'),
-  (2, 'Solve an equation', 'حل معادله'),
-  (3, 'Wronskian', 'رونسکی'),
-  (5, 'Derivative', 'مشتق'),
-  (6, 'Integral', 'انتگرال'),
-  (7, 'Limit', 'حد'),
-  (8, 'Continuity', 'پیوستگی'),
-  (9, 'Domain & range', 'دامنه و برد'),
-  (23, 'Taylor & Maclaurin', 'تیلور و مکلورن'),
-  (24, 'Integral applications', 'کاربردهای انتگرال'),
-  (25, 'Partial derivatives', 'مشتق‌های جزئی'),
-  (26, 'Series & convergence', 'سری و همگرایی'),
+const _startPages = <(int, String)>[
+  (0, 'ui.home'),
+  (2, 'nav.2.label'),
+  (3, 'ui.wronskian'),
+  (5, 'nav.5.label'),
+  (6, 'nav.6.label'),
+  (7, 'ui.limit'),
+  (8, 'ui.continuity'),
+  (9, 'ui.domain_range'),
+  (23, 'ui.taylor_maclaurin'),
+  (24, 'ui.integral_applications'),
+  (25, 'ui.partial_derivatives'),
+  (26, 'ui.series_convergence'),
 ];
 
 class SettingsPage extends StatefulWidget {
@@ -122,11 +122,7 @@ class _SettingsPageState extends State<SettingsPage> {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          l.t('ui.diagnostics_copied_to_the_clipboard'),
-        ),
-      ),
+      SnackBar(content: Text(l.t('ui.diagnostics_copied_to_the_clipboard'))),
     );
   }
 
@@ -160,11 +156,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
       setState(() => _active = 0);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            l.t('ui.default_preferences_restored'),
-          ),
-        ),
+        SnackBar(content: Text(l.t('ui.default_preferences_restored'))),
       );
     }
   }
@@ -189,7 +181,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     tone: c.accentAlt,
                     icon: Icons.settings_rounded,
                     title: l.t('ui.settings'),
-                    subtitle: l.t('ui.tune_how_infinit_lab_looks_reads_and_starts_ever'),
+                    subtitle: l.t(
+                      'ui.tune_how_infinit_lab_looks_reads_and_starts_ever',
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -224,7 +218,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: _appearanceKey,
                       icon: Icons.palette_outlined,
                       title: l.t('ui.appearance'),
-                      subtitle: l.t('ui.theme_accent_colour_contrast_and_motion_in_one_p'),
+                      subtitle: l.t(
+                        'ui.theme_accent_colour_contrast_and_motion_in_one_p',
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -237,7 +233,9 @@ class _SettingsPageState extends State<SettingsPage> {
                           _SwitchRow(
                             icon: Icons.animation_rounded,
                             title: l.t('ui.reduce_motion'),
-                            subtitle: l.t('ui.turn_off_page_and_result_transitions'),
+                            subtitle: l.t(
+                              'ui.turn_off_page_and_result_transitions',
+                            ),
                             value: s.reduceMotion,
                             onChanged: s.setReduceMotion,
                           ),
@@ -249,7 +247,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: _languageKey,
                       icon: Icons.translate_rounded,
                       title: l.t('ui.language'),
-                      subtitle: l.t('ui.the_interface_language_including_labels_and_work'),
+                      subtitle: l.t(
+                        'ui.the_interface_language_including_labels_and_work',
+                      ),
                       child: _language(context, s, l),
                     ),
                     const SizedBox(height: 16),
@@ -257,7 +257,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: _typographyKey,
                       icon: Icons.text_fields_rounded,
                       title: l.t('ui.typography'),
-                      subtitle: l.t('ui.scale_the_interface_for_your_screen_and_reading'),
+                      subtitle: l.t(
+                        'ui.scale_the_interface_for_your_screen_and_reading',
+                      ),
                       child: _typography(context, s, l),
                     ),
                     const SizedBox(height: 16),
@@ -265,7 +267,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: _solutionsKey,
                       icon: Icons.insights_rounded,
                       title: l.t('ui.solutions_graphs'),
-                      subtitle: l.t('ui.choose_how_much_of_the_reasoning_is_shown_and_ho'),
+                      subtitle: l.t(
+                        'ui.choose_how_much_of_the_reasoning_is_shown_and_ho',
+                      ),
                       child: _solutions(context, s, l),
                     ),
                     const SizedBox(height: 16),
@@ -273,7 +277,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: _workspaceKey,
                       icon: Icons.space_dashboard_outlined,
                       title: l.t('ui.workspace'),
-                      subtitle: l.t('ui.pick_the_page_that_opens_when_infinit_lab_starts'),
+                      subtitle: l.t(
+                        'ui.pick_the_page_that_opens_when_infinit_lab_starts',
+                      ),
                       child: _workspace(context, s, l),
                     ),
                     const SizedBox(height: 16),
@@ -281,7 +287,9 @@ class _SettingsPageState extends State<SettingsPage> {
                       key: _aboutKey,
                       icon: Icons.info_outline_rounded,
                       title: l.t('ui.engine_about'),
-                      subtitle: l.t('ui.build_information_diagnostics_and_the_way_back_t'),
+                      subtitle: l.t(
+                        'ui.build_information_diagnostics_and_the_way_back_t',
+                      ),
                       child: _about(context, s, l),
                     ),
                   ],
@@ -425,7 +433,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       palette: palette,
                       selected: s.palette == palette.id,
                       dark: Theme.of(context).brightness == Brightness.dark,
-                      label: l.isFa ? palette.labelFa : palette.labelEn,
+                      label: l.t(palette.labelKey),
                       onTap: () => s.setPalette(palette.id),
                     ),
                   ),
@@ -578,9 +586,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(width: 7),
             Text(
-              current.rtl
-                  ? l.t('ui.right_to_left')
-                  : l.t('ui.left_to_right'),
+              current.rtl ? l.t('ui.right_to_left') : l.t('ui.left_to_right'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -689,10 +695,7 @@ class _SettingsPageState extends State<SettingsPage> {
             for (final page in _startPages)
               DropdownMenuItem(
                 value: page.$1,
-                child: Text(
-                  l.t(page.$2, page.$3),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: Text(l.t(page.$2), overflow: TextOverflow.ellipsis),
               ),
           ],
           onChanged: (value) {

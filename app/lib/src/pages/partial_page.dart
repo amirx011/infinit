@@ -75,9 +75,7 @@ class _PartialPageState extends State<PartialPage> {
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_a_function'),
-      );
+      setState(() => _error = l.t('ui.enter_a_function'));
       return;
     }
     setState(() {
@@ -101,7 +99,7 @@ class _PartialPageState extends State<PartialPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -127,7 +125,9 @@ class _PartialPageState extends State<PartialPage> {
               PageTitle(
                 icon: Icons.grid_4x4_rounded,
                 title: l.t('ui.partial_derivatives_gradient'),
-                subtitle: l.t('ui.differentiate_a_multivariable_function_one_varia'),
+                subtitle: l.t(
+                  'ui.differentiate_a_multivariable_function_one_varia',
+                ),
               ),
               const SizedBox(height: 18),
               ExpressionField(
@@ -206,7 +206,10 @@ class _PartialPageState extends State<PartialPage> {
         ],
         if (r != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: r, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: r, l10n: l),
+          ),
           if (showGraphs && r.ok && vars.length >= 2) ...[
             const SizedBox(height: 16),
             SurfacePlot(
@@ -216,7 +219,9 @@ class _PartialPageState extends State<PartialPage> {
               xVariable: vars[0],
               yVariable: vars[1],
               title: l.t('ui.contour_map_of_the_surface'),
-              caption: l.t('ui.colour_shows_the_value_of_f_x_y_warm_regions_are'),
+              caption: l.t(
+                'ui.colour_shows_the_value_of_f_x_y_warm_regions_are',
+              ),
             ),
           ],
         ],

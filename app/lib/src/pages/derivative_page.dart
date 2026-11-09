@@ -90,9 +90,7 @@ class _DerivativePageState extends State<DerivativePage> {
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_an_expression'),
-      );
+      setState(() => _error = l.t('ui.enter_an_expression'));
       return;
     }
     setState(() {
@@ -135,7 +133,7 @@ class _DerivativePageState extends State<DerivativePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -156,7 +154,9 @@ class _DerivativePageState extends State<DerivativePage> {
               PageTitle(
                 icon: Icons.drive_file_rename_outline_rounded,
                 title: l.t('ui.derivatives'),
-                subtitle: l.t('ui.derivatives_of_order_1_10_explicit_ast_walk_chai'),
+                subtitle: l.t(
+                  'ui.derivatives_of_order_1_10_explicit_ast_walk_chai',
+                ),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -252,7 +252,9 @@ class _DerivativePageState extends State<DerivativePage> {
             pretty: "d/dx [x³ sin x] = 3x² sin x + x³ cos x",
             latex: r"\frac{d}{dx}\left(x^{3}\sin x\right) = 3x^{2}\sin x + x^{3}\cos x",
           ),
-          exampleCaption: l.t('ui.the_product_rule_keeps_the_first_factor_and_diff'),
+          exampleCaption: l.t(
+            'ui.the_product_rule_keeps_the_first_factor_and_diff',
+          ),
           pitfall: l.t('ui.the_derivative_of_a_product_is_not_the_product_o'),
         ),
         if (_error != null) ...[
@@ -306,7 +308,9 @@ class _DerivativePageState extends State<DerivativePage> {
               xmin: -8,
               xmax: 8,
               title: l.t('ui.function_and_derivative'),
-              caption: l.t('ui.the_derivative_is_the_slope_of_the_original_curv'),
+              caption: l.t(
+                'ui.the_derivative_is_the_slope_of_the_original_curv',
+              ),
             ),
           ],
           const SizedBox(height: 14),
@@ -315,9 +319,7 @@ class _DerivativePageState extends State<DerivativePage> {
             child: OutlinedButton.icon(
               onPressed: _busy ? null : () => _compute(2),
               icon: const Icon(Icons.exposure_plus_2_rounded, size: 18),
-              label: Text(
-                l.t('ui.compute_second_derivative'),
-              ),
+              label: Text(l.t('ui.compute_second_derivative')),
             ),
           ),
         ],
@@ -338,18 +340,13 @@ class _DerivativePageState extends State<DerivativePage> {
             child: OutlinedButton.icon(
               onPressed: _busy ? null : () => _compute(3),
               icon: const Icon(Icons.looks_3_rounded, size: 18),
-              label: Text(
-                l.t('ui.compute_third_derivative'),
-              ),
+              label: Text(l.t('ui.compute_third_derivative')),
             ),
           ),
         ],
         if (_third != null) ...[
           const SizedBox(height: 18),
-          SectionLabel(
-            l.t('ui.third_derivative'),
-            icon: Icons.looks_3_rounded,
-          ),
+          SectionLabel(l.t('ui.third_derivative'), icon: Icons.looks_3_rounded),
           const SizedBox(height: 10),
           Container(
             key: _thirdKey,
@@ -381,10 +378,7 @@ class _DerivativePageState extends State<DerivativePage> {
         if (_higher != null) ...[
           const SizedBox(height: 18),
           SectionLabel(
-            l.t(
-              'Derivative of order $_higherOrder',
-              'مشتق مرتبهٔ $_higherOrder',
-            ),
+            l.t('ui.derivative_order_label', {'order': _higherOrder}),
             icon: Icons.functions_rounded,
           ),
           const SizedBox(height: 10),

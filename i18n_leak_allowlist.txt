@@ -3,36 +3,10 @@
 # Counts may only shrink: a migration lowers them in the same commit.
 # Documentation (*.md) and app/assets/i18n/** are outside the scan.
 
-app/lib/main.dart	47
-app/lib/src/charts.dart	6
+app/lib/src/l10n.dart	58
 app/lib/src/l10n/ar.dart	232
 app/lib/src/l10n/de_topics.dart	90
 app/lib/src/l10n/fa.dart	179
-app/lib/src/l10n.dart	58
-app/lib/src/models.dart	1
-app/lib/src/native_engine.dart	10
-app/lib/src/pages/behaviour_page.dart	1
-app/lib/src/pages/continuity_page.dart	2
-app/lib/src/pages/derivative_page.dart	2
-app/lib/src/pages/domain_range_page.dart	4
-app/lib/src/pages/envelope_page.dart	2
-app/lib/src/pages/integral_apps_page.dart	1
-app/lib/src/pages/integral_page.dart	1
-app/lib/src/pages/limit_page.dart	2
-app/lib/src/pages/ode_page.dart	1
-app/lib/src/pages/optimize_page.dart	1
-app/lib/src/pages/partial_page.dart	1
-app/lib/src/pages/related_rates_page.dart	2
-app/lib/src/pages/series_page.dart	1
-app/lib/src/pages/settings_page.dart	12
-app/lib/src/pages/tangent_page.dart	1
-app/lib/src/pages/taylor_page.dart	1
-app/lib/src/pages/theorems_page.dart	1
-app/lib/src/pages/topic_workbench_page.dart	1
-app/lib/src/pages/wronskian_page.dart	1
-app/lib/src/study_articles.dart	88
-app/lib/src/theme.dart	6
-app/lib/src/widgets.dart	12
 app/test/native_engine_test.dart	1
 app/test/widget_test.dart	21
 core/src/calculus_api.cpp	113

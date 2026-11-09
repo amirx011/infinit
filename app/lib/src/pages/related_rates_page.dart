@@ -124,7 +124,7 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -144,7 +144,9 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
               PageTitle(
                 icon: Icons.speed_rounded,
                 title: l.t('ui.related_rates'),
-                subtitle: l.t('ui.differentiate_a_relation_with_respect_to_time_to'),
+                subtitle: l.t(
+                  'ui.differentiate_a_relation_with_respect_to_time_to',
+                ),
               ),
               const SizedBox(height: 18),
               ExpressionField(
@@ -258,7 +260,10 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
         ],
         if (r != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: r, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: r, l10n: l),
+          ),
         ],
       ],
     );
@@ -301,10 +306,7 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
       xmin: window.$1,
       xmax: window.$2,
       color: c.accent,
-      label: l.t(
-        'slope = ${formatReal(coefficient)}',
-        'شیب = ${formatReal(coefficient)}',
-      ),
+      label: l.t('ui.slope_label', {'slope': formatReal(coefficient)}),
     );
 
     return MathPlot(

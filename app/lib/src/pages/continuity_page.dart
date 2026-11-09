@@ -122,7 +122,7 @@ class _ContinuityPageState extends State<ContinuityPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -143,7 +143,9 @@ class _ContinuityPageState extends State<ContinuityPage> {
                 tone: c.accentAlt,
                 icon: Icons.timeline_rounded,
                 title: l.t('ui.continuity'),
-                subtitle: l.t('ui.a_function_is_continuous_at_a_point_when_the_lef'),
+                subtitle: l.t(
+                  'ui.a_function_is_continuous_at_a_point_when_the_lef',
+                ),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -240,9 +242,7 @@ class _ContinuityPageState extends State<ContinuityPage> {
                       )
                     : const Icon(Icons.timeline_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.checking')
-                      : l.t('ui.check_continuity'),
+                  _busy ? l.t('ui.checking') : l.t('ui.check_continuity'),
                 ),
               ),
             ],
@@ -263,7 +263,9 @@ class _ContinuityPageState extends State<ContinuityPage> {
             latex:
                 r'f(x)=\frac{x^{2}-4}{x-2}\ \text{has a removable gap at }x=2',
           ),
-          exampleCaption: l.t('ui.the_limit_is_4_but_f_2_is_undefined_so_the_funct'),
+          exampleCaption: l.t(
+            'ui.the_limit_is_4_but_f_2_is_undefined_so_the_funct',
+          ),
           pitfall: l.t('ui.an_existing_limit_is_not_enough_the_value_f_a_mu'),
         ),
         if (_error != null) ...[
@@ -298,10 +300,10 @@ class _ContinuityPageState extends State<ContinuityPage> {
             xmax: _plotWindow.$2,
             height: 270,
             color: c.accent,
-            title: l.t(
-              'Around $_plottedVar = $_plottedPoint',
-              'حول $_plottedVar = $_plottedPoint',
-            ),
+            title: l.t('ui.around_point', {
+              'var': _plottedVar,
+              'point': _plottedPoint,
+            }),
             caption: l.t('ui.continuity_is_a_visual_agreement_the_curve_must'),
             guides: [?_guideX],
           ),

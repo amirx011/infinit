@@ -81,9 +81,7 @@ class _TangentPageState extends State<TangentPage> {
     final text = _input.text.trim();
     final at = _at.text.trim();
     if (text.isEmpty || at.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_a_function_and_a_point'),
-      );
+      setState(() => _error = l.t('ui.enter_a_function_and_a_point'));
       return;
     }
     final xVar = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
@@ -110,7 +108,7 @@ class _TangentPageState extends State<TangentPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -130,7 +128,9 @@ class _TangentPageState extends State<TangentPage> {
               PageTitle(
                 icon: Icons.show_chart_rounded,
                 title: l.t('ui.tangent_and_normal'),
-                subtitle: l.t('ui.the_tangent_line_and_the_perpendicular_normal_at'),
+                subtitle: l.t(
+                  'ui.the_tangent_line_and_the_perpendicular_normal_at',
+                ),
               ),
               const SizedBox(height: 18),
               ExpressionField(
@@ -178,9 +178,7 @@ class _TangentPageState extends State<TangentPage> {
                       )
                     : const Icon(Icons.show_chart_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.computing')
-                      : l.t('ui.find_the_two_lines'),
+                  _busy ? l.t('ui.computing') : l.t('ui.find_the_two_lines'),
                 ),
               ),
             ],
@@ -207,7 +205,10 @@ class _TangentPageState extends State<TangentPage> {
         ],
         if (r != null) ...[
           const SizedBox(height: 18),
-          Container(key: _resultKey, child: ResultView(result: r, l10n: l)),
+          Container(
+            key: _resultKey,
+            child: ResultView(result: r, l10n: l),
+          ),
         ],
       ],
     );

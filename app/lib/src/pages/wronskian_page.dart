@@ -77,9 +77,7 @@ class _WronskianPageState extends State<WronskianPage> {
         .where((s) => s.isNotEmpty)
         .toList(growable: false);
     if (fns.isEmpty) {
-      setState(
-        () => _error = l.t('ui.enter_at_least_one_function'),
-      );
+      setState(() => _error = l.t('ui.enter_at_least_one_function'));
       return;
     }
     setState(() {
@@ -101,7 +99,7 @@ class _WronskianPageState extends State<WronskianPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -135,7 +133,9 @@ class _WronskianPageState extends State<WronskianPage> {
                 tone: c.accentAlt,
                 icon: Icons.grid_on_rounded,
                 title: l.t('ui.wronskian_linear_independence'),
-                subtitle: l.t('ui.build_the_wronskian_determinant_and_test_whether'),
+                subtitle: l.t(
+                  'ui.build_the_wronskian_determinant_and_test_whether',
+                ),
               ),
               const SizedBox(height: 18),
               for (var i = 0; i < _functions.length; i++) ...[
@@ -262,9 +262,7 @@ class _WronskianPageState extends State<WronskianPage> {
                       )
                     : const Icon(Icons.calculate_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.computing')
-                      : l.t('ui.compute_wronskian'),
+                  _busy ? l.t('ui.computing') : l.t('ui.compute_wronskian'),
                 ),
               ),
             ],
@@ -284,7 +282,9 @@ class _WronskianPageState extends State<WronskianPage> {
             pretty: 'W(eˣ, e²ˣ) = e³ˣ ≠ 0',
             latex: r'W\left(e^{x}, e^{2x}\right) = e^{3x} \neq 0',
           ),
-          exampleCaption: l.t('ui.the_determinant_never_vanishes_so_the_two_expone'),
+          exampleCaption: l.t(
+            'ui.the_determinant_never_vanishes_so_the_two_expone',
+          ),
           pitfall: l.t('ui.do_not_confuse_w_0_at_one_point_with_w_0_on_the'),
         ),
         if (_error != null) ...[

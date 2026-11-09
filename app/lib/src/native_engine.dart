@@ -43,7 +43,7 @@ String _solveInIsolate(Map<String, String> payload) {
   try {
     responsePtr = solve(requestPtr);
     if (responsePtr == nullptr) {
-      throw EngineUnavailable('موتور محاسبات پاسخی برنگرداند.');
+      throw EngineUnavailable('the computation engine returned no response');
     }
     return responsePtr.toDartString();
   } finally {
@@ -85,7 +85,9 @@ class NativeEngine {
       return _instance!;
     } catch (e) {
       _loadError = e.toString();
-      throw EngineUnavailable('موتور محاسبات بومی بارگذاری نشد.\n$_loadError');
+      throw EngineUnavailable(
+        'the native computation engine failed to load.\n$_loadError',
+      );
     }
   }
 
@@ -127,14 +129,11 @@ class NativeEngine {
       }
     }
     final hint = Platform.isAndroid
-        ? '\n\nراهنما: libodecore.so باید داخل خود APK باشد. APK را با '
-              'scripts/build_android.sh بسازید یا با Gradle بیلد کنید تا وظیفهٔ '
-              'buildOdeCoreAndroid آن را در jniLibs بگذارد.\n'
-              'Hint: the APK must contain libodecore.so for the device ABI '
+        ? '\n\nHint: the APK must contain libodecore.so for the device ABI '
               '(build with scripts/build_android.sh or through Gradle).'
         : '';
     throw EngineUnavailable(
-      'کتابخانهٔ libodecore.so پیدا نشد. مسیرها بررسی شد:\n${failures.join('\n')}$hint',
+      'libodecore.so was not found. Paths tried:\n${failures.join('\n')}$hint',
     );
   }
 
@@ -157,7 +156,7 @@ class NativeEngine {
     try {
       responsePtr = _solve(requestPtr);
       if (responsePtr == nullptr) {
-        throw EngineUnavailable('موتور محاسبات پاسخی برنگرداند.');
+        throw EngineUnavailable('the computation engine returned no response');
       }
       final raw = responsePtr.toDartString();
       return SolveResult.fromRaw(raw);
@@ -185,7 +184,6 @@ class NativeEngine {
       return SolveResult.fromRaw(raw);
     } on TimeoutException {
       throw EngineUnavailable(
-        'محاسبه بیش از ${timeout.inSeconds} ثانیه طول کشید و متوقف شد.\n'
         'The computation took longer than ${timeout.inSeconds}s and was stopped.',
       );
     }
@@ -442,14 +440,7 @@ class NativeEngine {
     required double a,
     required double b,
     required String lang,
-  }) => {
-    'mode': 'mvt',
-    'input': input,
-    'x': x,
-    'a': a,
-    'b': b,
-    'lang': lang,
-  };
+  }) => {'mode': 'mvt', 'input': input, 'x': x, 'a': a, 'b': b, 'lang': lang};
 
   Map<String, dynamic> _cauchyRequest(
     String f,
@@ -725,16 +716,8 @@ class NativeEngine {
     String x = 'x',
     String y = 'y',
     String lang = 'en',
-  }) => solve(
-    _obliqueRequest(
-      input,
-      c: c,
-      angle: angle,
-      x: x,
-      y: y,
-      lang: lang,
-    ),
-  );
+  }) =>
+      solve(_obliqueRequest(input, c: c, angle: angle, x: x, y: y, lang: lang));
 
   Future<SolveResult> obliqueAsync(
     String input, {
@@ -744,14 +727,7 @@ class NativeEngine {
     String y = 'y',
     String lang = 'en',
   }) => solveAsync(
-    _obliqueRequest(
-      input,
-      c: c,
-      angle: angle,
-      x: x,
-      y: y,
-      lang: lang,
-    ),
+    _obliqueRequest(input, c: c, angle: angle, x: x, y: y, lang: lang),
   );
 
   // ------------------------------------------- applications of the derivative
@@ -836,9 +812,7 @@ class NativeEngine {
     double a = 0,
     int order = 4,
     String lang = 'en',
-  }) => solveAsync(
-    _taylorRequest(input, x: x, a: a, order: order, lang: lang),
-  );
+  }) => solveAsync(_taylorRequest(input, x: x, a: a, order: order, lang: lang));
 
   // ------------------------------------------------- integral applications
   Future<SolveResult> integralApplicationAsync(
@@ -899,12 +873,11 @@ class NativeEngine {
           .timeout(timeout);
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) {
-        throw const FormatException('پاسخ گراف معتبر نیست.');
+        throw const FormatException('invalid graph response');
       }
       return decoded;
     } on TimeoutException {
       throw EngineUnavailable(
-        'رسم نمودار بیش از ${timeout.inSeconds} ثانیه طول کشید.\n'
         'Plotting took longer than ${timeout.inSeconds}s and was stopped.',
       );
     }

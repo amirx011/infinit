@@ -86,7 +86,8 @@ class _DomainRangePageState extends State<DomainRangePage> {
     final xmax = double.tryParse(_xmax.text.trim().replaceAll('−', '-'));
     if (xmin == null || xmax == null || !(xmin < xmax)) {
       setState(
-        () => _error = l.t('ui.the_sampling_window_needs_two_numbers_with_the_l'),
+        () =>
+            _error = l.t('ui.the_sampling_window_needs_two_numbers_with_the_l'),
       );
       return;
     }
@@ -106,16 +107,14 @@ class _DomainRangePageState extends State<DomainRangePage> {
         _result = r;
         _busy = false;
         if (!r.ok) {
-          _error = r.error.isEmpty
-              ? l.t('ui.the_scan_failed')
-              : r.error;
+          _error = r.error.isEmpty ? l.t('ui.the_scan_failed') : r.error;
         }
       });
       revealWidget(_resultKey);
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = l.t('Engine error: $e', 'خطا در اجرای موتور: $e');
+        _error = l.t('ui.engine_error');
         _busy = false;
       });
     }
@@ -154,7 +153,9 @@ class _DomainRangePageState extends State<DomainRangePage> {
                 tone: c.info,
                 icon: Icons.explore_rounded,
                 title: l.t('ui.domain_range'),
-                subtitle: l.t('ui.find_where_a_function_lives_and_which_values_it'),
+                subtitle: l.t(
+                  'ui.find_where_a_function_lives_and_which_values_it',
+                ),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -267,9 +268,7 @@ class _DomainRangePageState extends State<DomainRangePage> {
                       )
                     : const Icon(Icons.explore_rounded, size: 19),
                 label: Text(
-                  _busy
-                      ? l.t('ui.scanning')
-                      : l.t('ui.find_domain_and_range'),
+                  _busy ? l.t('ui.scanning') : l.t('ui.find_domain_and_range'),
                 ),
               ),
             ],
@@ -377,15 +376,19 @@ class _DomainRangePageState extends State<DomainRangePage> {
                       icon: Icons.swap_horiz_rounded,
                       details: [
                         if (result.holes.isNotEmpty)
-                          l.t(
-                            'Punctures at ${puncturedText(result.holes, emptySymbol: '·')}',
-                            'نقطه‌های حذف‌شده در ${puncturedText(result.holes, emptySymbol: '·')}',
-                          ),
+                          l.t('ui.punctures_at', {
+                            'points': puncturedText(
+                              result.holes,
+                              emptySymbol: '·',
+                            ),
+                          }),
                         if (result.asymptotes.isNotEmpty)
-                          l.t(
-                            'Vertical asymptotes at ${puncturedText(result.asymptotes, emptySymbol: '·')}',
-                            'مجانب‌های عمودی در ${puncturedText(result.asymptotes, emptySymbol: '·')}',
-                          ),
+                          l.t('ui.vertical_asymptotes_at', {
+                            'points': puncturedText(
+                              result.asymptotes,
+                              emptySymbol: '·',
+                            ),
+                          }),
                       ],
                     );
                     final rangeCard = _SetCard(
@@ -395,10 +398,9 @@ class _DomainRangePageState extends State<DomainRangePage> {
                       tone: c.accentAlt,
                       icon: Icons.swap_vert_rounded,
                       details: [
-                        l.t(
-                          'Numeric estimate from ${result.xs.length} samples.',
-                          'تخمین عددی از ${result.xs.length} نمونه.',
-                        ),
+                        l.t('ui.numeric_estimate_samples', {
+                          'n': result.xs.length,
+                        }),
                       ],
                     );
                     if (!wide) {
@@ -441,7 +443,9 @@ class _DomainRangePageState extends State<DomainRangePage> {
             pretty: 'y = √(4 − x²)  →  D = [−2, 2],  R = [0, 2]',
             latex: r'y=\sqrt{4-x^2}\;\Rightarrow\;D=[-2,2],\;R=[0,2]',
           ),
-          exampleCaption: l.t('ui.the_semicircle_only_exists_between_2_and_2_and_i'),
+          exampleCaption: l.t(
+            'ui.the_semicircle_only_exists_between_2_and_2_and_i',
+          ),
           pitfall: l.t('ui.a_removable_hole_belongs_to_neither_the_domain_n'),
         ),
       ],
@@ -461,14 +465,8 @@ class _BandLegend extends StatelessWidget {
       spacing: 16,
       runSpacing: 8,
       children: [
-        _LegendDot(
-          color: c.accent,
-          label: l10n.t('ui.domain_band_x'),
-        ),
-        _LegendDot(
-          color: c.accentAlt,
-          label: l10n.t('ui.range_band_y'),
-        ),
+        _LegendDot(color: c.accent, label: l10n.t('ui.domain_band_x')),
+        _LegendDot(color: c.accentAlt, label: l10n.t('ui.range_band_y')),
         _LegendDot(
           color: c.warning,
           label: l10n.t('ui.asymptote'),
