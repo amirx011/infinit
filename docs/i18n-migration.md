@@ -44,13 +44,10 @@ math               ->  ExView / LaTeX, never inside a translated sentence
 ## Persian/Arabic leak table (L0)
 
 At the start of this pass the allowlist covered 49 files and more than 3,000
-lines. It now contains four engine files:
+lines. It now contains one engine file:
 
 | file | lines with Persian/Arabic | category |
 | --- | --- | --- |
-| `core/src/calculus_api.cpp` | 113 | engine |
-| `core/src/calculus_more.cpp` | 25 | engine |
-| `core/src/localize.hpp` | 2 | engine |
 | `core/src/ode.cpp` | 523 | engine |
 
 Everything else — UI, catalogues, tests, scripts and fixtures — is clean. The
@@ -69,17 +66,12 @@ flutter analyze --no-pub                            # no issues
 
 ## Remaining work
 
-The native exact-ODE engine still builds sentences in C++:
+Only the native exact-ODE engine remains. It still builds sentences in C++:
 
-1. `calculus_api.cpp` — integration, derivative, limit and continuity titles,
-   notes and errors (113 lines).
-2. `calculus_more.cpp` — Taylor/series, integral applications and partial
-   derivatives (25 lines).
-3. `ode.cpp` — first-order/linear ODE steps, Wronskian, envelope and
-   trajectory text plus the `enTitle`/`enNote` translation maps (523 lines).
-4. `localize.hpp` — the last two-entry Persian→English message table.
+- `ode.cpp` — first-order/linear ODE steps, Wronskian, envelope and trajectory
+  text plus the `enTitle`/`enNote` translation maps (523 lines).
 
-The target remains the same as for the migrated sections: replace each
+The target is the same as for the migrated sections: replace each
 text-producing call with `titleKey`/`noteKey`/`nameKey`/`detailKey`, put plain
 values in `params`, put formulas in the math fields, and move every sentence
 into `fa.json` and `en.json` (then sync the other ten catalogues).
