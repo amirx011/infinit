@@ -295,7 +295,7 @@ void main() {
 
     final persian = engine.solve({
       'mode': 'parse',
-      'input': 'تابع',
+      'input': '\u062a\u0627\u0628\u0639',
       'lang': 'fa',
     });
     expect(persian.ok, isFalse);

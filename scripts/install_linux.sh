@@ -108,7 +108,6 @@ Type=Application
 Name=Infinit Lab
 Name[fa]=Infinit Lab
 Comment=Exact symbolic calculus and differential equations
-Comment[fa]=حساب دیفرانسیل و انتگرال و معادلات دیفرانسیل دقیق
 Exec=$LAUNCHER
 Icon=$APP_ID
 Terminal=false

@@ -724,7 +724,7 @@ int main() {
     {
         bool coded = false;
         try {
-            parseExpr("تابع");
+            parseExpr(u8"\u062a\u0627\u0628\u0639");
         } catch (const EngineError& e) {
             coded = e.code == "bad_characters";
         } catch (...) {
