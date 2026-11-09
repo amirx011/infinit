@@ -301,15 +301,10 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
             if (!okF || !okP || !std::isfinite(fv) || !std::isfinite(pv)) continue;
             const double err = std::fabs(fv - pv);
             const bool ok = err < 0.05 * (1.0 + std::fabs(fv));
-            r.checks.push_back({
-                en ? "Polynomial agrees with f at x = " + numStr(probe)
-                   : "تطابق چندجمله‌ای با f در x = " + numStr(probe),
-                ok,
-                en ? ("f = " + numStr(fv) + ", P = " + numStr(pv) +
-                      "; |error| = " + numStr(err) + ".")
-                   : ("f = " + numStr(fv) + "، P = " + numStr(pv) +
-                      "؛ |خطا| = " + numStr(err) + "."),
-            });
+            addCheck(r, "check.polynomial_match", ok, "",
+                     "{\"x\":" + numStr(probe) + "}",
+                     "f = " + numStr(fv) + ", P = " + numStr(pv) +
+                         ", |error| = " + numStr(err));
             if (firstProbe) {
                 r.hasNumeric = true;
                 r.numericValue = pv;
@@ -432,11 +427,9 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
                           (exactOk ? " است (مقدار دقیق نمایش داده شده)." : " است.")),
                     "");
             if (std::isfinite(numeric)) {
-                r.checks.push_back({
-                    en ? "Numeric quadrature" : "انتگرال‌گیری عددی", true,
-                    en ? ("Adaptive quadrature gives " + numStr(numeric) + ".")
-                       : ("انتگرال‌گیری تطبیقی مقدار " + numStr(numeric) + " را می‌دهد."),
-                });
+                addCheck(r, "check.numeric_quadrature", true,
+                         "check.quadrature_adaptive",
+                         "{\"value\":" + numStr(numeric) + "}");
             }
             r.ok = true;
             return r;
@@ -501,11 +494,9 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
                           (exactOk ? " است (مقدار دقیق نمایش داده شده)." : " است.")),
                     "");
             if (std::isfinite(numeric)) {
-                r.checks.push_back({
-                    en ? "Numeric quadrature" : "انتگرال‌گیری عددی", true,
-                    en ? ("Adaptive quadrature gives " + numStr(numeric) + ".")
-                       : ("انتگرال‌گیری تطبیقی مقدار " + numStr(numeric) + " را می‌دهد."),
-                });
+                addCheck(r, "check.numeric_quadrature", true,
+                         "check.quadrature_adaptive",
+                         "{\"value\":" + numStr(numeric) + "}");
             }
             r.ok = true;
             return r;
@@ -569,11 +560,9 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
                       (allExact ? " است (مقدار دقیق نمایش داده شده)." : " است.")),
                 "");
         if (std::isfinite(total)) {
-            r.checks.push_back({
-                en ? "Numeric quadrature" : "انتگرال‌گیری عددی", true,
-                en ? ("Adaptive quadrature gives " + numStr(total) + ".")
-                   : ("انتگرال‌گیری تطبیقی مقدار " + numStr(total) + " را می‌دهد."),
-            });
+            addCheck(r, "check.numeric_quadrature", true,
+                     "check.quadrature_adaptive",
+                     "{\"value\":" + numStr(total) + "}");
         }
         r.ok = true;
     } catch (const std::exception& e) {
@@ -676,15 +665,10 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
                         "");
                 const bool equal = sameNumber(
                     simplify(Add({mixed, Mul(Num(-1), mixedOther)})), Num(0));
-                r.checks.push_back({
-                    en ? "Clairaut symmetry for " + vars[i] + "," + vars[j]
-                       : "تقارن کلرو برای " + vars[i] + "، " + vars[j],
-                    equal,
-                    en ? (equal ? "The two mixed partials agree."
-                                : "The two mixed partials differ; the function may not be C2 there.")
-                       : (equal ? "دو مشتق مخلوط برابرند."
-                                : "دو مشتق مخلوط متفاوت‌اند؛ تابع ممکن است در آن ناحیه C2 نباشد."),
-                });
+                addCheck(r, "check.clairaut_symmetry", equal,
+                         equal ? "check.mixed_partials_agree"
+                               : "check.mixed_partials_differ",
+                         "{\"a\":\"" + vars[i] + "\",\"b\":\"" + vars[j] + "\"}");
             }
         }
         r.secondDerivative = diagonal.front();

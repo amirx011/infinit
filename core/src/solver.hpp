@@ -207,6 +207,20 @@ struct Result {
     long long timeMs = 0;
 };
 
+// Append a key-based validation.  Math and sentences stay separate: a formula
+// goes in `detailMath`, a sentence in `detailKey`, and `params` holds numbers.
+inline void addCheck(Result& r, const std::string& nameKey, bool ok,
+                     const std::string& detailKey = "", const std::string& params = "",
+                     const std::string& detailMath = "") {
+    Check c;
+    c.nameKey = nameKey;
+    c.ok = ok;
+    c.detailKey = detailKey;
+    c.params = params;
+    c.detailMath = detailMath;
+    r.checks.push_back(std::move(c));
+}
+
 // User-facing English text for a coded engine failure.
 inline std::string englishForEngineError(const EngineError& e) {
     if (e.code == "bad_characters") return "The input contains an invalid character.";

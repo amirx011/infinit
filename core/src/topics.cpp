@@ -92,18 +92,6 @@ void addStep(Result& r, bool en, const std::string& enTitle, const std::string& 
     r.steps.push_back(std::move(s));
 }
 
-void addCheck(Result& r, const std::string& nameKey, bool ok,
-              const std::string& detailKey = "", const std::string& params = "",
-              const std::string& detailMath = "") {
-    Check c;
-    c.nameKey = nameKey;
-    c.ok = ok;
-    c.detailKey = detailKey;
-    c.params = params;
-    c.detailMath = detailMath;
-    r.checks.push_back(std::move(c));
-}
-
 void base(Result& r, bool en, const std::string& mode, const std::string& typeEn,
           const std::string& typeFa, const std::string& variable = "") {
     r.ok = true;

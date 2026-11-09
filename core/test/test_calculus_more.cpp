@@ -167,7 +167,9 @@ static void partialCases() {
     // Clairaut symmetry is reported as a passing check.
     bool symmetry = false;
     for (const auto& c : r.checks) {
-        if (contains(c.name, "Clairaut") && c.ok) symmetry = true;
+        if (c.nameKey == "check.clairaut_symmetry" && c.ok) symmetry = true;
+        expect(c.name.empty(), "calculus checks carry no name sentence");
+        expect(c.detail.empty(), "calculus checks carry no detail sentence");
     }
     expect(symmetry, "mixed partials agree (Clairaut)");
     expect(r.steps.size() >= 6, "partial derivatives show each derivative");

@@ -918,12 +918,8 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
              gridMax <= bestMax + 1e-8 * (1.0 + std::fabs(bestMax))) &&
             (!bestMinX || !std::isfinite(gridMin) ||
              gridMin >= bestMin - 1e-8 * (1.0 + std::fabs(bestMin)));
-        r.checks.push_back({
-            en ? "Sample grid bound" : "کران نمونه‌برداری", gridOk,
-            en ? (gridOk ? "No grid sample beats the reported extrema."
-                         : "A grid sample beats a reported extremum.")
-               : (gridOk ? "هیچ نمونه‌ای از اکسترمم‌های گزارش‌شده فراتر نمی‌رود."
-                         : "یک نمونه از اکسترمم گزارش‌شده فراتر می‌رود.")});
+        addCheck(r, "check.sample_grid_bound", gridOk,
+                 gridOk ? "check.no_grid_sample_beats" : "check.grid_sample_beats");
         r.ok = true;
     } catch (const std::exception& e) {
         setFailure(r, en, e, "Optimisation error: ", "خطا در بهینه‌سازی: ");
@@ -1080,19 +1076,11 @@ Result meanValueTheorems(const std::string& input, const std::string& x, double 
         }
         r.hypothesesContinuous = continuous;
         r.hypothesesDifferentiable = differentiable;
-        r.checks.push_back({en ? "Continuity on [a, b]" : "پیوستگی روی [a, b]", continuous,
-                            continuous
-                                ? (en ? "f is finite at every sampled point of the closed interval."
-                                      : "تابع در همهٔ نمونه‌های بازهٔ بسته متناهی است.")
-                                : (en ? "A sampled point of f was undefined."
-                                      : "یک نمونه از f تعریف‌نشده بود.")});
-        r.checks.push_back({en ? "Differentiability on (a, b)" : "مشتق‌پذیری روی (a, b)",
-                            differentiable,
-                            differentiable
-                                ? (en ? "f' is finite inside the open interval."
-                                      : "مشتق در داخل بازهٔ باز متناهی است.")
-                                : (en ? "A sampled point of f' was undefined."
-                                      : "یک نمونه از f′ تعریف‌نشده بود.")});
+        addCheck(r, "check.continuity_closed_interval", continuous,
+                 continuous ? "check.continuous_all_points" : "check.undefined_sample");
+        addCheck(r, "check.differentiability_open_interval", differentiable,
+                 differentiable ? "check.derivative_finite"
+                                : "check.derivative_undefined_sample");
 
         Ex secant = simplify(Mul(Add({numEx(fb), numEx(-fa)}), numEx(1.0 / (b - a))));
         r.slope = secant;

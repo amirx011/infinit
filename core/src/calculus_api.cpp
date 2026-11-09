@@ -125,15 +125,11 @@ Result integrateExpression(const std::string& input, const std::string& x,
             try {
                 Ex residual = simplify(Add(diff(F, x), Mul(Num(-1), f)));
                 bool ok = residual->isZero() || numericallyZero(residual, {x}, 8, 1e-6);
-                r.checks.push_back({en ? "Differentiate the result" : "مشتق‌گیری از جواب", ok,
-                                    en ? (ok ? "The derivative equals the integrand."
-                                             : "The derivative did not simplify to the integrand.")
-                                       : (ok ? "مشتق جواب برابر انتگرال‌ده است."
-                                             : "مشتق جواب به انتگرال‌ده ساده نشد.")});
+                addCheck(r, "check.differentiate_result", ok,
+                         ok ? "check.derivative_matches" : "check.derivative_mismatch");
             } catch (...) {
-                r.checks.push_back({en ? "Differentiate the result" : "مشتق‌گیری از جواب", false,
-                                    en ? "Automatic verification was not possible."
-                                       : "بررسی خودکار ممکن نشد."});
+                addCheck(r, "check.differentiate_result", false,
+                         "check.verify_unavailable");
             }
         }
         r.ok = true;
@@ -705,11 +701,8 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                 r.warnings.push_back(
                     en ? "The definite integral diverges; no finite value exists."
                        : "انتگرال معین واگرا است؛ مقدار متناهی وجود ندارد.");
-                r.checks.push_back(
-                    {en ? "Convergence analysis" : "تحلیل همگرایی", true,
-                     en ? "Divergence was established from the one-sided limits of the "
-                          "antiderivative."
-                        : "واگرایی از حدهای یک‌طرفهٔ پادمشتق مشخص شد."});
+                addCheck(r, "check.convergence_analysis", true,
+                         "check.divergence_one_sided");
             } else {
                 r.closedForm = allExact;
                 if (allExact) {
@@ -754,10 +747,8 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                          en ? "The antiderivative is evaluated in the limit at infinity."
                             : "پادمشتق در حد بی‌نهایت ارزیابی می‌شود."});
                 }
-                r.checks.push_back(
-                    {en ? "Convergence analysis" : "تحلیل همگرایی", true,
-                     en ? "Every one-sided limit is finite, so the improper integral converges."
-                        : "همهٔ حدهای یک‌طرفه متناهی‌اند؛ پس انتگرال ناسره همگرا است."});
+                addCheck(r, "check.convergence_analysis", true,
+                         "check.converges_one_sided");
                 if (!allExact) {
                     r.warnings.push_back(
                         en ? "The improper integral was evaluated numerically from finite "
@@ -795,10 +786,9 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                 if (std::isfinite(numeric)) {
                     const double scale = std::max(1.0, std::fabs(numeric));
                     const bool match = std::fabs(numeric - value) <= 1e-6 * scale;
-                    r.checks.push_back(
-                        {en ? "Quadrature cross-check" : "بررسی با کوادراتور", match,
-                         en ? ("Independent quadrature gives " + fmtReal(numeric) + ".")
-                            : ("کوادراتور مستقل مقدار " + fmtReal(numeric) + " را می‌دهد.")});
+                    addCheck(r, "check.quadrature_independent", match,
+                             "check.quadrature_value",
+                             "{\"value\":" + fmtReal(numeric) + "}");
                 }
                 r.ok = true;
                 return r;
@@ -1151,12 +1141,8 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
             try {
                 Ex check = simplify(Add(Fx, Mul(Fy, first)));
                 const bool ok = check->isZero() || numericallyZero(check, {x, dep}, 8, 1e-6);
-                r.checks.push_back(
-                    {en ? "Implicit relation" : "رابطهٔ ضمنی", ok,
-                     en ? (ok ? "F_x + F_y·y' simplifies to zero."
-                              : "F_x + F_y·y' did not vanish; the input may not be algebraic.")
-                        : (ok ? "F_x + F_y·y' صفر می‌شود."
-                              : "F_x + F_y·y' صفر نشد؛ ممکن است ورودی جبری نباشد.")});
+                addCheck(r, "check.implicit_relation", ok,
+                         ok ? "check.implicit_ok" : "check.implicit_fail");
             } catch (...) {
             }
             r.ok = true;
@@ -1210,11 +1196,8 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
             Ex ref = f;
             for (int k = 0; k < r.order; ++k) ref = simplify(diff(ref, x));
             const bool ok = numericallyEqual(ref, current, {x}, 8, 1e-6);
-            r.checks.push_back({en ? "Symbolic cross-check" : "بررسی نمادین", ok,
-                                en ? (ok ? "An independent differentiator agrees."
-                                         : "The independent differentiator disagrees.")
-                                   : (ok ? "یک مشتق‌گیر مستقل همان جواب را می‌دهد."
-                                         : "مشتق‌گیر مستقل جواب دیگری می‌دهد.")});
+            addCheck(r, "check.symbolic_cross_check", ok,
+                     ok ? "check.symbolic_agree" : "check.symbolic_disagree");
         } catch (...) {
         }
         r.ok = true;
@@ -1270,6 +1253,16 @@ std::string outcomeText(const LimitOutcome& l, bool en) {
         case LimitOutcome::PosInf: return "\xE2\x88\x9E";
         case LimitOutcome::NegInf: return "-\xE2\x88\x9E";
         default: return en ? "does not exist" : "وجود ندارد";
+    }
+}
+
+std::string limitMath(const LimitOutcome& l) {
+    switch (l.kind) {
+        case LimitOutcome::Finite:
+            return l.value ? toPlain(l.value) : fmtReal(l.number);
+        case LimitOutcome::PosInf: return "\xE2\x88\x9E";
+        case LimitOutcome::NegInf: return "-\xE2\x88\x9E";
+        default: return "";
     }
 }
 
@@ -1405,11 +1398,8 @@ Result limitExpression(const std::string& input, const std::string& x, const std
             r.steps.push_back({en ? "Right limit" : "\u062d\u062f \u0631\u0627\u0633\u062a", right.value,
                                outcomeText(right, en)});
             const bool agree = outcomeSame(left, right);
-            r.checks.push_back(
-                {en ? "One-sided limits agree" : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0645\u0648\u0627\u0641\u0642\u0646\u062f", agree,
-                 agree ? (en ? "The two one-sided limits are equal." : "\u062f\u0648 \u062d\u062f \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0628\u0631\u0627\u0628\u0631\u0646\u062f.")
-                       : (en ? "The one-sided limits differ, so the two-sided limit does not exist."
-                             : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0645\u062a\u0641\u0627\u0648\u062a\u0646\u062f\u061b \u067e\u0633 \u062d\u062f \u062f\u0648\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f.")});
+            addCheck(r, "check.one_sided_agree", agree,
+                     agree ? "check.limits_equal" : "check.limits_differ");
         }
 
         const std::string lawSuffix = laws.empty()
@@ -1521,20 +1511,23 @@ Result continuityExpression(const std::string& input, const std::string& x,
             }
         };
         const bool sameValue = sameLimits && r.valueDefined && valueEqualsLimit(c.value, c.left);
-        r.checks.push_back({en ? "Left limit exists" : "\u062d\u062f \u0686\u067e \u0645\u0648\u062c\u0648\u062f \u0627\u0633\u062a", r.leftExists,
-                            outcomeText(c.left, en)});
-        r.checks.push_back({en ? "Right limit exists" : "\u062d\u062f \u0631\u0627\u0633\u062a \u0645\u0648\u062c\u0648\u062f \u0627\u0633\u062a", r.rightExists,
-                            outcomeText(c.right, en)});
-        r.checks.push_back({en ? "Left limit = right limit" : "\u062d\u062f \u0686\u067e = \u062d\u062f \u0631\u0627\u0633\u062a", sameLimits,
-                            sameLimits ? (en ? "The one-sided limits agree." : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0628\u0631\u0627\u0628\u0631\u0646\u062f.")
-                                       : (en ? "They differ or one of them does not exist."
-                                             : "\u0645\u062a\u0641\u0627\u0648\u062a\u0646\u062f \u06cc\u0627 \u06cc\u06a9\u06cc \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f.")});
-        r.checks.push_back({en ? "Value at the point is defined" : "\u0645\u0642\u062f\u0627\u0631 \u062f\u0631 \u0646\u0642\u0637\u0647 \u062a\u0639\u0631\u06cc\u0641 \u0634\u062f\u0647 \u0627\u0633\u062a", r.valueDefined,
-                            r.valueDefined ? safeText(c.value)
-                                           : (en ? "f is not defined there." : "\u062a\u0627\u0628\u0639 \u0622\u0646\u062c\u0627 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a.")});
-        r.checks.push_back({en ? "Value equals the limit" : "\u0645\u0642\u062f\u0627\u0631 = \u062d\u062f", sameValue,
-                            sameValue ? (en ? "f(a) equals the common limit." : "f(a) \u0628\u0631\u0627\u0628\u0631 \u062d\u062f \u0645\u0634\u062a\u0631\u06a9 \u0627\u0633\u062a.")
-                                      : (en ? "f(a) is different from the limit." : "f(a) \u0628\u0627 \u062d\u062f \u0641\u0631\u0642 \u062f\u0627\u0631\u062f.")});
+        {
+            const std::string lm = limitMath(c.left);
+            addCheck(r, "check.left_limit_exists", r.leftExists,
+                     lm.empty() ? "check.does_not_exist" : "", "", lm);
+        }
+        {
+            const std::string rm = limitMath(c.right);
+            addCheck(r, "check.right_limit_exists", r.rightExists,
+                     rm.empty() ? "check.does_not_exist" : "", "", rm);
+        }
+        addCheck(r, "check.left_equals_right", sameLimits,
+                 sameLimits ? "check.limits_equal" : "check.limits_differ_or_missing");
+        addCheck(r, "check.value_defined", r.valueDefined,
+                 r.valueDefined ? "" : "check.value_undefined", "",
+                 r.valueDefined ? safeText(c.value) : "");
+        addCheck(r, "check.value_equals_limit", sameValue,
+                 sameValue ? "check.value_equals" : "check.value_differs");
 
         std::string verdict;
         if (r.continuous) {
