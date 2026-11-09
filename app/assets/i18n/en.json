@@ -1,0 +1,10 @@
+{
+  "error.bad_characters": "The input contains an invalid character.",
+  "error.singular": "The function is undefined at x = {point} (singular point).",
+  "error.singular_unknown": "The function is undefined at a singular point.",
+  "error.not_integrable": "This function is not integrable on the interval.",
+  "error.unknown_function": "Unknown function.",
+  "error.unavailable": "The input could not be analysed.",
+  "note.interpreted_as": "Read as:",
+  "validation.match": "The check agrees with the answer."
+}

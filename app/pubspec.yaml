@@ -25,6 +25,7 @@ flutter:
   assets:
     - assets/fonts/
     - assets/branding/
+    - assets/i18n/
   fonts:
     - family: Vazirmatn
       fonts:

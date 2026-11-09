@@ -1,7 +1,7 @@
 # Language-leak allowlist for the language-free core migration (L0).
 # Format: <path>\t<number of lines containing Persian/Arabic/ZWNJ>.
 # Counts may only shrink: a migration lowers them in the same commit.
-# Documentation (*.md) and assets/i18n/** are outside the scan.
+# Documentation (*.md) and app/assets/i18n/** are outside the scan.
 
 app/lib/main.dart	148
 app/lib/src/calc_widgets.dart	1

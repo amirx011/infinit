@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
 import 'src/app_state.dart';
+import 'src/i18n/catalog.dart';
 import 'src/l10n.dart';
 import 'src/native_engine.dart';
 import 'src/pages/behaviour_page.dart';
@@ -63,6 +64,7 @@ const Map<int, String> _topicPages = <int, String>{
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  I18n.instance = await I18n.load();
   final settings = AppSettings();
   await settings.load();
   runApp(InfinitApp(settings: settings));

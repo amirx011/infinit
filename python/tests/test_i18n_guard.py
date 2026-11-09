@@ -1,6 +1,6 @@
 """Guard rails for the language-free core migration (L0-L3).
 
-L0  no new Persian/Arabic text outside assets/i18n and the shrink-only allowlist
+L0  no new Persian/Arabic text outside app/assets/i18n and the shrink-only allowlist
 L1  every translation file has the same keys and placeholders
 L2  every dotted key used in Dart exists in the default translation file
 L3  Python verification scripts contain no Persian/Arabic text
@@ -15,7 +15,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 ALLOWLIST = ROOT / "i18n_leak_allowlist.txt"
-I18N_DIR = ROOT / "assets" / "i18n"
+I18N_DIR = ROOT / "app" / "assets" / "i18n"
 APP_LIB = ROOT / "app" / "lib"
 
 TEXT_SUFFIXES = {
@@ -64,7 +64,7 @@ def _is_allowed(relative: str) -> bool:
     # Documentation is not program logic, and translation data lives here.
     if relative.endswith(".md"):
         return True
-    if relative.startswith("assets/i18n/"):
+    if relative.startswith("app/assets/i18n/"):
         return True
     return "_i18n_" in pathlib.PurePosixPath(relative).name
 
@@ -150,7 +150,7 @@ def test_l1_translation_keys_match():
         path.stem: json.loads(path.read_text(encoding="utf-8")) for path in files
     }
     if "fa" not in catalogues:
-        raise AssertionError("assets/i18n must contain fa.json as the default")
+        raise AssertionError("app/assets/i18n must contain fa.json as the default")
 
     default_keys = set(catalogues["fa"])
     problems: list[str] = []

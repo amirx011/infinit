@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'i18n/catalog.dart';
 import 'l10n/ar.dart';
 import 'l10n/de.dart';
 import 'l10n/de_topics.dart';
@@ -441,17 +442,25 @@ class L10n {
 
   bool get isRtl => languageFor(code).rtl;
 
-  /// Looks up a translated string by its English source. The inline Persian
-  /// argument remains the fallback for Persian so older page copy keeps
-  /// working while translations move into `l10n/`.
-  String t(String en, [String? fa]) {
+  /// Looks up a stable dotted key in the JSON catalogue.  Until M7 removes the
+  /// legacy tables, an English source string keeps resolving through them, so
+  /// the second argument is either the Persian source or a parameter map.
+  String t(String en, [Object? faOrParams]) {
     final key = en.trim();
+    if (I18n.instance.hasKey(key)) {
+      return I18n.instance.text(
+        code,
+        key,
+        faOrParams is Map<String, Object?> ? faOrParams : null,
+      );
+    }
     final hit =
         _study[code]?[key] ??
         _extra[code]?[key] ??
         deTopicTranslations[code]?[key] ??
         _translations[code]?[key];
     if (hit != null) return hit;
+    final fa = faOrParams is String ? faOrParams : null;
     if (code == 'fa' && fa != null) return fa;
     return en;
   }

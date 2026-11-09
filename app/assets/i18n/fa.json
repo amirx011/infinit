@@ -1,0 +1,10 @@
+{
+  "error.bad_characters": "ورودی کاراکتر نامعتبر دارد.",
+  "error.singular": "تابع در x = {point} تعریف نشده است (نقطهٔ تکین).",
+  "error.singular_unknown": "تابع در نقطهٔ تکین تعریف نشده است.",
+  "error.not_integrable": "این تابع روی بازه انتگرال‌پذیر نیست.",
+  "error.unknown_function": "تابع ناشناخته است.",
+  "error.unavailable": "ورودی قابل تحلیل نبود.",
+  "note.interpreted_as": "ورودی به این صورت خوانده شد:",
+  "validation.match": "بررسی با جواب موافق است."
+}
