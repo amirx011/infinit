@@ -1414,5 +1414,20 @@
   "error.bad_leading_coefficient": "ضریب پیشرو باید ناصفر باشد.",
   "error.roots_not_grouped": "ریشه‌های مشخصه به‌طور مطمئن گروه‌بندی نشدند.",
   "error.too_many_steps": "تعداد گام‌ها زیاد است؛ h را بزرگ‌تر کنید.",
-  "error.unknown_topic": "مبحث ناشناخته است."
+  "error.unknown_topic": "مبحث ناشناخته است.",
+  "step.note.extra_symbols_free": "نماد(های) اضافی آزاد هستند؛ بررسی عددی آن‌ها را با مقادیر نمونهٔ ناصفر ارزیابی می‌کند.",
+  "step.note.xi_between_a_and_x": "xi بین a و x قرار دارد.",
+  "step.note.shell_negative_interval": "بخشی از بازه منفی است؛ شعاع پوسته x علامت عوض می‌کند و تفسیر هندسی فقط برای x ≥ 0 معتبر است.",
+  "step.note.zero_direction": "بردار جهت صفر است، پس بردار یکه ندارد.",
+  "step.note.point_needs_one_value_per_variable": "نقطه باید برای هر متغیر یک مقدار داشته باشد؛ گرادیان محاسبه نشد.",
+  "error.series_start": "جمله در n = {n} تعریف نشده است. به‌جای آن از n = {suggestion} شروع کنید.",
+  "error.series_term_undefined": "جمله در n = {n} تعریف نشده است.",
+  "ui.type.maclaurin": "سری مکلورن",
+  "ui.type.taylor": "چندجمله‌ای تیلور",
+  "ui.type.arc_length": "طول قوس",
+  "ui.type.volume": "حجم دوران",
+  "ui.type.area": "مساحت بین دو منحنی",
+  "ui.type.partial": "مشتق جزئی و گرادیان",
+  "ui.type.series": "سری و همگرایی",
+  "error.bad_interval": "باید a < b باشد."
 }

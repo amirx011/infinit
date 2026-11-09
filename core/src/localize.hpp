@@ -22,24 +22,6 @@ inline bool containsPersian(const std::string& text) {
 inline std::string localizeError(const std::string& message, bool english) {
     if (!english || message.empty()) return message;
 
-    struct Entry {
-        const char* fa;
-        const char* en;
-    };
-    static const Entry entries[] = {
-        {"کران‌ها باید عددی باشند", "the bounds must be numeric"},
-        {"شکل دیفرانسیلی معادله خوانده نشد", "could not read the differential form"},
-    };
-
-    for (const auto& e : entries) {
-        const std::string fa(e.fa);
-        const size_t pos = message.find(fa);
-        if (pos == std::string::npos) continue;
-        std::string out = message;
-        out.replace(pos, fa.size(), e.en);
-        return out;
-    }
-
     if (containsPersian(message)) return "the input could not be processed";
     return message;
 }

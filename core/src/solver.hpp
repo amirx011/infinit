@@ -69,6 +69,8 @@ struct Result {
     // unknown_function / not_integrable) plus technical detail for logs.
     std::string errorCode;
     std::string errorDetail;
+    // Raw JSON object with plain error params (for example {"n":2}).
+    std::string errorParams;
     double errorPoint = 0.0;
     bool hasErrorPoint = false;
     // Canonical form of the parsed input when it differs from the raw text.
@@ -241,6 +243,22 @@ inline std::string englishForEngineError(const EngineError& e) {
                                    ? 0 : e.detail.find(':') + 2));
     }
     return localizeError(e.what(), true);
+}
+
+// Set a coded failure without ever putting a sentence in the response.  The
+// technical text only goes to errorDetail (logs).
+inline void setCodedFailure(Result& r, const std::exception& e,
+                            const std::string& where = "") {
+    if (const auto* coded = dynamic_cast<const EngineError*>(&e)) {
+        r.errorCode = coded->code;
+        r.errorDetail = coded->detail;
+    } else {
+        r.errorCode = "unavailable";
+        r.errorDetail = where.empty() ? e.what() : where + ": " + e.what();
+    }
+    r.ok = false;
+    r.verified = false;
+    r.error.clear();
 }
 
 // Fill a Result from an exception without leaking Persian text into an English

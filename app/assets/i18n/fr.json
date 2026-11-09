@@ -1414,5 +1414,20 @@
   "error.bad_leading_coefficient": "The leading coefficient must be nonzero.",
   "error.roots_not_grouped": "The characteristic roots could not be grouped reliably.",
   "error.too_many_steps": "The step count is too large; increase h.",
-  "error.unknown_topic": "Unknown topic."
+  "error.unknown_topic": "Unknown topic.",
+  "step.note.extra_symbols_free": "Extra symbols are free; the validation evaluates them at non-zero sample values.",
+  "step.note.xi_between_a_and_x": "xi lies between a and x.",
+  "step.note.shell_negative_interval": "Part of the interval is negative; the shell radius x changes sign and the geometric interpretation is only valid for x >= 0.",
+  "step.note.zero_direction": "The direction vector is zero, so it has no unit vector.",
+  "step.note.point_needs_one_value_per_variable": "The point must supply one value per variable; the gradient was not evaluated.",
+  "error.series_start": "The term is undefined at n = {n}. Start at n = {suggestion} instead.",
+  "error.series_term_undefined": "The term is undefined at n = {n}.",
+  "ui.type.maclaurin": "Maclaurin series",
+  "ui.type.taylor": "Taylor polynomial",
+  "ui.type.arc_length": "Arc length",
+  "ui.type.volume": "Volume of revolution",
+  "ui.type.area": "Area between two curves",
+  "ui.type.partial": "Partial derivatives and gradient",
+  "ui.type.series": "Series and convergence",
+  "error.bad_interval": "The interval must satisfy a < b."
 }

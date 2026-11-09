@@ -300,6 +300,7 @@ class SolveResult {
     this.errorDetail = '',
     this.errorPoint,
     this.hasErrorPoint = false,
+    this.errorParams = const {},
     this.interpretedAs = '',
   });
 
@@ -320,6 +321,9 @@ class SolveResult {
   /// Point where a singular domain error was detected, when known.
   final double? errorPoint;
   final bool hasErrorPoint;
+
+  /// Plain values for the `error.<code>` sentence.
+  final Map<String, Object?> errorParams;
 
   /// Canonical form of the input when the parser had to reinterpret it.
   final String interpretedAs;
@@ -498,6 +502,9 @@ class SolveResult {
     errorCode: (j['error_code'] ?? '').toString(),
     errorDetail: (j['error_detail'] ?? '').toString(),
     errorPoint: (j['error_point'] as num?)?.toDouble(),
+    errorParams: (j['error_params'] is Map)
+        ? (j['error_params'] as Map).cast<String, Object?>()
+        : const {},
     hasErrorPoint: j['error_point'] != null,
     interpretedAs: (j['interpreted_as'] ?? '').toString(),
     engine: (j['engine'] ?? 'native').toString(),

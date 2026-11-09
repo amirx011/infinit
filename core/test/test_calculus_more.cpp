@@ -148,7 +148,7 @@ static void integralApplicationCases() {
     {
         Result r = integralApplication("area", "x", "0", "x", 1.0, 0.0, "x", "en");
         expect(!r.ok, "area rejects a > b");
-        expect(!r.error.empty(), "area explains the invalid interval");
+        expect(r.errorCode == "bad_interval", "area reports the invalid interval code");
     }
 }
 
@@ -235,7 +235,9 @@ static void seriesCases() {
     {
         Result r = seriesAnalysis("1/(n*ln(n))", "n", 1, "en");
         expect(!r.ok, "undefined first term is rejected");
-        expect(contains(r.error, "Start at n = 2"), "the error suggests n = 2");
+        expect(r.errorCode == "series_start", "the series error carries a start hint");
+        expect(r.errorParams.find("\"suggestion\":2") != std::string::npos,
+               "the error suggests n = 2");
     }
     // A term no elementary test recognises stays honestly inconclusive.
     {

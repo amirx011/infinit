@@ -142,7 +142,6 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
     Result r;
     r.mode = "taylor";
     r.typeId = a == 0.0 ? "maclaurin" : "taylor";
-    r.typeFa = a == 0.0 ? "سری مکلورن" : "چندجمله‌ای تیلور";
     r.variable = x;
     r.application = a == 0.0 ? "maclaurin" : "taylor";
     try {
@@ -157,8 +156,6 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
             r.verified = false;
             r.errorCode = "unknown_function";
             r.errorDetail = "unknown function: " + unknown;
-            r.error = en ? ("Unknown function: " + unknown)
-                         : ("تابع " + unknown + " ناشناخته است.");
             return r;
         }
         // E4: name any extra free symbols instead of evaluating them as 0.
@@ -170,16 +167,7 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
             extras.push_back(s);
         }
         if (!extras.empty()) {
-            std::string names;
-            for (size_t i = 0; i < extras.size(); ++i) {
-                if (i) names += ", ";
-                names += extras[i];
-            }
-            r.warnings.push_back(
-                en ? "Extra symbol(s) " + names +
-                         " are free; the validation evaluates them at non-zero sample values."
-                   : "نماد(های) اضافی " + names +
-                         " آزاد هستند؛ در بررسی عددی با مقادیر نمونهٔ ناصفر ارزیابی می‌شوند.");
+            r.warnings.push_back("step.note.extra_symbols_free");
         }
         r.order = order;
         r.point = toPlain(center);
@@ -189,7 +177,7 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
 
         Ex d = f;
         std::vector<Ex> coeffs;
-        std::string coeffEn, coeffFa;
+        std::string coeffEn;
         for (int k = 0; k <= order; ++k) {
             Ex valueAt = simplify(substitute(d, x, center));
             // Keep the exact value (sin(1), sqrt(2), 1/3, ...) instead of
@@ -198,9 +186,8 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
             // denominator when the terms are added together.
             Ex coeff = simplify(Mul(valueAt, Num(Rational(1, factorialLL(k)))));
             coeffs.push_back(coeff);
-            if (k > 0) { coeffEn += ", "; coeffFa += "، "; }
+            if (k > 0) coeffEn += ", ";
             coeffEn += "c" + std::to_string(k) + " = " + toPlain(coeff);
-            coeffFa += "c" + std::to_string(k) + " = " + toPlain(coeff);
 
             if (k == 0) {
                 addStep(r, "step.title.value_at_centre", valueAt, "", "",
@@ -267,8 +254,7 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
             "R_" + std::to_string(order) + "(x) = f^(" + std::to_string(order + 1) +
             ")(xi)/(" + std::to_string(order + 1) + ")! (x - a)^(" +
             std::to_string(order + 1) + ")");
-        r.assumptions.push_back(en ? "xi lies between a and x."
-                                   : "xi بین a و x قرار دارد.");
+        r.assumptions.push_back("step.note.xi_between_a_and_x");
 
         // Numeric evidence: compare the polynomial with f at a few points away
         // from the centre.  Extra symbols get non-zero values so every term is
@@ -301,7 +287,7 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        setFailure(r, en, e, "Taylor-series error: ", "خطا در سری تیلور: ");
+        setCodedFailure(r, e, "taylor");
     }
     return r;
 }
@@ -379,7 +365,7 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
     r.definite = true;
     try {
         if (!(a < b)) {
-            r.error = en ? "The interval must satisfy a < b." : "باید a < b باشد.";
+            r.errorCode = "bad_interval";
             return r;
         }
         Ex f = parseODEExpr(fIn, x, nullptr, {x, "e", "pi"});
@@ -389,7 +375,6 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
 
         if (kind == "arc_length") {
             r.typeId = "arc_length";
-            r.typeFa = "طول قوس";
             Ex df = simplify(diff(f, x));
             r.derivative = df;
             Ex integrand = simplify(Sqrt(Add({Num(1), Pow(df, Num(2))})));
@@ -419,7 +404,6 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
 
         if (kind == "volume") {
             r.typeId = "volume";
-            r.typeFa = "حجم دوران";
             const bool aboutY = axis == "y";
             Ex integrand;
             if (aboutY) {
@@ -429,11 +413,7 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
                 addStep(r, "step.title.shell_method", nullptr, "step.note.shell_method", "",
                     "V = 2 pi int_" + numStr(a) + "^" + numStr(b) + " x (f - g) dx");
                 if (a < 0) {
-                    r.warnings.push_back(en
-                        ? "Part of the interval is negative; the shell radius x changes sign and "
-                          "the geometric interpretation is only valid for x >= 0."
-                        : "بخشی از بازه منفی است؛ شعاع پوسته x علامت عوض می‌کند و تفسیر هندسی "
-                          "فقط برای x ≥ 0 معتبر است.");
+                    r.warnings.push_back("step.note.shell_negative_interval");
                 }
             } else if (!gIn.empty()) {
                 Ex outer = Pow(f, Num(2));
@@ -469,7 +449,6 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
 
         // Area between two curves.
         r.typeId = "area";
-        r.typeFa = "مساحت بین دو منحنی";
         Ex diffExpr = simplify(Add(f, Mul(Num(-1), g)));
         r.integrand = diffExpr;
         addStep(r, "step.title.difference_of_curves", nullptr, "step.note.area_setup", "",
@@ -518,8 +497,7 @@ Result integralApplicationImpl(const std::string& kind, const std::string& fIn,
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Integral-application error: ") + e.what()
-                     : std::string("خطا در کاربرد انتگرال: ") + e.what();
+        setCodedFailure(r, e, "integral application");
     }
     return r;
 }
@@ -532,7 +510,6 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
     Result r;
     r.mode = "partial";
     r.typeId = "partial";
-    r.typeFa = "مشتق جزئی و گرادیان";
     try {
         std::vector<std::string> vars = varsIn;
         if (vars.empty()) vars = {"x", "y"};
@@ -559,9 +536,8 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
             pv.label = "f_" + v;
             pv.value = d;
             r.partials.push_back(pv);
-            if (!firstEn.empty()) { firstEn += ", "; firstFa += "، "; }
+            if (!firstEn.empty()) firstEn += ", ";
             firstEn += "f_" + v + " = " + toPlain(d);
-            firstFa += "f_" + v + " = " + toPlain(d);
             addStep(r, "step.title.first_partial_wrt", d,
                 "step.note.partial_derivative", "{\"var\":\"" + v + "\",\"order\":1}",
                 "f_" + v + " = " + toPlain(d));
@@ -622,9 +598,8 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
             for (size_t i = 0; i < first.size(); ++i) {
                 Ex value = atPoint(first[i], vars, point);
                 r.gradient.push_back(value);
-                if (i) { gradEn += ", "; gradFa += "، "; }
+                if (i) gradEn += ", ";
                 gradEn += "f_" + vars[i] + r.pointLabel + " = " + toPlain(value);
-                gradFa += "f_" + vars[i] + r.pointLabel + " = " + toPlain(value);
             }
             addStep(r, "step.title.gradient_at_point", evaluated, "step.note.gradient_at_point",
                 "", "f" + r.pointLabel + " = " + toPlain(evaluated) + "; " + gradEn);
@@ -651,9 +626,8 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
                         Mul(dot, Pow(Sqrt(normSquared), Num(-1))));
                     std::string unitEn, unitFa;
                     for (size_t i = 0; i < unit.size(); ++i) {
-                        if (i) { unitEn += ", "; unitFa += "، "; }
+                        if (i) unitEn += ", ";
                         unitEn += numStr(unit[i]);
-                        unitFa += numStr(unit[i]);
                     }
                     addStep(r, "step.title.directional_derivative", r.directional,
                         "step.note.unit_direction", "",
@@ -665,19 +639,15 @@ Result partialDerivativesImpl(const std::string& input, const std::vector<std::s
                         r.numericValue = dv;
                     }
                 } else {
-                    r.warnings.push_back(en ? "The direction vector is zero, so it has no unit vector."
-                                            : "بردار جهت صفر است، پس بردار یکه ندارد.");
+                    r.warnings.push_back("step.note.zero_direction");
                 }
             }
         } else if (!point.empty()) {
-            r.warnings.push_back(en
-                ? "The point must supply one value per variable; the gradient was not evaluated."
-                : "نقطه باید برای هر متغیر یک مقدار داشته باشد؛ گرادیان محاسبه نشد.");
+            r.warnings.push_back("step.note.point_needs_one_value_per_variable");
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Partial-derivative error: ") + e.what()
-                     : std::string("خطا در مشتق جزئی: ") + e.what();
+        setCodedFailure(r, e, "partial derivative");
     }
     return r;
 }
@@ -787,7 +757,6 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
     Result r;
     r.mode = "series";
     r.typeId = "series";
-    r.typeFa = "سری و همگرایی";
     r.variable = n;
     try {
         if (start < 0) start = 0;
@@ -810,14 +779,13 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
                 const double v = evalAt(a, n, (double)k, &ok);
                 if (ok && std::isfinite(v)) { suggestion = k; break; }
             }
-            std::string msg = en
-                ? "The term is undefined at n = " + std::to_string(start) + "."
-                : "جمله در n = " + std::to_string(start) + " تعریف نشده است.";
+            r.errorCode = suggestion >= 0 ? "series_start" : "series_term_undefined";
+            r.errorDetail = "term undefined at n = " + std::to_string(start);
+            r.errorParams = "{\"n\":" + std::to_string(start);
             if (suggestion >= 0) {
-                msg += en ? " Start at n = " + std::to_string(suggestion) + " instead."
-                          : " به‌جای آن از n = " + std::to_string(suggestion) + " شروع کنید.";
+                r.errorParams += ",\"suggestion\":" + std::to_string(suggestion);
             }
-            r.error = msg;
+            r.errorParams += "}";
             return r;
         }
 
@@ -1002,8 +970,7 @@ Result seriesAnalysisImpl(const std::string& input, const std::string& n, int st
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.error = en ? std::string("Series error: ") + e.what()
-                     : std::string("خطا در سری: ") + e.what();
+        setCodedFailure(r, e, "series");
     }
     return r;
 }

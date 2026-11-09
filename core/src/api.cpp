@@ -428,6 +428,7 @@ std::string resultJson(const ode::Result& r) {
     o << ",\"engine\":" << q(r.engine);
     o << ",\"error\":" << q(r.error);
     o << ",\"error_code\":" << q(r.errorCode);
+    if (!r.errorParams.empty()) o << ",\"error_params\":" << r.errorParams;
     o << ",\"error_detail\":" << q(r.errorDetail);
     o << ",\"error_point\":"
       << (r.hasErrorPoint ? numJson(r.errorPoint) : "null");

@@ -603,7 +603,7 @@ class ResultView extends StatelessWidget {
   String _errorMessage() {
     final code = result.errorCode;
     if (code.isNotEmpty) {
-      final params = <String, Object?>{};
+      final params = <String, Object?>{...result.errorParams};
       if (result.hasErrorPoint && result.errorPoint != null) {
         params['point'] = _formatNumber(result.errorPoint!);
       }
