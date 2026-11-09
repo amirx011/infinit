@@ -104,24 +104,7 @@ void addStepRaw(Result& r, const std::string& titleKey, const Ex& math,
     r.steps.push_back(std::move(s));
 }
 
-void base(Result& r, bool en, const std::string& mode, const std::string& typeEn,
-          const std::string& typeFa, const std::string& variable = "") {
-    r.ok = true;
-    r.mode = mode;
-    r.typeId = typeEn;
-    r.typeFa = typeFa;
-    r.variable = variable;
-    r.engine = "native";
-    r.closedForm = true;
-    r.verified = true;
-    (void)en;
-}
 
-void fail(Result& r, bool en, const std::string& enMsg, const std::string& faMsg) {
-    r.ok = false;
-    r.error = en ? enMsg : faMsg;
-    r.verified = false;
-}
 
 void baseId(Result& r, const std::string& mode, const std::string& typeId,
             const std::string& variable = "") {
@@ -183,7 +166,7 @@ Ex linearCombine(double c1, const Ex& f1, double c2, const Ex& f2) {
 // ---------------------------------------------------------------- growth/decay
 Result growthDecay(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Exponential growth or decay", "رشد یا واپاشی نمایی", "t");
+    baseId(r, "topic", "growth_decay", "t");
     const double k = req.number("k", 0.1);
     const double y0 = req.number("y0", 1.0);
     const double t = req.number("t", 10.0);
@@ -207,7 +190,7 @@ Result growthDecay(const TopicRequest& req, bool en) {
 // ---------------------------------------------------------------- cooling
 Result newtonCooling(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Newton's law of cooling", "قانون سرد شدن نیوتن", "t");
+    baseId(r, "topic", "cooling", "t");
     const double k = req.number("k", 0.1);
     const double room = req.number("room", 20.0);
     const double t0 = req.number("t0", 90.0);
@@ -233,14 +216,13 @@ Result newtonCooling(const TopicRequest& req, bool en) {
 // ---------------------------------------------------------------- logistic
 Result logistic(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Logistic population", "جمعیت لجستیک", "t");
+    baseId(r, "topic", "logistic", "t");
     const double rate = req.number("r", 0.5);
     const double carry = req.number("K", 1000.0);
     const double p0 = req.number("p0", 50.0);
     const double t = req.number("t", 10.0);
     if (std::fabs(carry) < 1e-12 || std::fabs(p0) < 1e-12) {
-        fail(r, en, "The carrying capacity and the initial population must be nonzero.",
-             "ظرفیت حمل و جمعیت اولیه باید ناصفر باشند.");
+        failCode(r, "bad_capacity");
         return r;
     }
     const double ratio = (carry - p0) / p0;
@@ -267,7 +249,7 @@ Result logistic(const TopicRequest& req, bool en) {
 // ---------------------------------------------------------------- mixing
 Result mixing(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Mixing problem", "مسئلهٔ اختلاط", "t");
+    baseId(r, "topic", "mixing", "t");
     const double volume0 = req.number("V0", 100.0);
     const double q0 = req.number("q0", 10.0);
     const double rateIn = req.number("rin", 5.0);
@@ -275,7 +257,7 @@ Result mixing(const TopicRequest& req, bool en) {
     const double concIn = req.number("cin", 0.2);
     const double t = req.number("t", 10.0);
     if (volume0 <= 0) {
-        fail(r, en, "The initial volume must be positive.", "حجم اولیه باید مثبت باشد.");
+        failCode(r, "bad_initial_volume");
         return r;
     }
     const double a = rateIn - rateOut;
@@ -406,9 +388,7 @@ Ex oscillatorSolution(const Oscillator& o, bool circuit, bool en) {
 
 Result oscillator(const TopicRequest& req, bool en, bool circuit) {
     Result r;
-    const std::string typeEn = circuit ? "Electrical circuit" : "Spring-mass system";
-    const std::string typeFa = circuit ? "مدار الکتریکی" : "سیستم جرم و فنر";
-    base(r, en, "topic", typeEn, typeFa, "t");
+    baseId(r, "topic", circuit ? "circuit" : "spring_mass", "t");
     const Oscillator o = solveOscillator(req);
     const Ex solution = oscillatorSolution(o, circuit, en);
     r.solution = solution;
@@ -454,14 +434,14 @@ Result oscillator(const TopicRequest& req, bool en, bool circuit) {
 // ---------------------------------------------------------------- falling body
 Result fallingBody(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Falling body with linear drag", "سقوط با مقاومت خطی هوا", "t");
+    baseId(r, "topic", "falling_body", "t");
     const double m = req.number("m", 1.0);
     const double k = req.number("k", 0.5);
     const double g = req.number("g", 9.81);
     const double v0 = req.number("v0", 0.0);
     const double t = req.number("t", 5.0);
     if (std::fabs(m) < 1e-12) {
-        fail(r, en, "The mass must be nonzero.", "جرم باید ناصفر باشد.");
+        failCode(r, "bad_mass");
         return r;
     }
     Ex solution;
@@ -589,7 +569,7 @@ Result numericalOde(const TopicRequest& req, bool en, NumMethod method) {
 // ---------------------------------------------------------------- linear system
 Result linearSystem(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "2×2 linear system", "دستگاه خطی ۲×۲", "t");
+    baseId(r, "topic", "linear_system", "t");
     const double a = req.number("a", 0.0);
     const double b = req.number("b", 1.0);
     const double c = req.number("c", -1.0);
@@ -603,7 +583,7 @@ Result linearSystem(const TopicRequest& req, bool en) {
     addStep(r, "step.title.write_the_coefficient_matrix", Sym("A = [[" + numStr(a) + ", " + numStr(b) + "], [" + numStr(c) + ", " + numStr(d) + "]]"), "step.note.the_system_is_x_ax_by_y_cx_dy");
     addStep(r, "step.title.compute_trace_and_determinant", Add(Sym("tr = " + numStr(tr)), Sym("det = " + numStr(det))), "step.note.the_eigenvalues_solve_lambda_2_tr_lambda_det_0");
 
-    std::string kindEn, kindFa, kindCode;
+    std::string kindEn, kindCode;
     Ex xSol, ySol;
     // Work with exact rationals so irrational eigenvalues stay as sqrt(Δ)/2
     // instead of turning into huge decimal fractions.
@@ -625,7 +605,7 @@ Result linearSystem(const TopicRequest& req, bool en) {
         const double l1d = (tr + std::sqrt(disc)) / 2.0;
         kindEn = det < 0 ? "saddle" : (l1d < 0 ? "stable node" : "unstable node");
         kindCode = det < 0 ? "saddle" : (l1d < 0 ? "stable_node" : "unstable_node");
-        kindFa = det < 0 ? "زین" : (l1d < 0 ? "گرهٔ پایدار" : "گرهٔ ناپایدار");
+        
         Ex v1x, v1y, v2x, v2y;
         eigvec(l1, v1x, v1y);
         eigvec(l2, v2x, v2y);
@@ -643,7 +623,7 @@ Result linearSystem(const TopicRequest& req, bool en) {
         const double ld = tr / 2.0;
         kindEn = ld < 0 ? "stable degenerate node" : "unstable degenerate node";
         kindCode = ld < 0 ? "stable_degenerate_node" : "unstable_degenerate_node";
-        kindFa = ld < 0 ? "گرهٔ تبهگن پایدار" : "گرهٔ تبهگن ناپایدار";
+        
         const bool scalar = B->isZero() && C->isZero();
         const Ex e = expEx(Mul(l, Sym("t")));
         if (scalar) {
@@ -669,7 +649,7 @@ Result linearSystem(const TopicRequest& req, bool en) {
         const double alphaD = tr / 2.0;
         kindEn = std::fabs(alphaD) < 1e-10 ? "center" : (alphaD < 0 ? "stable spiral" : "unstable spiral");
         kindCode = std::fabs(alphaD) < 1e-10 ? "center" : (alphaD < 0 ? "stable_spiral" : "unstable_spiral");
-        kindFa = std::fabs(alphaD) < 1e-10 ? "مرکز" : (alphaD < 0 ? "مارپیچ پایدار" : "مارپیچ ناپایدار");
+        
         const Ex ux = B;
         const Ex uy = simplify(Add(alpha, Mul(Num(-1), A)));
         const Ex vy = beta;
@@ -685,7 +665,7 @@ Result linearSystem(const TopicRequest& req, bool en) {
     r.functionF = xSol;
     r.functionG = ySol;
     r.typeId = kindEn;
-    r.typeFa = kindFa;
+    r.typeId = kindCode;
     addStep(r, "step.title.write_the_general_solution", xSol,
             "step.note.second_component_is", "", "y(t) = " + toPretty(ySol));
     addStep(r, "step.title.classify_the_equilibrium", Sym(kindEn),
@@ -830,7 +810,7 @@ Result fourierSeries(const TopicRequest& req, bool en) {
 // ---------------------------------------------------------------- PDEs
 Result heatEquation(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Heat equation", "معادلهٔ گرما", "x");
+    baseId(r, "topic", "heat", "x");
     const double alpha = req.number("alpha", 1.0);
     const double L = req.number("L", kPi);
     int terms = (int)std::llround(req.number("n", 5.0));
@@ -838,13 +818,12 @@ Result heatEquation(const TopicRequest& req, bool en) {
     if (terms > 20) terms = 20;
     const std::string input = req.text("f", "sin(pi*x/L)");
     if (std::fabs(L) < 1e-12) {
-        fail(r, en, "The length L must be nonzero.", "طول L باید ناصفر باشد.");
+        failCode(r, "bad_length");
         return r;
     }
     Ex f;
     try { f = parseExpr(input); } catch (const std::exception& e) {
-        fail(r, en, std::string("Could not parse the initial profile: ") + e.what(),
-             std::string("پروفایل اولیه خوانده نشد: ") + e.what());
+        failFrom(r, e, "heat");
         return r;
     }
     f = substitute(f, "L", numEx(L));
@@ -872,7 +851,7 @@ Result heatEquation(const TopicRequest& req, bool en) {
 
 Result waveEquation(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Wave equation", "معادلهٔ موج", "x");
+    baseId(r, "topic", "wave", "x");
     const double a = req.number("a", 1.0);
     const double L = req.number("L", kPi);
     int terms = (int)std::llround(req.number("n", 5.0));
@@ -880,13 +859,12 @@ Result waveEquation(const TopicRequest& req, bool en) {
     if (terms > 20) terms = 20;
     const std::string input = req.text("f", "sin(pi*x/L)");
     if (std::fabs(L) < 1e-12) {
-        fail(r, en, "The length L must be nonzero.", "طول L باید ناصفر باشد.");
+        failCode(r, "bad_length");
         return r;
     }
     Ex f;
     try { f = parseExpr(input); } catch (const std::exception& e) {
-        fail(r, en, std::string("Could not parse the initial displacement: ") + e.what(),
-             std::string("جابه‌جایی اولیه خوانده نشد: ") + e.what());
+        failFrom(r, e, "wave");
         return r;
     }
     f = substitute(f, "L", numEx(L));
@@ -913,7 +891,7 @@ Result waveEquation(const TopicRequest& req, bool en) {
 
 Result laplacePde(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Laplace equation", "معادلهٔ لاپلاس", "x");
+    baseId(r, "topic", "laplace_pde", "x");
     const double a = req.number("a", kPi);
     const double b = req.number("b", kPi);
     int terms = (int)std::llround(req.number("n", 5.0));
@@ -921,13 +899,12 @@ Result laplacePde(const TopicRequest& req, bool en) {
     if (terms > 20) terms = 20;
     const std::string input = req.text("f", "sin(pi*x/a)");
     if (std::fabs(a) < 1e-12 || std::fabs(b) < 1e-12) {
-        fail(r, en, "The side lengths must be nonzero.", "طول اضلاع باید ناصفر باشند.");
+        failCode(r, "bad_sides");
         return r;
     }
     Ex f;
     try { f = parseExpr(input); } catch (const std::exception& e) {
-        fail(r, en, std::string("Could not parse the boundary profile: ") + e.what(),
-             std::string("پروفایل مرزی خوانده نشد: ") + e.what());
+        failFrom(r, e, "laplace pde");
         return r;
     }
     f = substitute(f, "a", numEx(a));
@@ -1096,11 +1073,11 @@ Ex laplaceOf(const Ex& f, const std::string& t, std::string& rule, bool& ok) {
 
 Result laplaceTransform(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Laplace transform", "تبدیل لاپلاس", "t");
+    baseId(r, "topic", "laplace", "t");
     const std::string input = req.text("f", "t");
     Ex f;
     try { f = parseExpr(input); } catch (const std::exception& e) {
-        setFailure(r, en, e, "Could not parse f(t): ", "تابع f(t) خوانده نشد: ");
+        failFrom(r, e, "laplace");
         return r;
     }
     r.normalized = f;
@@ -1116,8 +1093,7 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
     bool ok = true;
     Ex F = laplaceOf(f, "t", rule, ok);
     if (!ok || !F) {
-        fail(r, en, "This form is not in the supported transform table yet.",
-             "این فرم هنوز در جدول تبدیل‌های پشتیبانی‌شده نیست.");
+        failCode(r, "unsupported_form");
         return r;
     }
     r.solution = simplify(F);
@@ -1130,12 +1106,11 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
 
 Result inverseLaplace(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Inverse Laplace transform", "تبدیل معکوس لاپلاس", "s");
+    baseId(r, "topic", "inverse_laplace", "s");
     const std::string input = req.text("F", "1/(s^2+1)");
     Ex F;
     try { F = parseExpr(input); } catch (const std::exception& e) {
-        fail(r, en, std::string("Could not parse F(s): ") + e.what(),
-             std::string("تابع F(s) خوانده نشد: ") + e.what());
+        failFrom(r, e, "inverse laplace");
         return r;
     }
     r.normalized = F;
@@ -1230,8 +1205,7 @@ Result inverseLaplace(const TopicRequest& req, bool en) {
         }
     }
     if (!f) {
-        fail(r, en, "This rational form is not in the inverse table yet.",
-             "این فرم گویا هنوز در جدول معکوس نیست.");
+        failCode(r, "unsupported_form");
         return r;
     }
     r.solution = simplify(f);
@@ -1360,17 +1334,14 @@ bool solveLinearSystem(std::vector<std::vector<double>> M, std::vector<double> r
 
 Result odeLinear(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Linear ODE with constant coefficients",
-         "معادلهٔ خطی با ضرایب ثابت", "t");
+    baseId(r, "topic", "ode_linear", "t");
     std::vector<double> coeffs = parseList(req.text("coeffs", "1,0,1"));
     if (coeffs.size() < 2) {
-        fail(r, en, "At least two coefficients are required.",
-             "حداقل دو ضریب لازم است.");
+        failCode(r, "need_two_coefficients");
         return r;
     }
     if (std::fabs(coeffs.front()) < 1e-14) {
-        fail(r, en, "The leading coefficient must be nonzero.",
-             "ضریب پیشرو باید ناصفر باشد.");
+        failCode(r, "bad_leading_coefficient");
         return r;
     }
     const size_t n = coeffs.size() - 1;
@@ -1410,8 +1381,7 @@ Result odeLinear(const TopicRequest& req, bool en) {
         }
     }
     if (basis.size() != n) {
-        fail(r, en, "The characteristic roots could not be grouped reliably.",
-             "ریشه‌های مشخصه به‌طور مطمئن گروه‌بندی نشدند.");
+        failCode(r, "roots_not_grouped");
         return r;
     }
 
@@ -1478,7 +1448,7 @@ Result odeLinear(const TopicRequest& req, bool en) {
 
 Result odeStiff(const TopicRequest& req, bool en) {
     Result r;
-    base(r, en, "topic", "Stiff initial-value problem", "مسئلهٔ مقدار اولیهٔ سخت", "x");
+    baseId(r, "topic", "ode_stiff", "x");
     const std::string input = req.text("f", "-50*(y-cos(x))");
     const double x0 = req.number("x0", 0.0);
     const double y0 = req.number("y0", 0.0);
@@ -1489,16 +1459,14 @@ Result odeStiff(const TopicRequest& req, bool en) {
         return r;
     }
     if (std::fabs((xend - x0) / h) > 5000) {
-        fail(r, en, "The step count is too large; increase h.",
-             "تعداد گام‌ها زیاد است؛ h را بزرگ‌تر کنید.");
+        failCode(r, "too_many_steps");
         return r;
     }
     Ex f;
     try {
         f = parseExpr(input);
     } catch (const std::exception& e) {
-        fail(r, en, std::string("Could not parse f(x,y): ") + e.what(),
-             std::string("تابع f(x,y) خوانده نشد: ") + e.what());
+        failFrom(r, e, "stiff ode");
         return r;
     }
     r.normalized = f;
@@ -1526,7 +1494,7 @@ Result odeStiff(const TopicRequest& req, bool en) {
             if (std::fabs(dz) < 1e-12) break;
         }
         if (!ok) {
-            fail(r, en, "f(x,y) could not be evaluated.", "تابع f(x,y) قابل محاسبه نبود.");
+            failCode(r, "not_evaluable");
             return r;
         }
         y = z;
@@ -1575,13 +1543,13 @@ Result solveTopic(const TopicRequest& req) {
         Result r;
         r.ok = false;
         r.mode = "topic";
-        setFailure(r, en, e, "Topic failed: ", "اجرای مبحث ناموفق بود: ");
+        failFrom(r, e, "topic");
         return r;
     }
     Result r;
     r.ok = false;
     r.mode = "topic";
-    r.error = en ? "Unknown topic." : "مبحث ناشناخته است.";
+    r.errorCode = "unknown_topic";
     return r;
 }
 

@@ -82,6 +82,8 @@ class L10n {
   /// The single source of sentence direction for the UI layer.
   TextDirection get direction => isRtl ? TextDirection.rtl : TextDirection.ltr;
 
+  bool has(String key) => I18n.instance.hasKey(key);
+
   /// Looks up a stable dotted key for this locale.  Only plain values
   /// (numbers, symbols) belong in [params]; formulas travel as separate math
   /// widgets and are never substituted into a sentence.

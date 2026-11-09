@@ -689,22 +689,8 @@ class ResultView extends StatelessWidget {
               : l10n.t('ui.indefinite_integral');
       }
     }
-    const applicationTypes = <String>{
-      'behaviour',
-      'tangent',
-      'optimize',
-      'related_rates',
-      'mvt',
-      'cauchy',
-      'lhopital',
-      'euler',
-      'heun',
-      'rk4',
-      'fourier_series',
-    };
-    if (applicationTypes.contains(result.typeId)) {
-      return l10n.t('ui.type.${result.typeId}');
-    }
+    final typeKey = 'ui.type.${result.typeId}';
+    if (l10n.has(typeKey)) return l10n.t(typeKey);
     return l10n.isFa ? result.typeFa : result.typeEn;
   }
 

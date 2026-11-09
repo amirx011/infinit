@@ -7,4 +7,3 @@ core/src/calculus_api.cpp	113
 core/src/calculus_more.cpp	25
 core/src/localize.hpp	2
 core/src/ode.cpp	523
-core/src/topics.cpp	38
