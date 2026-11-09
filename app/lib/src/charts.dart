@@ -909,10 +909,7 @@ class _CurvePlotState extends State<CurvePlot> {
         if (!result.ok) {
           _sample = null;
           _error = result.error.isEmpty
-              ? widget.l10n.t(
-                  'Could not sample the function.',
-                  'نمونه‌گیری تابع انجام نشد.',
-                )
+              ? widget.l10n.t('ui.could_not_sample_the_function')
               : result.error;
         } else {
           _sample = result;
@@ -1158,10 +1155,7 @@ class _FieldPlotState extends State<FieldPlot> {
           _field = null;
           _extraSamples = const [];
           _error = result.error.isEmpty
-              ? widget.l10n.t(
-                  'Could not build the direction field.',
-                  'میدان جهت ساخته نشد.',
-                )
+              ? widget.l10n.t('ui.could_not_build_the_direction_field')
               : result.error;
         });
         return;
@@ -1509,10 +1503,7 @@ class _MultiCurvePlotState extends State<MultiCurvePlot> {
         if (!mounted || generation != _generation) return;
         if (!r.ok) {
           failure ??= r.error.isEmpty
-              ? widget.l10n.t(
-                  'Could not sample the function.',
-                  'نمونه‌گیری تابع انجام نشد.',
-                )
+              ? widget.l10n.t('ui.could_not_sample_the_function')
               : r.error;
           out.add(null);
         } else {
@@ -1706,10 +1697,7 @@ class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
     if (engine == null) {
       setState(() {
         _busy = false;
-        _error = widget.l10n.t(
-          'The native engine is not loaded, so the solution curves cannot be drawn.',
-          'موتور بومی بارگذاری نشده است، بنابراین منحنی‌های جواب رسم نمی‌شوند.',
-        );
+        _error = widget.l10n.t('ui.the_native_engine_is_not_loaded_so_the_solution');
       });
       return;
     }
@@ -1733,10 +1721,7 @@ class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
         _error = result.ok
             ? null
             : (result.error.isEmpty
-                  ? widget.l10n.t(
-                      'The solution curves could not be computed.',
-                      'منحنی‌های جواب محاسبه نشدند.',
-                    )
+                  ? widget.l10n.t('ui.the_solution_curves_could_not_be_computed')
                   : result.error);
       });
     } catch (e) {
@@ -1979,10 +1964,7 @@ class _SurfacePlotState extends State<SurfacePlot> {
     if (engine == null) {
       setState(() {
         _busy = false;
-        _error = widget.l10n.t(
-          'The native engine is not loaded, so the surface cannot be drawn.',
-          'موتور بومی بارگذاری نشده است، بنابراین سطح رسم نمی‌شود.',
-        );
+        _error = widget.l10n.t('ui.the_native_engine_is_not_loaded_so_the_surface_c');
       });
       return;
     }
@@ -2007,10 +1989,7 @@ class _SurfacePlotState extends State<SurfacePlot> {
         _error = result.ok
             ? null
             : (result.error.isEmpty
-                  ? widget.l10n.t(
-                      'The surface could not be sampled.',
-                      'سطح نمونه‌برداری نشد.',
-                    )
+                  ? widget.l10n.t('ui.the_surface_could_not_be_sampled')
                   : result.error);
       });
     } catch (e) {

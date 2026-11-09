@@ -80,17 +80,14 @@ class _BehaviourPageState extends State<BehaviourPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
       setState(
-        () => _error = l.t('Enter an expression.', 'یک عبارت وارد کنید.'),
+        () => _error = l.t('ui.enter_an_expression'),
       );
       return;
     }
@@ -99,10 +96,7 @@ class _BehaviourPageState extends State<BehaviourPage> {
     final hi = _bound(_xmax, 3);
     if (!(lo < hi)) {
       setState(
-        () => _error = l.t(
-          'The interval must satisfy a < b.',
-          'باید a < b باشد.',
-        ),
+        () => _error = l.t('ui.the_interval_must_satisfy_a_b'),
       );
       return;
     }
@@ -150,16 +144,13 @@ class _BehaviourPageState extends State<BehaviourPage> {
             children: [
               PageTitle(
                 icon: Icons.insights_rounded,
-                title: l.t('Function behaviour', 'تحلیل رفتار تابع'),
-                subtitle: l.t(
-                  'First and second derivative tests, monotonicity intervals and inflection points.',
-                  'آزمون مشتق اول و دوم، بازه‌های یکنوایی و نقطه‌های عطف.',
-                ),
+                title: l.t('ui.function_behaviour'),
+                subtitle: l.t('ui.first_and_second_derivative_tests_monotonicity_i'),
               ),
               const SizedBox(height: 18),
               ExpressionField(
                 controller: _input,
-                hint: l.t('e.g. x^3 - 3*x', 'مثلاً x^3 - 3*x'),
+                hint: l.t('ui.e_g_x_3_3_x'),
                 onSubmitted: _run,
               ),
               const SizedBox(height: 12),
@@ -169,17 +160,17 @@ class _BehaviourPageState extends State<BehaviourPage> {
                 children: [
                   LabelledField(
                     controller: _xv,
-                    label: l.t('Variable', 'متغیر'),
+                    label: l.t('ui.variable'),
                     width: 100,
                   ),
                   LabelledField(
                     controller: _xmin,
-                    label: l.t('From a', 'از a'),
+                    label: l.t('ui.from_a'),
                     width: 110,
                   ),
                   LabelledField(
                     controller: _xmax,
-                    label: l.t('To b', 'تا b'),
+                    label: l.t('ui.to_b'),
                     width: 110,
                   ),
                 ],
@@ -208,8 +199,8 @@ class _BehaviourPageState extends State<BehaviourPage> {
                     : const Icon(Icons.insights_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Analysing…', 'در حال تحلیل…')
-                      : l.t('Analyse the function', 'تحلیل تابع'),
+                      ? l.t('ui.analysing')
+                      : l.t('ui.analyse_the_function'),
                 ),
               ),
             ],
@@ -218,32 +209,14 @@ class _BehaviourPageState extends State<BehaviourPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t(
-            'Two derivatives, three questions',
-            'دو مشتق، سه پرسش',
-          ),
-          idea: l.t(
-            'The first derivative answers where the function rises and falls; the second answers which way it bends. Reading both signs together is what identifies a maximum, a minimum and an inflection point.',
-            'مشتق اول پاسخ می‌دهد تابع کجا صعودی و کجا نزولی است؛ مشتق دوم می‌گوید به کدام سمت خم می‌شود. خواندن هم‌زمان این دو علامت، بیشینه، کمینه و نقطهٔ عطف را مشخص می‌کند.',
-          ),
+          title: l.t('ui.two_derivatives_three_questions'),
+          idea: l.t('ui.the_first_derivative_answers_where_the_function'),
           points: [
-            l.t(
-              "A sign change of f' from + to - is a local maximum, and from - to + is a local minimum.",
-              'تغییر علامت f′ از مثبت به منفی بیشینهٔ محلی و از منفی به مثبت کمینهٔ محلی است.',
-            ),
-            l.t(
-              "A sign change of f'' marks an inflection point, where concavity flips.",
-              'تغییر علامت f″ نقطهٔ عطف را مشخص می‌کند؛ همان‌جا که تقعر عوض می‌شود.',
-            ),
-            l.t(
-              "f'(c) = 0 on its own decides nothing; the sign on both sides is the evidence.",
-              'صفر بودن f′(c) به‌تنهایی چیزی را تعیین نمی‌کند؛ شاهد واقعی علامت دو طرف است.',
-            ),
+            l.t('ui.a_sign_change_of_f_from_to_is_a_local_maximum_an'),
+            l.t('ui.a_sign_change_of_f_marks_an_inflection_point_whe'),
+            l.t('ui.f_c_0_on_its_own_decides_nothing_the_sign_on_bot'),
           ],
-          pitfall: l.t(
-            'A stationary turning point such as x = 0 for x³ has f\' = 0 but is neither a maximum nor a minimum.',
-            'نقطهٔ تخت مانند x = 0 برای x³ دارای f′ = 0 است ولی نه بیشینه است و نه کمینه.',
-          ),
+          pitfall: l.t('ui.a_stationary_turning_point_such_as_x_0_for_x_has'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -280,7 +253,7 @@ class _BehaviourPageState extends State<BehaviourPage> {
       xmin: _fieldMin,
       xmax: _fieldMax,
       height: 320,
-      title: l.t('Curve, extrema and inflections', 'منحنی، اکسترمم‌ها و نقطه‌های عطف'),
+      title: l.t('ui.curve_extrema_and_inflections'),
       guides: [...criticalX, ...inflectionX],
       markers: [
         for (final p in r.critical)
@@ -300,10 +273,7 @@ class _BehaviourPageState extends State<BehaviourPage> {
               kind: PlotMarkerKind.hole,
             ),
       ],
-      caption: l.t(
-        'Dashed guides mark the critical points and inflection points. Filled markers are extrema; hollow markers are inflection points.',
-        'خط‌های چین راهنما نقطه‌های بحرانی و عطف را نشان می‌دهند. نشانگرهای توپر اکسترمم و نشانگرهای توخالی نقطهٔ عطف‌اند.',
-      ),
+      caption: l.t('ui.dashed_guides_mark_the_critical_points_and_infle'),
     );
   }
 }

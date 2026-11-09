@@ -81,10 +81,7 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
@@ -206,8 +203,8 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
                     : const Icon(Icons.play_arrow_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Computing…', 'در حال محاسبه…')
-                      : l.t('Show the answer and steps', 'نمایش جواب و مراحل'),
+                      ? l.t('ui.computing')
+                      : l.t('ui.show_the_answer_and_steps'),
                 ),
               ),
             ],
@@ -217,11 +214,8 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
           const SizedBox(height: 16),
           LearningCard(
             l10n: l,
-            title: l.t('Worked example', 'نمونهٔ حل'),
-            idea: l.t(
-              'Try these values, then change one number and compare the answer.',
-              'این مقدارها را امتحان کنید، سپس یک عدد را تغییر دهید و جواب‌ها را مقایسه کنید.',
-            ),
+            title: l.t('ui.worked_example'),
+            idea: l.t('ui.try_these_values_then_change_one_number_and_comp'),
             points: spec.examples.map((e) => l.t(e, e)).toList(growable: false),
           ),
         ],

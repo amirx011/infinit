@@ -73,26 +73,20 @@ class _DomainRangePageState extends State<DomainRangePage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(() => _error = l.t('Enter a function.', 'یک تابع وارد کنید.'));
+      setState(() => _error = l.t('ui.enter_a_function'));
       return;
     }
     final xmin = double.tryParse(_xmin.text.trim().replaceAll('−', '-'));
     final xmax = double.tryParse(_xmax.text.trim().replaceAll('−', '-'));
     if (xmin == null || xmax == null || !(xmin < xmax)) {
       setState(
-        () => _error = l.t(
-          'The sampling window needs two numbers with the left one smaller.',
-          'بازهٔ نمونه‌گیری به دو عدد نیاز دارد که عدد چپ کوچک‌تر باشد.',
-        ),
+        () => _error = l.t('ui.the_sampling_window_needs_two_numbers_with_the_l'),
       );
       return;
     }
@@ -113,7 +107,7 @@ class _DomainRangePageState extends State<DomainRangePage> {
         _busy = false;
         if (!r.ok) {
           _error = r.error.isEmpty
-              ? l.t('The scan failed.', 'تحلیل دامنه انجام نشد.')
+              ? l.t('ui.the_scan_failed')
               : r.error;
         }
       });
@@ -130,17 +124,17 @@ class _DomainRangePageState extends State<DomainRangePage> {
   String _kindLabel(String kind, L10n l) {
     switch (kind) {
       case 'rational':
-        return l.t('Rational', 'گویا');
+        return l.t('ui.rational');
       case 'root':
-        return l.t('Radical', 'رادیکالی');
+        return l.t('ui.radical');
       case 'logarithm':
-        return l.t('Logarithmic', 'لگاریتمی');
+        return l.t('ui.logarithmic');
       case 'trigonometric':
-        return l.t('Trigonometric', 'مثلثاتی');
+        return l.t('ui.trigonometric');
       case 'mixed':
-        return l.t('Mixed', 'ترکیبی');
+        return l.t('ui.mixed');
       default:
-        return l.t('Polynomial', 'چندجمله‌ای');
+        return l.t('ui.polynomial');
     }
   }
 
@@ -159,11 +153,8 @@ class _DomainRangePageState extends State<DomainRangePage> {
               PageTitle(
                 tone: c.info,
                 icon: Icons.explore_rounded,
-                title: l.t('Domain & range', 'دامنه و برد'),
-                subtitle: l.t(
-                  'Find where a function lives and which values it produces, then see both sets on one graph.',
-                  'پیدا کنید تابع کجا تعریف می‌شود و چه مقدارهایی می‌سازد؛ سپس هر دو مجموعه را روی یک نمودار ببینید.',
-                ),
+                title: l.t('ui.domain_range'),
+                subtitle: l.t('ui.find_where_a_function_lives_and_which_values_it'),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -177,7 +168,7 @@ class _DomainRangePageState extends State<DomainRangePage> {
                   height: 1.5,
                 ),
                 decoration: InputDecoration(
-                  hintText: l.t('e.g. 1/(x^2-1)', 'مثلاً 1/(x^2-1)'),
+                  hintText: l.t('ui.e_g_1_x_2_1'),
                   prefixIcon: Icon(
                     Icons.functions_rounded,
                     size: 20,
@@ -200,7 +191,7 @@ class _DomainRangePageState extends State<DomainRangePage> {
                         fontSize: 14,
                       ),
                       decoration: InputDecoration(
-                        labelText: l.t('Variable', 'متغیر'),
+                        labelText: l.t('ui.variable'),
                         isDense: true,
                       ),
                     ),
@@ -216,7 +207,7 @@ class _DomainRangePageState extends State<DomainRangePage> {
                         fontSize: 14,
                       ),
                       decoration: InputDecoration(
-                        labelText: l.t('Window from', 'بازه از'),
+                        labelText: l.t('ui.window_from'),
                         isDense: true,
                       ),
                     ),
@@ -232,7 +223,7 @@ class _DomainRangePageState extends State<DomainRangePage> {
                         fontSize: 14,
                       ),
                       decoration: InputDecoration(
-                        labelText: l.t('Window to', 'بازه تا'),
+                        labelText: l.t('ui.window_to'),
                         isDense: true,
                       ),
                       onSubmitted: (_) => _compute(),
@@ -242,7 +233,7 @@ class _DomainRangePageState extends State<DomainRangePage> {
               ),
               const SizedBox(height: 14),
               Text(
-                l.t('Examples', 'نمونه‌ها'),
+                l.t('ui.examples'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -277,8 +268,8 @@ class _DomainRangePageState extends State<DomainRangePage> {
                     : const Icon(Icons.explore_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Scanning…', 'در حال بررسی…')
-                      : l.t('Find domain and range', 'یافتن دامنه و برد'),
+                      ? l.t('ui.scanning')
+                      : l.t('ui.find_domain_and_range'),
                 ),
               ),
             ],
@@ -317,7 +308,7 @@ class _DomainRangePageState extends State<DomainRangePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SectionLabel(
-                        l.t('One picture, two sets', 'یک تصویر، دو مجموعه'),
+                        l.t('ui.one_picture_two_sets'),
                         icon: Icons.insights_rounded,
                         trailing: TypeBadge(
                           _kindLabel(result.kind, l),
@@ -379,11 +370,8 @@ class _DomainRangePageState extends State<DomainRangePage> {
                   builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 620;
                     final domainCard = _SetCard(
-                      title: l.t('Domain', 'دامنه'),
-                      subtitle: l.t(
-                        'Allowed inputs on the x-axis',
-                        'ورودی‌های مجاز روی محور x',
-                      ),
+                      title: l.t('ui.domain'),
+                      subtitle: l.t('ui.allowed_inputs_on_the_x_axis'),
                       value: intervalsText(result.domain),
                       tone: c.accent,
                       icon: Icons.swap_horiz_rounded,
@@ -401,11 +389,8 @@ class _DomainRangePageState extends State<DomainRangePage> {
                       ],
                     );
                     final rangeCard = _SetCard(
-                      title: l.t('Range', 'برد'),
-                      subtitle: l.t(
-                        'Produced outputs on the y-axis',
-                        'خروجی‌های تولیدشده روی محور y',
-                      ),
+                      title: l.t('ui.range'),
+                      subtitle: l.t('ui.produced_outputs_on_the_y_axis'),
                       value: intervalsText(result.range),
                       tone: c.accentAlt,
                       icon: Icons.swap_vert_rounded,
@@ -444,41 +429,20 @@ class _DomainRangePageState extends State<DomainRangePage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t(
-            'Domain asks "where?", range asks "what values?"',
-            'دامنه می‌پرسد «کجا؟»، برد می‌پرسد «چه مقدارهایی؟»',
-          ),
-          idea: l.t(
-            'The domain is the set of inputs the formula accepts. The range is the set of outputs it actually produces. A graph shows both at once: the curve exists only above the domain, and its height never leaves the range.',
-            'دامنه مجموعهٔ ورودی‌هایی است که فرمول می‌پذیرد. برد مجموعهٔ خروجی‌هایی است که واقعاً تولید می‌شود. نمودار هر دو را با هم نشان می‌دهد: منحنی فقط روی دامنه وجود دارد و ارتفاعش از برد بیرون نمی‌زند.',
-          ),
+          title: l.t('ui.domain_asks_where_range_asks_what_values'),
+          idea: l.t('ui.the_domain_is_the_set_of_inputs_the_formula_acce'),
           points: [
-            l.t(
-              'Denominators forbid zeros, even roots forbid negative arguments, and logarithms need a positive argument.',
-              'مخرج صفر را نمی‌پذیرد، ریشهٔ زوج آرگومان منفی را رد می‌کند و لگاریتم آرگومان مثبت می‌خواهد.',
-            ),
-            l.t(
-              'For a one-to-one function the range of f is the domain of its inverse, which is a quick sanity check.',
-              'برای تابع یک‌به‌یک، برد f همان دامنهٔ تابع معکوس است؛ این یک بررسی سریع است.',
-            ),
-            l.t(
-              'Open circles and dashed lines mark values that are approached but never reached.',
-              'دایره‌های توخالی و خط‌های‌چین مقدارهایی را نشان می‌دهند که به آن‌ها نزدیک می‌شویم ولی هرگز نمی‌رسیم.',
-            ),
+            l.t('ui.denominators_forbid_zeros_even_roots_forbid_nega'),
+            l.t('ui.for_a_one_to_one_function_the_range_of_f_is_the'),
+            l.t('ui.open_circles_and_dashed_lines_mark_values_that_a'),
           ],
           example: const ExView(
             plain: 'y = sqrt(4 - x^2): domain [-2, 2], range [0, 2]',
             pretty: 'y = √(4 − x²)  →  D = [−2, 2],  R = [0, 2]',
             latex: r'y=\sqrt{4-x^2}\;\Rightarrow\;D=[-2,2],\;R=[0,2]',
           ),
-          exampleCaption: l.t(
-            'The semicircle only exists between −2 and 2, and its height stays between 0 and 2.',
-            'نیم‌دایره فقط بین ۲− و ۲ وجود دارد و ارتفاعش بین ۰ و ۲ می‌ماند.',
-          ),
-          pitfall: l.t(
-            'A removable hole belongs to neither the domain nor the range at that exact value, even though the limit there exists.',
-            'حفرهٔ قابل رفع نه به دامنه تعلق دارد و نه در آن مقدار دقیق به برد، هرچند حد آنجا وجود دارد.',
-          ),
+          exampleCaption: l.t('ui.the_semicircle_only_exists_between_2_and_2_and_i'),
+          pitfall: l.t('ui.a_removable_hole_belongs_to_neither_the_domain_n'),
         ),
       ],
     );
@@ -499,15 +463,15 @@ class _BandLegend extends StatelessWidget {
       children: [
         _LegendDot(
           color: c.accent,
-          label: l10n.t('Domain band (x)', 'نوار دامنه (x)'),
+          label: l10n.t('ui.domain_band_x'),
         ),
         _LegendDot(
           color: c.accentAlt,
-          label: l10n.t('Range band (y)', 'نوار برد (y)'),
+          label: l10n.t('ui.range_band_y'),
         ),
         _LegendDot(
           color: c.warning,
-          label: l10n.t('Asymptote', 'مجانب'),
+          label: l10n.t('ui.asymptote'),
           outlined: true,
         ),
       ],

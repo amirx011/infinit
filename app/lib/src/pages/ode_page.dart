@@ -98,20 +98,14 @@ class _OdePageState extends State<OdePage> {
       setState(
         () => _error =
             widget.engineError ??
-            widget.l10n.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            widget.l10n.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
       setState(
-        () => _error = widget.l10n.t(
-          'Enter an equation. Example: y′ = y',
-          'یک معادله وارد کنید. نمونه: y′ = y',
-        ),
+        () => _error = widget.l10n.t('ui.enter_an_equation_example_y_y'),
       );
       return;
     }
@@ -160,11 +154,8 @@ class _OdePageState extends State<OdePage> {
             children: [
               PageTitle(
                 icon: Icons.functions_rounded,
-                title: l.t('Differential equation', 'معادلهٔ دیفرانسیل'),
-                subtitle: l.t(
-                  'Enter an equation; the exact solution and step-by-step path are shown below.',
-                  'معادله را وارد کنید؛ حل دقیق همراه با مسیر گام‌به‌گام ارائه می‌شود.',
-                ),
+                title: l.t('ui.differential_equation'),
+                subtitle: l.t('ui.enter_an_equation_the_exact_solution_and_step_by'),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -189,7 +180,7 @@ class _OdePageState extends State<OdePage> {
               ),
               const SizedBox(height: 14),
               Text(
-                l.t('Examples', 'نمونه‌ها'),
+                l.t('ui.examples'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -216,7 +207,7 @@ class _OdePageState extends State<OdePage> {
                   childrenPadding: const EdgeInsets.only(top: 4, bottom: 4),
                   leading: Icon(Icons.tune_rounded, size: 20, color: c.muted),
                   title: Text(
-                    l.t('Advanced options', 'تنظیمات پیشرفته'),
+                    l.t('ui.advanced_options'),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   children: [
@@ -225,7 +216,7 @@ class _OdePageState extends State<OdePage> {
                         Expanded(
                           child: _smallField(
                             _xv,
-                            l.t('Independent variable', 'متغیر مستقل'),
+                            l.t('ui.independent_variable'),
                             'x',
                           ),
                         ),
@@ -233,7 +224,7 @@ class _OdePageState extends State<OdePage> {
                         Expanded(
                           child: _smallField(
                             _yv,
-                            l.t('Dependent variable', 'متغیر وابسته'),
+                            l.t('ui.dependent_variable'),
                             'y',
                           ),
                         ),
@@ -242,11 +233,8 @@ class _OdePageState extends State<OdePage> {
                     const SizedBox(height: 12),
                     _smallField(
                       _particular,
-                      l.t(
-                        'Riccati particular solution (optional)',
-                        'جواب خصوصی ریکاتی (اختیاری)',
-                      ),
-                      l.t('e.g. tan(x)', 'مثلاً tan(x)'),
+                      l.t('ui.riccati_particular_solution_optional'),
+                      l.t('ui.e_g_tan_x'),
                     ),
                   ],
                 ),
@@ -268,17 +256,14 @@ class _OdePageState extends State<OdePage> {
                         : const Icon(Icons.play_arrow_rounded, size: 19),
                     label: Text(
                       _busy
-                          ? l.t('Solving…', 'در حال حل…')
-                          : l.t('Solve equation', 'حل معادله'),
+                          ? l.t('ui.solving')
+                          : l.t('ui.solve_equation'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      l.t(
-                        'Exact symbolic answers; non-elementary integrals are shown honestly.',
-                        'حل‌ها نمادین و دقیق‌اند؛ انتگرال‌های غیرمقدماتی صادقانه نشان داده می‌شوند.',
-                      ),
+                      l.t('ui.exact_symbolic_answers_non_elementary_integrals'),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -290,41 +275,20 @@ class _OdePageState extends State<OdePage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t(
-            'What a general solution means',
-            'جواب عمومی چه معنایی دارد؟',
-          ),
-          idea: l.t(
-            'A first-order equation describes a whole family of curves. Solving finds the relation that makes the equation true, with one constant C left free until an initial condition fixes it.',
-            'معادلهٔ مرتبهٔ اول یک خانوادهٔ کامل از منحنی‌ها را توصیف می‌کند. حل کردن یعنی یافتن رابطه‌ای که معادله را درست کند؛ ثابت C تا وقتی شرط اولیه نداشته باشیم آزاد می‌ماند.',
-          ),
+          title: l.t('ui.what_a_general_solution_means'),
+          idea: l.t('ui.a_first_order_equation_describes_a_whole_family'),
           points: [
-            l.t(
-              'Classify the form first: separable, linear, exact, Bernoulli, or a special first-order form.',
-              'اول فرم را تشخیص دهید: جداشدنی، خطی، کامل، برنولی یا یکی از فرم‌های خاص مرتبهٔ اول.',
-            ),
-            l.t(
-              'Differentiate the answer and substitute it back; that is the only reliable check.',
-              'از جواب مشتق بگیرید و آن را جایگذاری کنید؛ تنها بررسی قابل‌اعتماد همین است.',
-            ),
-            l.t(
-              'Higher order: if y is missing, set p = y′; if x is missing, set y′ = p(y) and y″ = p·dp/dy.',
-              'مرتبهٔ بالا: اگر y غایب باشد p = y′ می‌گذاریم؛ اگر x غایب باشد y′ = p(y) و y″ = p·dp/dy.',
-            ),
+            l.t('ui.classify_the_form_first_separable_linear_exact_b'),
+            l.t('ui.differentiate_the_answer_and_substitute_it_back'),
+            l.t('ui.higher_order_if_y_is_missing_set_p_y_if_x_is_mis'),
           ],
           example: const ExView(
             plain: "y' = y  =>  y = C*exp(x)",
             pretty: "y′ = y  ⇒  y = C eˣ",
             latex: r"y' = y \quad\Longrightarrow\quad y = C\,e^{x}",
           ),
-          exampleCaption: l.t(
-            'Separable: separate, integrate both sides, then solve for y.',
-            'جداشدنی: جدا کنید، دو طرف را انتگرال بگیرید و برای y حل کنید.',
-          ),
-          pitfall: l.t(
-            'Dividing by y loses the constant solution y = 0. Check whether it also satisfies the equation.',
-            'تقسیم بر y جواب ثابت y = 0 را از دست می‌دهد؛ بررسی کنید آیا آن هم در معادله صدق می‌کند.',
-          ),
+          exampleCaption: l.t('ui.separable_separate_integrate_both_sides_then_sol'),
+          pitfall: l.t('ui.dividing_by_y_loses_the_constant_solution_y_0_ch'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -356,14 +320,8 @@ class _OdePageState extends State<OdePage> {
               l10n: l,
               xVariable: _fieldX,
               yVariable: _fieldY,
-              title: l.t(
-                'Direction field & solution family',
-                'میدان جهت و خانوادهٔ جواب',
-              ),
-              caption: l.t(
-                'Each arrow is the local slope of a solution. The coloured curves are RK4 trajectories started from different initial points, so you can compare members of the same family.',
-                'هر پیکان شیب محلی یک جواب است. منحنی‌های رنگی مسیرهای RK4 از نقطه‌های اولیهٔ مختلف‌اند تا اعضای یک خانواده را با هم مقایسه کنید.',
-              ),
+              title: l.t('ui.direction_field_solution_family'),
+              caption: l.t('ui.each_arrow_is_the_local_slope_of_a_solution_the'),
             )
           else
             OdeSolutionPlot(
@@ -372,14 +330,8 @@ class _OdePageState extends State<OdePage> {
               l10n: l,
               xVariable: _fieldX,
               yVariable: _fieldY,
-              title: l.t(
-                'Solution family (numeric RK4)',
-                'خانوادهٔ جواب (RK4 عددی)',
-              ),
-              caption: l.t(
-                'Higher-order equations have no single slope field. These curves are RK4 trajectories of the reduced first-order system from different initial states; they are approximate and stop when the solution leaves its domain.',
-                'معادلات مرتبهٔ بالا میدان شیب یکتا ندارند. این منحنی‌ها مسیرهای RK4 دستگاه مرتبهٔ اول کاهش‌یافته از حالت‌های اولیهٔ مختلف‌اند؛ تقریبی‌اند و وقتی جواب از دامنه خارج شود متوقف می‌شوند.',
-              ),
+              title: l.t('ui.solution_family_numeric_rk4'),
+              caption: l.t('ui.higher_order_equations_have_no_single_slope_fiel'),
             ),
         ],
         if (_result != null) ...[

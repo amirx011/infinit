@@ -68,10 +68,7 @@ class _WronskianPageState extends State<WronskianPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
@@ -81,10 +78,7 @@ class _WronskianPageState extends State<WronskianPage> {
         .toList(growable: false);
     if (fns.isEmpty) {
       setState(
-        () => _error = l.t(
-          'Enter at least one function.',
-          'حداقل یک تابع وارد کنید.',
-        ),
+        () => _error = l.t('ui.enter_at_least_one_function'),
       );
       return;
     }
@@ -140,14 +134,8 @@ class _WronskianPageState extends State<WronskianPage> {
               PageTitle(
                 tone: c.accentAlt,
                 icon: Icons.grid_on_rounded,
-                title: l.t(
-                  'Wronskian & linear independence',
-                  'رونسکی و استقلال خطی',
-                ),
-                subtitle: l.t(
-                  'Build the Wronskian determinant and test whether the functions are independent.',
-                  'دترمینان رونسکی توابع را بسازید و استقلال خطی را بررسی کنید.',
-                ),
+                title: l.t('ui.wronskian_linear_independence'),
+                subtitle: l.t('ui.build_the_wronskian_determinant_and_test_whether'),
               ),
               const SizedBox(height: 18),
               for (var i = 0; i < _functions.length; i++) ...[
@@ -183,7 +171,7 @@ class _WronskianPageState extends State<WronskianPage> {
                           fontSize: 15,
                         ),
                         decoration: InputDecoration(
-                          hintText: l.t('e.g. sin(x)', 'مثلاً sin(x)'),
+                          hintText: l.t('ui.e_g_sin_x'),
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -195,7 +183,7 @@ class _WronskianPageState extends State<WronskianPage> {
                     ),
                     if (_functions.length > 1)
                       IconButton(
-                        tooltip: l.t('Remove function', 'حذف تابع'),
+                        tooltip: l.t('ui.remove_function'),
                         icon: Icon(
                           Icons.remove_circle_outline_rounded,
                           size: 20,
@@ -222,7 +210,7 @@ class _WronskianPageState extends State<WronskianPage> {
                                 _functions.add(TextEditingController(text: '')),
                           ),
                     icon: const Icon(Icons.add_rounded, size: 18),
-                    label: Text(l.t('Add function', 'افزودن تابع')),
+                    label: Text(l.t('ui.add_function')),
                   ),
                   const SizedBox(width: 8),
                   SizedBox(
@@ -236,7 +224,7 @@ class _WronskianPageState extends State<WronskianPage> {
                         fontSize: 14,
                       ),
                       decoration: InputDecoration(
-                        labelText: l.t('Variable', 'متغیر'),
+                        labelText: l.t('ui.variable'),
                         isDense: true,
                       ),
                     ),
@@ -245,7 +233,7 @@ class _WronskianPageState extends State<WronskianPage> {
               ),
               const SizedBox(height: 14),
               Text(
-                l.t('Examples', 'نمونه‌ها'),
+                l.t('ui.examples'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -275,8 +263,8 @@ class _WronskianPageState extends State<WronskianPage> {
                     : const Icon(Icons.calculate_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Computing…', 'در حال محاسبه…')
-                      : l.t('Compute Wronskian', 'محاسبهٔ رونسکی'),
+                      ? l.t('ui.computing')
+                      : l.t('ui.compute_wronskian'),
                 ),
               ),
             ],
@@ -285,34 +273,19 @@ class _WronskianPageState extends State<WronskianPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t('What the Wronskian tests', 'رونسکی چه چیزی را می‌سنجد؟'),
-          idea: l.t(
-            'The Wronskian packs the functions and their derivatives into one determinant. A nonzero value on an interval proves linear independence there.',
-            'رونسکی توابع و مشتق‌هایشان را در یک دترمینان جمع می‌کند. مقدار ناصفر روی یک بازه، استقلال خطی را در همان بازه ثابت می‌کند.',
-          ),
+          title: l.t('ui.what_the_wronskian_tests'),
+          idea: l.t('ui.the_wronskian_packs_the_functions_and_their_deri'),
           points: [
-            l.t(
-              'The test is decisive for solutions of a linear homogeneous ODE on an interval.',
-              'این آزمون برای جواب‌های یک معادلهٔ دیفرانسیل خطی همگن روی یک بازه قاطع است.',
-            ),
-            l.t(
-              'A zero Wronskian at a single point does not by itself prove dependence for arbitrary functions.',
-              'صفر شدن رونسکی در یک نقطه به‌تنهایی وابستگی توابع دلخواه را ثابت نمی‌کند.',
-            ),
+            l.t('ui.the_test_is_decisive_for_solutions_of_a_linear_h'),
+            l.t('ui.a_zero_wronskian_at_a_single_point_does_not_by_i'),
           ],
           example: const ExView(
             plain: 'W(exp(x), exp(2x)) = exp(3x) != 0',
             pretty: 'W(eˣ, e²ˣ) = e³ˣ ≠ 0',
             latex: r'W\left(e^{x}, e^{2x}\right) = e^{3x} \neq 0',
           ),
-          exampleCaption: l.t(
-            'The determinant never vanishes, so the two exponentials are independent on every interval.',
-            'دترمینان هرگز صفر نمی‌شود؛ پس این دو تابع نمایی روی هر بازه مستقل‌اند.',
-          ),
-          pitfall: l.t(
-            'Do not confuse “W = 0 at one point” with “W = 0 on the interval”.',
-            '«صفر بودن W در یک نقطه» را با «صفر بودن W روی کل بازه» اشتباه نگیرید.',
-          ),
+          exampleCaption: l.t('ui.the_determinant_never_vanishes_so_the_two_expone'),
+          pitfall: l.t('ui.do_not_confuse_w_0_at_one_point_with_w_0_on_the'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -379,11 +352,8 @@ class _WronskianPageState extends State<WronskianPage> {
       curves: curves,
       xmin: -8,
       xmax: 8,
-      title: l.t('Functions under test', 'توابع مورد بررسی'),
-      caption: l.t(
-        'The Wronskian is built from these curves and their derivatives. A nonzero determinant on an interval means they are linearly independent there.',
-        'رونسکی از این منحنی‌ها و مشتق‌هایشان ساخته می‌شود. ناصفر بودن دترمینان روی یک بازه یعنی آن‌ها در آن بازه مستقل خطی‌اند.',
-      ),
+      title: l.t('ui.functions_under_test'),
+      caption: l.t('ui.the_wronskian_is_built_from_these_curves_and_the'),
     );
   }
 }

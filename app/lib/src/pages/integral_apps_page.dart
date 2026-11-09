@@ -95,10 +95,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
@@ -107,10 +104,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
     final b = double.tryParse(_b.text.trim().replaceAll('−', '-'));
     if (f.isEmpty || a == null || b == null) {
       setState(
-        () => _error = l.t(
-          'Enter the function and numeric bounds a and b.',
-          'تابع و کران‌های عددی a و b را وارد کنید.',
-        ),
+        () => _error = l.t('ui.enter_the_function_and_numeric_bounds_a_and_b'),
       );
       return;
     }
@@ -158,11 +152,8 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
             children: [
               PageTitle(
                 icon: Icons.architecture_rounded,
-                title: l.t('Integral applications', 'کاربردهای انتگرال'),
-                subtitle: l.t(
-                  'Area between curves, volume of revolution and arc length, with the integral set up and evaluated.',
-                  'مساحت بین دو منحنی، حجم دوران و طول قوس، همراه با تشکیل و محاسبهٔ انتگرال.',
-                ),
+                title: l.t('ui.integral_applications'),
+                subtitle: l.t('ui.area_between_curves_volume_of_revolution_and_arc'),
               ),
               const SizedBox(height: 18),
               Wrap(
@@ -173,7 +164,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                     width: 200,
                     child: InputDecorator(
                       decoration: InputDecoration(
-                        labelText: l.t('Application', 'کاربرد'),
+                        labelText: l.t('ui.application'),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<_IntegralApp>(
@@ -182,15 +173,15 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                           items: [
                             DropdownMenuItem(
                               value: _IntegralApp.area,
-                              child: Text(l.t('Area between curves', 'مساحت بین دو منحنی')),
+                              child: Text(l.t('ui.area_between_curves')),
                             ),
                             DropdownMenuItem(
                               value: _IntegralApp.volume,
-                              child: Text(l.t('Volume of revolution', 'حجم دوران')),
+                              child: Text(l.t('ui.volume_of_revolution')),
                             ),
                             DropdownMenuItem(
                               value: _IntegralApp.arcLength,
-                              child: Text(l.t('Arc length', 'طول قوس')),
+                              child: Text(l.t('ui.arc_length')),
                             ),
                           ],
                           onChanged: (v) {
@@ -208,7 +199,7 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                       width: 140,
                       child: InputDecorator(
                         decoration: InputDecoration(
-                          labelText: l.t('Axis', 'محور'),
+                          labelText: l.t('ui.axis'),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
@@ -217,11 +208,11 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                             items: [
                               DropdownMenuItem(
                                 value: 'x',
-                                child: Text(l.t('x-axis (disk/washer)', 'محور x (دیسک/واشر)')),
+                                child: Text(l.t('ui.x_axis_disk_washer')),
                               ),
                               DropdownMenuItem(
                                 value: 'y',
-                                child: Text(l.t('y-axis (shells)', 'محور y (پوسته)')),
+                                child: Text(l.t('ui.y_axis_shells')),
                               ),
                             ],
                             onChanged: (v) =>
@@ -235,14 +226,14 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
               const SizedBox(height: 14),
               ExpressionField(
                 controller: _f,
-                hint: l.t('Upper curve f(x)', 'منحنی بالایی f(x)'),
+                hint: l.t('ui.upper_curve_f_x'),
                 onSubmitted: _run,
               ),
               if (_kind != _IntegralApp.arcLength) ...[
                 const SizedBox(height: 12),
                 ExpressionField(
                   controller: _g,
-                  hint: l.t('Lower curve g(x), or empty for 0', 'منحنی پایینی g(x)، یا خالی برای ۰'),
+                  hint: l.t('ui.lower_curve_g_x_or_empty_for_0'),
                   onSubmitted: _run,
                 ),
               ],
@@ -253,12 +244,12 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                 children: [
                   LabelledField(
                     controller: _a,
-                    label: l.t('Lower bound a', 'کران پایین a'),
+                    label: l.t('ui.lower_bound_a'),
                     width: 150,
                   ),
                   LabelledField(
                     controller: _b,
-                    label: l.t('Upper bound b', 'کران بالا b'),
+                    label: l.t('ui.upper_bound_b'),
                     width: 150,
                   ),
                 ],
@@ -284,8 +275,8 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                     : const Icon(Icons.architecture_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Computing…', 'در حال محاسبه…')
-                      : l.t('Set up and evaluate', 'تشکیل و محاسبه'),
+                      ? l.t('ui.computing')
+                      : l.t('ui.set_up_and_evaluate'),
                 ),
               ),
             ],
@@ -294,29 +285,14 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t('Slice, then add up', 'برش بزن، سپس جمع کن'),
-          idea: l.t(
-            'Every definite-integral application is a sum of thin pieces. The hard part is writing the height, radius or length of one piece; the integral adds them.',
-            'هر کاربرد انتگرال معین مجموعی از قطعه‌های نازک است. بخش سخت نوشتن ارتفاع، شعاع یا طول یک قطعه است؛ انتگرال آن‌ها را جمع می‌کند.',
-          ),
+          title: l.t('ui.slice_then_add_up'),
+          idea: l.t('ui.every_definite_integral_application_is_a_sum_of'),
           points: [
-            l.t(
-              'Area: integrate |f − g|, splitting at the intersection points.',
-              'مساحت: انتگرال |f − g|، با شکستن در نقاط تقاطع.',
-            ),
-            l.t(
-              'Volume about x: pi ∫ (outer² − inner²) dx. About y: 2 pi ∫ x (f − g) dx.',
-              'حجم حول x: π ∫ (شعاع بیرونی² − درونی²) dx. حول y: ۲π ∫ x(f − g) dx.',
-            ),
-            l.t(
-              'Arc length: ∫ sqrt(1 + (f\')²) dx.',
-              'طول قوس: ∫ sqrt(1 + (f′)²) dx.',
-            ),
+            l.t('ui.area_integrate_f_g_splitting_at_the_intersection'),
+            l.t('ui.volume_about_x_pi_outer_inner_dx_about_y_2_pi_x'),
+            l.t('ui.arc_length_sqrt_1_f_dx'),
           ],
-          pitfall: l.t(
-            'Check which curve is on top before subtracting; a negative integrand means the order is reversed.',
-            'قبل از تفریق بررسی کنید کدام منحنی بالاست؛ انتگرال‌دهٔ منفی یعنی ترتیب برعکس است.',
-          ),
+          pitfall: l.t('ui.check_which_curve_is_on_top_before_subtracting_a'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -346,11 +322,8 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                 ],
                 xmin: _plotLo(),
                 xmax: _plotHi(),
-                title: l.t('Curves and the enclosed region', 'منحنی‌ها و ناحیهٔ محصور'),
-                caption: l.t(
-                  'The area integral adds thin vertical strips of height |f − g| between the bounds, splitting where the curves cross.',
-                  'انتگرال مساحت، نوارهای عمودی نازک با ارتفاع |f − g| را بین کران‌ها جمع می‌کند و در محل تقاطع منحنی‌ها تقسیم می‌شود.',
-                ),
+                title: l.t('ui.curves_and_the_enclosed_region'),
+                caption: l.t('ui.the_area_integral_adds_thin_vertical_strips_of_h'),
               )
             else
               CurvePlot(
@@ -360,17 +333,11 @@ class _IntegralAppsPageState extends State<IntegralAppsPage> {
                 xmin: _plotLo(),
                 xmax: _plotHi(),
                 title: _kind == _IntegralApp.volume
-                    ? l.t('Generating curve', 'منحنی مولد')
-                    : l.t('Curve whose length is measured', 'منحنی‌ای که طولش اندازه‌گیری می‌شود'),
+                    ? l.t('ui.generating_curve')
+                    : l.t('ui.curve_whose_length_is_measured'),
                 caption: _kind == _IntegralApp.volume
-                    ? l.t(
-                        'Rotating this curve about the chosen axis sweeps the solid; each thin slice contributes πr² or 2πrh.',
-                        'دوران این منحنی حول محور انتخابی جسم را جارو می‌کند؛ هر برش نازک πr² یا 2πrh کمک می‌کند.',
-                      )
-                    : l.t(
-                        'The arc length adds the hypotenuses of tiny steps along the curve, ∫ sqrt(1 + (f′)²) dx.',
-                        'طول قوس وترهای گام‌های بسیار کوچک روی منحنی را جمع می‌کند، ∫ sqrt(1 + (f′)²) dx.',
-                      ),
+                    ? l.t('ui.rotating_this_curve_about_the_chosen_axis_sweeps')
+                    : l.t('ui.the_arc_length_adds_the_hypotenuses_of_tiny_step'),
               ),
           ],
         ],

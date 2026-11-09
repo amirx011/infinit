@@ -74,10 +74,7 @@ class _TangentPageState extends State<TangentPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
@@ -85,10 +82,7 @@ class _TangentPageState extends State<TangentPage> {
     final at = _at.text.trim();
     if (text.isEmpty || at.isEmpty) {
       setState(
-        () => _error = l.t(
-          'Enter a function and a point.',
-          'یک تابع و یک نقطه وارد کنید.',
-        ),
+        () => _error = l.t('ui.enter_a_function_and_a_point'),
       );
       return;
     }
@@ -135,16 +129,13 @@ class _TangentPageState extends State<TangentPage> {
             children: [
               PageTitle(
                 icon: Icons.show_chart_rounded,
-                title: l.t('Tangent and normal', 'مماس و خط عمود'),
-                subtitle: l.t(
-                  'The tangent line and the perpendicular normal at a chosen point of a curve.',
-                  'خط مماس و خط عمود بر آن در یک نقطهٔ دلخواه از منحنی.',
-                ),
+                title: l.t('ui.tangent_and_normal'),
+                subtitle: l.t('ui.the_tangent_line_and_the_perpendicular_normal_at'),
               ),
               const SizedBox(height: 18),
               ExpressionField(
                 controller: _input,
-                hint: l.t('e.g. x^2', 'مثلاً x^2'),
+                hint: l.t('ui.e_g_x_2'),
                 onSubmitted: _run,
               ),
               const SizedBox(height: 12),
@@ -154,12 +145,12 @@ class _TangentPageState extends State<TangentPage> {
                 children: [
                   LabelledField(
                     controller: _xv,
-                    label: l.t('Variable', 'متغیر'),
+                    label: l.t('ui.variable'),
                     width: 100,
                   ),
                   LabelledField(
                     controller: _at,
-                    label: l.t('At x = a', 'در x = a'),
+                    label: l.t('ui.at_x_a'),
                     width: 120,
                   ),
                 ],
@@ -188,8 +179,8 @@ class _TangentPageState extends State<TangentPage> {
                     : const Icon(Icons.show_chart_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Computing…', 'در حال محاسبه…')
-                      : l.t('Find the two lines', 'یافتن دو خط'),
+                      ? l.t('ui.computing')
+                      : l.t('ui.find_the_two_lines'),
                 ),
               ),
             ],
@@ -198,25 +189,13 @@ class _TangentPageState extends State<TangentPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t('One derivative, two lines', 'یک مشتق، دو خط'),
-          idea: l.t(
-            "The derivative evaluated at a gives the slope of the tangent. The normal is the line through the same point whose slope is the negative reciprocal, because perpendicular slopes multiply to -1.",
-            'مشتق در نقطهٔ a شیب مماس را می‌دهد. خط عمود همان خطی است که از همان نقطه می‌گذرد و شیبش وارون منفی شیب مماس است، چون حاصل‌ضرب شیب دو خط عمود برابر −۱ است.',
-          ),
+          title: l.t('ui.one_derivative_two_lines'),
+          idea: l.t('ui.the_derivative_evaluated_at_a_gives_the_slope_of'),
           points: [
-            l.t(
-              'Point-slope form y = f(a) + f\'(a)(x − a) is the whole construction.',
-              'شکل نقطه‌شیب y = f(a) + f′(a)(x − a) تمام ساختار مسئله است.',
-            ),
-            l.t(
-              'A horizontal tangent has a vertical normal, whose slope does not exist.',
-              'مماس افقی خط عمودی دارد که شیبش وجود ندارد.',
-            ),
+            l.t('ui.point_slope_form_y_f_a_f_a_x_a_is_the_whole_cons'),
+            l.t('ui.a_horizontal_tangent_has_a_vertical_normal_whose'),
           ],
-          pitfall: l.t(
-            'The normal line is not the reciprocal of the function; it is the line with the reciprocal slope.',
-            'خط عمود وارون تابع نیست؛ خطی است که شیبش وارون شیب مماس است.',
-          ),
+          pitfall: l.t('ui.the_normal_line_is_not_the_reciprocal_of_the_fun'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -251,7 +230,7 @@ class _TangentPageState extends State<TangentPage> {
           xmin: window.$1,
           xmax: window.$2,
           color: c.success,
-          label: l.t('Tangent', 'مماس'),
+          label: l.t('ui.tangent'),
         ),
       );
     }
@@ -263,7 +242,7 @@ class _TangentPageState extends State<TangentPage> {
           xmin: window.$1,
           xmax: window.$2,
           color: c.creative,
-          label: l.t('Normal', 'خط عمود'),
+          label: l.t('ui.normal_2'),
           dashed: true,
         ),
       );
@@ -277,7 +256,7 @@ class _TangentPageState extends State<TangentPage> {
       xmin: window.$1,
       xmax: window.$2,
       height: 340,
-      title: l.t('Curve, tangent and normal', 'منحنی، مماس و خط عمود'),
+      title: l.t('ui.curve_tangent_and_normal'),
       extraSeries: series,
       guides: [_fieldAt],
       markers: fA == null
@@ -291,14 +270,8 @@ class _TangentPageState extends State<TangentPage> {
               ),
             ],
       caption: n == null
-          ? l.t(
-              'The tangent is horizontal here, so the normal is the vertical dashed guide at the point.',
-              'مماس در این نقطه افقی است، پس خط عمود همان راهنمای چین قائم در آن نقطه است.',
-            )
-          : l.t(
-              'The solid line is the tangent and the dashed line is the normal; they meet at right angles at the point of tangency.',
-              'خط توپر مماس و خط چین عمود است؛ این دو در نقطهٔ مماس با زاویهٔ قائمه یکدیگر را قطع می‌کنند.',
-            ),
+          ? l.t('ui.the_tangent_is_horizontal_here_so_the_normal_is')
+          : l.t('ui.the_solid_line_is_the_tangent_and_the_dashed_lin'),
     );
   }
 }

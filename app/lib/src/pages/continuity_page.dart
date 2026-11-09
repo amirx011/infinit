@@ -88,16 +88,13 @@ class _ContinuityPageState extends State<ContinuityPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
-      setState(() => _error = l.t('Enter a function.', 'یک تابع وارد کنید.'));
+      setState(() => _error = l.t('ui.enter_a_function'));
       return;
     }
     final variable = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
@@ -145,11 +142,8 @@ class _ContinuityPageState extends State<ContinuityPage> {
               PageTitle(
                 tone: c.accentAlt,
                 icon: Icons.timeline_rounded,
-                title: l.t('Continuity', 'پیوستگی'),
-                subtitle: l.t(
-                  'A function is continuous at a point when the left limit and the right limit exist, are equal, and equal the value of the function.',
-                  'تابع در یک نقطه پیوسته است هرگاه حد چپ و حد راست هر دو موجود و برابر باشند و مقدار تابع هم برابر همان حد مشترک باشد.',
-                ),
+                title: l.t('ui.continuity'),
+                subtitle: l.t('ui.a_function_is_continuous_at_a_point_when_the_lef'),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -163,7 +157,7 @@ class _ContinuityPageState extends State<ContinuityPage> {
                   height: 1.5,
                 ),
                 decoration: InputDecoration(
-                  hintText: l.t('e.g. (x^2-4)/(x-2)', 'مثلاً (x^2-4)/(x-2)'),
+                  hintText: l.t('ui.e_g_x_2_4_x_2'),
                   prefixIcon: Icon(
                     Icons.edit_outlined,
                     size: 20,
@@ -186,7 +180,7 @@ class _ContinuityPageState extends State<ContinuityPage> {
                         fontSize: 14,
                       ),
                       decoration: InputDecoration(
-                        labelText: l.t('Variable', 'متغیر'),
+                        labelText: l.t('ui.variable'),
                         isDense: true,
                       ),
                     ),
@@ -202,7 +196,7 @@ class _ContinuityPageState extends State<ContinuityPage> {
                         fontSize: 14,
                       ),
                       decoration: InputDecoration(
-                        labelText: l.t('Point', 'نقطه'),
+                        labelText: l.t('ui.point'),
                         hintText: '0, 1, pi/2',
                         isDense: true,
                       ),
@@ -213,7 +207,7 @@ class _ContinuityPageState extends State<ContinuityPage> {
               ),
               const SizedBox(height: 14),
               Text(
-                l.t('Examples', 'نمونه‌ها'),
+                l.t('ui.examples'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -247,8 +241,8 @@ class _ContinuityPageState extends State<ContinuityPage> {
                     : const Icon(Icons.timeline_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Checking…', 'در حال بررسی…')
-                      : l.t('Check continuity', 'بررسی پیوستگی'),
+                      ? l.t('ui.checking')
+                      : l.t('ui.check_continuity'),
                 ),
               ),
             ],
@@ -257,20 +251,11 @@ class _ContinuityPageState extends State<ContinuityPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t('Three conditions for continuity', 'سه شرط پیوستگی'),
-          idea: l.t(
-            'A function is continuous at a point when it is defined there, its two-sided limit exists, and that limit equals the function value. All three must hold together.',
-            'تابع در یک نقطه پیوسته است وقتی آنجا تعریف شده باشد، حد دوطرفه وجود داشته باشد و آن حد با مقدار تابع برابر باشد. هر سه شرط باید هم‌زمان برقرار باشند.',
-          ),
+          title: l.t('ui.three_conditions_for_continuity'),
+          idea: l.t('ui.a_function_is_continuous_at_a_point_when_it_is_d'),
           points: [
-            l.t(
-              'Compute the left and right limits independently; equality is what makes the two-sided limit exist.',
-              'حد چپ و راست را جدا حساب کنید؛ برابری آن‌ها وجود حد دوطرفه را می‌سازد.',
-            ),
-            l.t(
-              'A removable gap can be repaired by redefining one point; a jump or an infinite break cannot.',
-              'شکاف رفع‌شدنی با بازتعریف یک نقطه درست می‌شود؛ پرش یا انقطاع نامتناهی نه.',
-            ),
+            l.t('ui.compute_the_left_and_right_limits_independently'),
+            l.t('ui.a_removable_gap_can_be_repaired_by_redefining_on'),
           ],
           example: const ExView(
             plain: 'f(x) = (x^2-4)/(x-2)  has a removable gap at x = 2',
@@ -278,14 +263,8 @@ class _ContinuityPageState extends State<ContinuityPage> {
             latex:
                 r'f(x)=\frac{x^{2}-4}{x-2}\ \text{has a removable gap at }x=2',
           ),
-          exampleCaption: l.t(
-            'The limit is 4, but f(2) is undefined, so the function is not continuous at 2 until the point is filled in.',
-            'حد برابر ۴ است اما f(2) تعریف نشده؛ پس تابع در ۲ پیوسته نیست تا وقتی این نقطه پر شود.',
-          ),
-          pitfall: l.t(
-            'An existing limit is not enough: the value f(a) must also be defined and match it.',
-            'وجود حد کافی نیست: مقدار f(a) هم باید تعریف شده و برابر آن باشد.',
-          ),
+          exampleCaption: l.t('ui.the_limit_is_4_but_f_2_is_undefined_so_the_funct'),
+          pitfall: l.t('ui.an_existing_limit_is_not_enough_the_value_f_a_mu'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -323,10 +302,7 @@ class _ContinuityPageState extends State<ContinuityPage> {
               'Around $_plottedVar = $_plottedPoint',
               'حول $_plottedVar = $_plottedPoint',
             ),
-            caption: l.t(
-              'Continuity is a visual agreement: the curve must arrive at the same height from both sides and meet the printed value.',
-              'پیوستگی یعنی توافق دیداری: منحنی باید از دو طرف به یک ارتفاع برسد و همان مقدار تعریف‌شده را قطع کند.',
-            ),
+            caption: l.t('ui.continuity_is_a_visual_agreement_the_curve_must'),
             guides: [?_guideX],
           ),
         ],

@@ -88,17 +88,14 @@ class _LimitPageState extends State<LimitPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
       setState(
-        () => _error = l.t('Enter an expression.', 'یک عبارت وارد کنید.'),
+        () => _error = l.t('ui.enter_an_expression'),
       );
       return;
     }
@@ -148,11 +145,8 @@ class _LimitPageState extends State<LimitPage> {
               PageTitle(
                 tone: c.warning,
                 icon: Icons.linear_scale_rounded,
-                title: l.t('Limits', 'حد'),
-                subtitle: l.t(
-                  'Limit laws on the expression tree, L\'Hôpital for indeterminate forms, and one-sided limits.',
-                  'قوانین حد روی درخت عبارت، قاعدهٔ هوپیتال برای فرم‌های مبهم و حدهای یک‌طرفه.',
-                ),
+                title: l.t('ui.limits'),
+                subtitle: l.t('ui.limit_laws_on_the_expression_tree_l_h_pital_for'),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -166,7 +160,7 @@ class _LimitPageState extends State<LimitPage> {
                   height: 1.5,
                 ),
                 decoration: InputDecoration(
-                  hintText: l.t('e.g. sin(x)/x', 'مثلاً sin(x)/x'),
+                  hintText: l.t('ui.e_g_sin_x_x'),
                   prefixIcon: Icon(
                     Icons.edit_outlined,
                     size: 20,
@@ -189,7 +183,7 @@ class _LimitPageState extends State<LimitPage> {
                         fontSize: 14,
                       ),
                       decoration: InputDecoration(
-                        labelText: l.t('Variable', 'متغیر'),
+                        labelText: l.t('ui.variable'),
                         isDense: true,
                       ),
                     ),
@@ -205,8 +199,8 @@ class _LimitPageState extends State<LimitPage> {
                         fontSize: 14,
                       ),
                       decoration: InputDecoration(
-                        labelText: l.t('Approaches', 'به چه چیزی میل می‌کند'),
-                        hintText: l.t('0, pi/2, inf', '۰، pi/2، inf'),
+                        labelText: l.t('ui.approaches'),
+                        hintText: l.t('ui.0_pi_2_inf'),
                         isDense: true,
                       ),
                       onSubmitted: (_) => _compute(),
@@ -219,17 +213,17 @@ class _LimitPageState extends State<LimitPage> {
                 segments: [
                   ButtonSegment(
                     value: 'both',
-                    label: Text(l.t('Two-sided', 'دوطرفه')),
+                    label: Text(l.t('ui.two_sided')),
                     icon: const Icon(Icons.compare_arrows_rounded, size: 17),
                   ),
                   ButtonSegment(
                     value: 'left',
-                    label: Text(l.t('Left', 'از چپ')),
+                    label: Text(l.t('ui.left')),
                     icon: const Icon(Icons.west_rounded, size: 17),
                   ),
                   ButtonSegment(
                     value: 'right',
-                    label: Text(l.t('Right', 'از راست')),
+                    label: Text(l.t('ui.right')),
                     icon: const Icon(Icons.east_rounded, size: 17),
                   ),
                 ],
@@ -238,7 +232,7 @@ class _LimitPageState extends State<LimitPage> {
               ),
               const SizedBox(height: 14),
               Text(
-                l.t('Examples', 'نمونه‌ها'),
+                l.t('ui.examples'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -272,8 +266,8 @@ class _LimitPageState extends State<LimitPage> {
                     : const Icon(Icons.linear_scale_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Computing…', 'در حال محاسبه…')
-                      : l.t('Compute the limit', 'محاسبهٔ حد'),
+                      ? l.t('ui.computing')
+                      : l.t('ui.compute_the_limit'),
                 ),
               ),
             ],
@@ -282,37 +276,19 @@ class _LimitPageState extends State<LimitPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t(
-            'A limit describes approach',
-            'حد، نزدیک شدن را توصیف می‌کند',
-          ),
-          idea: l.t(
-            'The limit at a point depends on nearby values, not on the value at the point itself. That is why a function can have a limit where it is undefined.',
-            'حد در یک نقطه به مقادیر نزدیک آن بستگی دارد، نه به مقدار خود تابع در آن نقطه. به همین دلیل تابع می‌تواند در نقطه‌ای تعریف‌نشده هم حد داشته باشد.',
-          ),
+          title: l.t('ui.a_limit_describes_approach'),
+          idea: l.t('ui.the_limit_at_a_point_depends_on_nearby_values_no'),
           points: [
-            l.t(
-              'Try direct substitution first; 0/0 or ∞/∞ signals that another method is needed.',
-              'اول جایگذاری مستقیم را امتحان کنید؛ 0/0 یا ∞/∞ نشان می‌دهد روش دیگری لازم است.',
-            ),
-            l.t(
-              'For jumps, absolute values and pieces, compare the left and right limits separately.',
-              'برای پرش‌ها، قدر مطلق و توابع تکه‌ای، حد چپ و راست را جداگانه مقایسه کنید.',
-            ),
+            l.t('ui.try_direct_substitution_first_0_0_or_signals_tha'),
+            l.t('ui.for_jumps_absolute_values_and_pieces_compare_the'),
           ],
           example: const ExView(
             plain: 'lim x->0 sin(x)/x = 1',
             pretty: 'lim x→0 sin x / x = 1',
             latex: r'\lim_{x\to 0}\frac{\sin x}{x} = 1',
           ),
-          exampleCaption: l.t(
-            'The expression is 0/0 at x = 0; the limit exists even though the quotient is undefined there.',
-            'عبارت در x = 0 به 0/0 می‌رسد؛ حد وجود دارد هرچند کسر آنجا تعریف نشده است.',
-          ),
-          pitfall: l.t(
-            "L'Hôpital applies to indeterminate quotients only; differentiating numerator and denominator separately is not a quotient rule.",
-            'قاعدهٔ هوپیتال فقط برای کسرهای مبهم است؛ مشتق گرفتن جداگانه از صورت و مخرج، قاعدهٔ تقسیم نیست.',
-          ),
+          exampleCaption: l.t('ui.the_expression_is_0_0_at_x_0_the_limit_exists_ev'),
+          pitfall: l.t('ui.l_h_pital_applies_to_indeterminate_quotients_onl'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -350,10 +326,7 @@ class _LimitPageState extends State<LimitPage> {
               'Near $_plottedVar → $_plottedPoint',
               'نزدیک $_plottedVar → $_plottedPoint',
             ),
-            caption: l.t(
-              'The dashed guide marks the point being approached. The curve shows why the two sides either agree or disagree.',
-              'خط‌چین راهنما نقطه‌ای را نشان می‌دهد که به آن نزدیک می‌شویم. منحنی نشان می‌دهد چرا دو طرف یا هم‌خوان‌اند یا ناهم‌خوان.',
-            ),
+            caption: l.t('ui.the_dashed_guide_marks_the_point_being_approache'),
             guides: [
               if (_guideX != null && !(_result!.limitInfinite)) _guideX!,
             ],

@@ -4,6 +4,8 @@ import 'package:infinit/src/i18n/catalog.dart';
 import 'package:infinit/src/l10n.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   setUp(() {
     I18n.instance = I18n.fromMaps({
       'fa': {
@@ -42,7 +44,7 @@ void main() {
     expect(const L10n(Locale('en')).t('Settings'), 'Settings');
   });
 
-  testWidgets('ships the fa and en catalogues', (tester) async {
+  test('ships the fa and en catalogues', () async {
     final catalog = await I18n.load();
     expect(catalog.hasKey('error.singular'), isTrue);
     expect(catalog.hasKey('validation.match'), isTrue);

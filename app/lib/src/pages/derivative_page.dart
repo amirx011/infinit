@@ -84,17 +84,14 @@ class _DerivativePageState extends State<DerivativePage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
       setState(
-        () => _error = l.t('Enter an expression.', 'یک عبارت وارد کنید.'),
+        () => _error = l.t('ui.enter_an_expression'),
       );
       return;
     }
@@ -158,11 +155,8 @@ class _DerivativePageState extends State<DerivativePage> {
             children: [
               PageTitle(
                 icon: Icons.drive_file_rename_outline_rounded,
-                title: l.t('Derivatives', 'مشتق'),
-                subtitle: l.t(
-                  'Derivatives of order 1–10: explicit (AST walk, chain and product rules) or implicit from an equation.',
-                  'مشتق‌های مرتبهٔ ۱ تا ۱۰: صریح (پیمایش درخت AST، قواعد زنجیره‌ای و ضرب) یا ضمنی از یک معادله.',
-                ),
+                title: l.t('ui.derivatives'),
+                subtitle: l.t('ui.derivatives_of_order_1_10_explicit_ast_walk_chai'),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -176,10 +170,7 @@ class _DerivativePageState extends State<DerivativePage> {
                   height: 1.5,
                 ),
                 decoration: InputDecoration(
-                  hintText: l.t(
-                    'e.g. x^3*sin(x)  or  x^2+y^2=4',
-                    'مثلاً x^3*sin(x)  یا  x^2+y^2=4',
-                  ),
+                  hintText: l.t('ui.e_g_x_3_sin_x_or_x_2_y_2_4'),
                   prefixIcon: Icon(
                     Icons.edit_outlined,
                     size: 20,
@@ -197,14 +188,14 @@ class _DerivativePageState extends State<DerivativePage> {
                   textAlign: TextAlign.left,
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
                   decoration: InputDecoration(
-                    labelText: l.t('Variable', 'متغیر'),
+                    labelText: l.t('ui.variable'),
                     isDense: true,
                   ),
                 ),
               ),
               const SizedBox(height: 14),
               Text(
-                l.t('Examples', 'نمونه‌ها'),
+                l.t('ui.examples'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -240,8 +231,8 @@ class _DerivativePageState extends State<DerivativePage> {
                       ),
                 label: Text(
                   _busy
-                      ? l.t('Differentiating…', 'در حال مشتق‌گیری…')
-                      : l.t('Compute first derivative', 'محاسبهٔ مشتق اول'),
+                      ? l.t('ui.differentiating')
+                      : l.t('ui.compute_first_derivative'),
                 ),
               ),
             ],
@@ -250,37 +241,19 @@ class _DerivativePageState extends State<DerivativePage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t(
-            'A derivative is a local rate',
-            'مشتق یک آهنگ تغییر موضعی است',
-          ),
-          idea: l.t(
-            'The derivative is the slope of the tangent line: how fast the output changes for a tiny change in the input. Higher orders repeat that idea on the previous derivative.',
-            'مشتق شیب خط مماس است: خروجی با تغییر بسیار کوچک ورودی چقدر تغییر می‌کند. مرتبه‌های بالاتر همین ایده را روی مشتق قبلی تکرار می‌کنند.',
-          ),
+          title: l.t('ui.a_derivative_is_a_local_rate'),
+          idea: l.t('ui.the_derivative_is_the_slope_of_the_tangent_line'),
           points: [
-            l.t(
-              'Use the chain rule whenever the variable sits inside another function.',
-              'هرگاه متغیر داخل تابع دیگری باشد، قاعدهٔ زنجیره‌ای لازم است.',
-            ),
-            l.t(
-              'For an equation such as x² + y² = 4, differentiate both sides and solve for dy/dx.',
-              'برای معادله‌ای مثل x² + y² = 4، از دو طرف مشتق بگیرید و برای dy/dx حل کنید.',
-            ),
+            l.t('ui.use_the_chain_rule_whenever_the_variable_sits_in'),
+            l.t('ui.for_an_equation_such_as_x_y_4_differentiate_both'),
           ],
           example: const ExView(
             plain: "d/dx[x^3*sin(x)] = 3x^2*sin(x) + x^3*cos(x)",
             pretty: "d/dx [x³ sin x] = 3x² sin x + x³ cos x",
             latex: r"\frac{d}{dx}\left(x^{3}\sin x\right) = 3x^{2}\sin x + x^{3}\cos x",
           ),
-          exampleCaption: l.t(
-            'The product rule keeps the first factor and differentiates the second, then reverses the roles.',
-            'قاعدهٔ ضرب یک عامل را نگه می‌دارد و از دیگری مشتق می‌گیرد، سپس جای‌ها را عوض می‌کند.',
-          ),
-          pitfall: l.t(
-            'The derivative of a product is not the product of the derivatives.',
-            'مشتق ضرب، برابر ضرب مشتق‌ها نیست.',
-          ),
+          exampleCaption: l.t('ui.the_product_rule_keeps_the_first_factor_and_diff'),
+          pitfall: l.t('ui.the_derivative_of_a_product_is_not_the_product_o'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -332,11 +305,8 @@ class _DerivativePageState extends State<DerivativePage> {
               ],
               xmin: -8,
               xmax: 8,
-              title: l.t('Function and derivative', 'تابع و مشتق'),
-              caption: l.t(
-                'The derivative is the slope of the original curve. Where f′ crosses zero the tangent is horizontal.',
-                'مشتق شیب منحنی اصلی است. جایی که f′ صفر می‌شود، مماس افقی است.',
-              ),
+              title: l.t('ui.function_and_derivative'),
+              caption: l.t('ui.the_derivative_is_the_slope_of_the_original_curv'),
             ),
           ],
           const SizedBox(height: 14),
@@ -346,7 +316,7 @@ class _DerivativePageState extends State<DerivativePage> {
               onPressed: _busy ? null : () => _compute(2),
               icon: const Icon(Icons.exposure_plus_2_rounded, size: 18),
               label: Text(
-                l.t('Compute second derivative', 'محاسبهٔ مشتق مرتبهٔ دوم'),
+                l.t('ui.compute_second_derivative'),
               ),
             ),
           ),
@@ -354,7 +324,7 @@ class _DerivativePageState extends State<DerivativePage> {
         if (_second != null) ...[
           const SizedBox(height: 18),
           SectionLabel(
-            l.t('Second derivative', 'مشتق مرتبهٔ دوم'),
+            l.t('ui.second_derivative'),
             icon: Icons.exposure_plus_2_rounded,
           ),
           const SizedBox(height: 10),
@@ -369,7 +339,7 @@ class _DerivativePageState extends State<DerivativePage> {
               onPressed: _busy ? null : () => _compute(3),
               icon: const Icon(Icons.looks_3_rounded, size: 18),
               label: Text(
-                l.t('Compute third derivative', 'محاسبهٔ مشتق مرتبهٔ سوم'),
+                l.t('ui.compute_third_derivative'),
               ),
             ),
           ),
@@ -377,7 +347,7 @@ class _DerivativePageState extends State<DerivativePage> {
         if (_third != null) ...[
           const SizedBox(height: 18),
           SectionLabel(
-            l.t('Third derivative', 'مشتق مرتبهٔ سوم'),
+            l.t('ui.third_derivative'),
             icon: Icons.looks_3_rounded,
           ),
           const SizedBox(height: 10),
@@ -391,7 +361,7 @@ class _DerivativePageState extends State<DerivativePage> {
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: Text(
-              l.t('Higher order (4–10)', 'مرتبهٔ بالاتر (۴ تا ۱۰)'),
+              l.t('ui.higher_order_4_10'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),

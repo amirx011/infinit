@@ -70,10 +70,7 @@ class _TaylorPageState extends State<TaylorPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
@@ -83,10 +80,7 @@ class _TaylorPageState extends State<TaylorPage> {
     );
     if (text.isEmpty || center == null) {
       setState(
-        () => _error = l.t(
-          'Enter a function and a numeric centre a.',
-          'یک تابع و مرکز عددی a وارد کنید.',
-        ),
+        () => _error = l.t('ui.enter_a_function_and_a_numeric_centre_a'),
       );
       return;
     }
@@ -133,16 +127,13 @@ class _TaylorPageState extends State<TaylorPage> {
             children: [
               PageTitle(
                 icon: Icons.polyline_rounded,
-                title: l.t('Taylor & Maclaurin', 'تیلور و مکلورن'),
-                subtitle: l.t(
-                  'Approximate a function by a polynomial built from its derivatives at one point.',
-                  'تقریب یک تابع با چندجمله‌ای ساخته‌شده از مشتق‌های آن در یک نقطه.',
-                ),
+                title: l.t('ui.taylor_maclaurin'),
+                subtitle: l.t('ui.approximate_a_function_by_a_polynomial_built_fro'),
               ),
               const SizedBox(height: 18),
               ExpressionField(
                 controller: _input,
-                hint: l.t('e.g. exp(x)', 'مثلاً exp(x)'),
+                hint: l.t('ui.e_g_exp_x'),
                 onSubmitted: _run,
               ),
               const SizedBox(height: 12),
@@ -152,19 +143,19 @@ class _TaylorPageState extends State<TaylorPage> {
                 children: [
                   LabelledField(
                     controller: _xv,
-                    label: l.t('Variable', 'متغیر'),
+                    label: l.t('ui.variable'),
                     width: 100,
                   ),
                   LabelledField(
                     controller: _center,
-                    label: l.t('Centre a (0 = Maclaurin)', 'مرکز a (۰ = مکلورن)'),
+                    label: l.t('ui.centre_a_0_maclaurin'),
                     width: 180,
                   ),
                   SizedBox(
                     width: 150,
                     child: InputDecorator(
                       decoration: InputDecoration(
-                        labelText: l.t('Order n', 'مرتبهٔ n'),
+                        labelText: l.t('ui.order_n'),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<int>(
@@ -205,8 +196,8 @@ class _TaylorPageState extends State<TaylorPage> {
                     : const Icon(Icons.polyline_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Computing…', 'در حال محاسبه…')
-                      : l.t('Build the polynomial', 'ساخت چندجمله‌ای'),
+                      ? l.t('ui.computing')
+                      : l.t('ui.build_the_polynomial'),
                 ),
               ),
             ],
@@ -215,29 +206,14 @@ class _TaylorPageState extends State<TaylorPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t('Derivatives at one point, reused', 'مشتق‌ها در یک نقطه، دوباره‌به‌کاررفته'),
-          idea: l.t(
-            'The Taylor polynomial matches the value and the first n derivatives of f at the centre. Each coefficient is f^(k)(a)/k!, so the polynomial is a local copy of the function.',
-            'چندجمله‌ای تیلور مقدار و n مشتق اول تابع را در مرکز مطابقت می‌دهد. هر ضریب f^(k)(a)/k! است، پس چندجمله‌ای یک کپی محلی از تابع است.',
-          ),
+          title: l.t('ui.derivatives_at_one_point_reused'),
+          idea: l.t('ui.the_taylor_polynomial_matches_the_value_and_the'),
           points: [
-            l.t(
-              'Maclaurin is Taylor with a = 0.',
-              'مکلورن همان تیلور با a = 0 است.',
-            ),
-            l.t(
-              'The Lagrange remainder bounds the error: the next derivative at some xi between a and x controls it.',
-              'باقی‌ماندهٔ لاگرانژ خطا را کران می‌دهد: مشتق بعدی در نقطه‌ای xi بین a و x آن را کنترل می‌کند.',
-            ),
-            l.t(
-              'Higher order is not always better; the series must stay inside its radius of convergence.',
-              'مرتبهٔ بالاتر همیشه بهتر نیست؛ سری باید در شعاع همگرایی خود بماند.',
-            ),
+            l.t('ui.maclaurin_is_taylor_with_a_0'),
+            l.t('ui.the_lagrange_remainder_bounds_the_error_the_next'),
+            l.t('ui.higher_order_is_not_always_better_the_series_mus'),
           ],
-          pitfall: l.t(
-            'Do not forget the factorial in every coefficient, and do not mix the centre a with the variable x.',
-            'فاکتوریل هر ضریب را فراموش نکنید و مرکز a را با متغیر x اشتباه نگیرید.',
-          ),
+          pitfall: l.t('ui.do_not_forget_the_factorial_in_every_coefficient'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -265,16 +241,13 @@ class _TaylorPageState extends State<TaylorPage> {
                   expression: r.polynomial!.plain,
                   color: c.accentAlt,
                   dashed: true,
-                  label: l.t('Taylor polynomial', 'چندجمله‌ای تیلور'),
+                  label: l.t('ui.taylor_polynomial'),
                 ),
               ],
               xmin: _plotCentre() - 5,
               xmax: _plotCentre() + 5,
-              title: l.t('Function and Taylor polynomial', 'تابع و چندجمله‌ای تیلور'),
-              caption: l.t(
-                'The polynomial agrees with f at the centre and matches its first derivatives there. Away from the centre the gap is the remainder; it grows faster outside the radius of convergence.',
-                'چندجمله‌ای در مرکز با f و مشتق‌های اولش برابر است. دورتر از مرکز، فاصله همان باقی‌مانده است و بیرون از شعاع همگرایی سریع‌تر بزرگ می‌شود.',
-              ),
+              title: l.t('ui.function_and_taylor_polynomial'),
+              caption: l.t('ui.the_polynomial_agrees_with_f_at_the_centre_and_m'),
             ),
           ],
         ],

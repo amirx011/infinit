@@ -15,7 +15,7 @@ class ComingSoonPage extends StatelessWidget {
       height: 420,
       child: Center(
         child: Text(
-          l10n.t('Coming soon', 'به‌زودی'),
+          l10n.t('ui.coming_soon'),
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleMedium
               ?.copyWith(fontWeight: FontWeight.w700),

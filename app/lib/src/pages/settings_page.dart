@@ -66,32 +66,32 @@ class _SettingsPageState extends State<SettingsPage> {
     _SettingsDestination(
       key: _appearanceKey,
       icon: Icons.palette_outlined,
-      label: widget.l10n.t('Appearance', 'ظاهر'),
+      label: widget.l10n.t('ui.appearance'),
     ),
     _SettingsDestination(
       key: _languageKey,
       icon: Icons.translate_rounded,
-      label: widget.l10n.t('Locale', 'زبان رابط'),
+      label: widget.l10n.t('ui.locale'),
     ),
     _SettingsDestination(
       key: _typographyKey,
       icon: Icons.text_fields_rounded,
-      label: widget.l10n.t('Text size', 'اندازهٔ متن'),
+      label: widget.l10n.t('ui.text_size'),
     ),
     _SettingsDestination(
       key: _solutionsKey,
       icon: Icons.insights_rounded,
-      label: widget.l10n.t('Solutions & graphs', 'حل و نمودار'),
+      label: widget.l10n.t('ui.solutions_graphs'),
     ),
     _SettingsDestination(
       key: _workspaceKey,
       icon: Icons.space_dashboard_outlined,
-      label: widget.l10n.t('Start page', 'صفحهٔ شروع'),
+      label: widget.l10n.t('ui.start_page'),
     ),
     _SettingsDestination(
       key: _aboutKey,
       icon: Icons.info_outline_rounded,
-      label: widget.l10n.t('About', 'درباره'),
+      label: widget.l10n.t('ui.about'),
     ),
   ];
 
@@ -124,7 +124,7 @@ class _SettingsPageState extends State<SettingsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          l.t('Diagnostics copied to the clipboard.', 'اطلاعات تشخیصی کپی شد.'),
+          l.t('ui.diagnostics_copied_to_the_clipboard'),
         ),
       ),
     );
@@ -135,17 +135,14 @@ class _SettingsPageState extends State<SettingsPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l.t('Restore defaults?', 'بازگردانی پیش‌فرض‌ها؟')),
+        title: Text(l.t('ui.restore_defaults')),
         content: Text(
-          l.t(
-            'Theme, accent, language, text size and workspace preferences will return to their initial values.',
-            'پوسته، رنگ، زبان، اندازهٔ متن و تنظیمات فضای کار به مقادیر اولیه برمی‌گردند.',
-          ),
+          l.t('ui.theme_accent_language_text_size_and_workspace_pr'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l.t('Cancel', 'انصراف')),
+            child: Text(l.t('ui.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -153,7 +150,7 @@ class _SettingsPageState extends State<SettingsPage> {
               foregroundColor: Colors.black,
             ),
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l.t('Restore', 'بازگردانی')),
+            child: Text(l.t('ui.restore')),
           ),
         ],
       ),
@@ -165,10 +162,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            l.t(
-              'Default preferences restored.',
-              'تنظیمات پیش‌فرض بازگردانی شد.',
-            ),
+            l.t('ui.default_preferences_restored'),
           ),
         ),
       );
@@ -194,11 +188,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   PageTitle(
                     tone: c.accentAlt,
                     icon: Icons.settings_rounded,
-                    title: l.t('Settings', 'تنظیمات'),
-                    subtitle: l.t(
-                      'Tune how Infinit Lab looks, reads and starts. Everything is stored locally.',
-                      'ظاهر، خوانایی و شروع Infinit Lab را تنظیم کنید. همهٔ تنظیمات محلی ذخیره می‌شوند.',
-                    ),
+                    title: l.t('ui.settings'),
+                    subtitle: l.t('ui.tune_how_infinit_lab_looks_reads_and_starts_ever'),
                   ),
                   const SizedBox(height: 16),
                   Wrap(
@@ -206,7 +197,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     runSpacing: 8,
                     children: [
                       TypeBadge(
-                        l.t('Local preferences', 'تنظیمات محلی'),
+                        l.t('ui.local_preferences'),
                         icon: Icons.lock_outline_rounded,
                       ),
                       if (widget.version.isNotEmpty)
@@ -232,11 +223,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     _section(
                       key: _appearanceKey,
                       icon: Icons.palette_outlined,
-                      title: l.t('Appearance', 'ظاهر'),
-                      subtitle: l.t(
-                        'Theme, accent colour, contrast and motion in one place.',
-                        'پوسته، رنگ، کنتراست و حرکت در یک جا.',
-                      ),
+                      title: l.t('ui.appearance'),
+                      subtitle: l.t('ui.theme_accent_colour_contrast_and_motion_in_one_p'),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -248,11 +236,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           const SizedBox(height: 14),
                           _SwitchRow(
                             icon: Icons.animation_rounded,
-                            title: l.t('Reduce motion', 'کاهش حرکت'),
-                            subtitle: l.t(
-                              'Turn off page and result transitions.',
-                              'انتقال‌های صفحه و نتیجه را خاموش می‌کند.',
-                            ),
+                            title: l.t('ui.reduce_motion'),
+                            subtitle: l.t('ui.turn_off_page_and_result_transitions'),
                             value: s.reduceMotion,
                             onChanged: s.setReduceMotion,
                           ),
@@ -263,55 +248,40 @@ class _SettingsPageState extends State<SettingsPage> {
                     _section(
                       key: _languageKey,
                       icon: Icons.translate_rounded,
-                      title: l.t('Language', 'زبان'),
-                      subtitle: l.t(
-                        'The interface language, including labels and worked notes.',
-                        'زبان رابط، شامل برچسب‌ها و توضیحات حل.',
-                      ),
+                      title: l.t('ui.language'),
+                      subtitle: l.t('ui.the_interface_language_including_labels_and_work'),
                       child: _language(context, s, l),
                     ),
                     const SizedBox(height: 16),
                     _section(
                       key: _typographyKey,
                       icon: Icons.text_fields_rounded,
-                      title: l.t('Typography', 'تایپوگرافی'),
-                      subtitle: l.t(
-                        'Scale the interface for your screen and reading distance.',
-                        'رابط را برای صفحه و فاصلهٔ مطالعهٔ خود بزرگ‌تر یا کوچک‌تر کنید.',
-                      ),
+                      title: l.t('ui.typography'),
+                      subtitle: l.t('ui.scale_the_interface_for_your_screen_and_reading'),
                       child: _typography(context, s, l),
                     ),
                     const SizedBox(height: 16),
                     _section(
                       key: _solutionsKey,
                       icon: Icons.insights_rounded,
-                      title: l.t('Solutions & graphs', 'حل و نمودار'),
-                      subtitle: l.t(
-                        'Choose how much of the reasoning is shown and how numbers are rounded.',
-                        'انتخاب کنید چه مقدار از استدلال نمایش داده شود و اعداد چگونه گرد شوند.',
-                      ),
+                      title: l.t('ui.solutions_graphs'),
+                      subtitle: l.t('ui.choose_how_much_of_the_reasoning_is_shown_and_ho'),
                       child: _solutions(context, s, l),
                     ),
                     const SizedBox(height: 16),
                     _section(
                       key: _workspaceKey,
                       icon: Icons.space_dashboard_outlined,
-                      title: l.t('Workspace', 'فضای کار'),
-                      subtitle: l.t(
-                        'Pick the page that opens when Infinit Lab starts.',
-                        'صفحه‌ای را انتخاب کنید که هنگام شروع Infinit Lab باز می‌شود.',
-                      ),
+                      title: l.t('ui.workspace'),
+                      subtitle: l.t('ui.pick_the_page_that_opens_when_infinit_lab_starts'),
                       child: _workspace(context, s, l),
                     ),
                     const SizedBox(height: 16),
                     _section(
                       key: _aboutKey,
                       icon: Icons.info_outline_rounded,
-                      title: l.t('Engine & about', 'موتور و درباره'),
-                      subtitle: l.t(
-                        'Build information, diagnostics and the way back to defaults.',
-                        'اطلاعات نسخه، تشخیص خطا و بازگشت به پیش‌فرض‌ها.',
-                      ),
+                      title: l.t('ui.engine_about'),
+                      subtitle: l.t('ui.build_information_diagnostics_and_the_way_back_t'),
                       child: _about(context, s, l),
                     ),
                   ],
@@ -387,22 +357,22 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             _OptionTile(
               icon: Icons.brightness_auto_rounded,
-              label: l.t('System mode', 'حالت سیستم'),
-              subtitle: l.t('Follow the OS', 'هماهنگ با سیستم'),
+              label: l.t('ui.system_mode'),
+              subtitle: l.t('ui.follow_the_os'),
               selected: s.themeMode == ThemeMode.system,
               onTap: () => s.setThemeMode(ThemeMode.system),
             ),
             _OptionTile(
               icon: Icons.light_mode_rounded,
-              label: l.t('Light mode', 'حالت روشن'),
-              subtitle: l.t('Bright surfaces', 'سطح روشن'),
+              label: l.t('ui.light_mode'),
+              subtitle: l.t('ui.bright_surfaces'),
               selected: s.themeMode == ThemeMode.light,
               onTap: () => s.setThemeMode(ThemeMode.light),
             ),
             _OptionTile(
               icon: Icons.dark_mode_rounded,
-              label: l.t('Dark mode', 'حالت تاریک'),
-              subtitle: l.t('Low-light workspace', 'فضای کم‌نور'),
+              label: l.t('ui.dark_mode'),
+              subtitle: l.t('ui.low_light_workspace'),
               selected: s.themeMode == ThemeMode.dark,
               onTap: () => s.setThemeMode(ThemeMode.dark),
             ),
@@ -415,10 +385,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(width: 7),
             Expanded(
               child: Text(
-                l.t(
-                  'System follows the desktop or device appearance.',
-                  'گزینهٔ سیستم از ظاهر سیستم‌عامل یا دستگاه پیروی می‌کند.',
-                ),
+                l.t('ui.system_follows_the_desktop_or_device_appearance'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -434,7 +401,7 @@ class _SettingsPageState extends State<SettingsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l.t('Accent palette', 'پالت رنگی'),
+          l.t('ui.accent_palette'),
           style: Theme.of(context).textTheme.bodySmall
               ?.copyWith(fontWeight: FontWeight.w600, color: c.text),
         ),
@@ -482,14 +449,11 @@ class _SettingsPageState extends State<SettingsPage> {
               contentPadding: EdgeInsets.zero,
               activeThumbColor: c.accent,
               title: Text(
-                l.t('High contrast', 'کنتراست بالا'),
+                l.t('ui.high_contrast'),
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               subtitle: Text(
-                l.t(
-                  'Stronger borders and brighter text for bright rooms or low-vision use.',
-                  'خطوط پررنگ‌تر و متن روشن‌تر برای محیط روشن یا دید کم.',
-                ),
+                l.t('ui.stronger_borders_and_brighter_text_for_bright_ro'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -502,10 +466,10 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _typography(BuildContext context, AppSettings s, L10n l) {
     final c = context.colors;
     final labels = [
-      l.t('Small', 'کوچک'),
-      l.t('Normal', 'معمولی'),
-      l.t('Large', 'بزرگ'),
-      l.t('Extra large', 'خیلی بزرگ'),
+      l.t('ui.small'),
+      l.t('ui.normal'),
+      l.t('ui.large'),
+      l.t('ui.extra_large'),
     ];
     final sizes = ['Aa', 'Aa', 'Aa', 'Aa'];
     return Column(
@@ -551,7 +515,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   Icon(Icons.visibility_outlined, size: 15, color: c.muted),
                   const SizedBox(width: 6),
                   Text(
-                    l.t('Live preview', 'پیش‌نمایش زنده'),
+                    l.t('ui.live_preview'),
                     style: Theme.of(context).textTheme.bodySmall
                         ?.copyWith(fontWeight: FontWeight.w600),
                   ),
@@ -559,16 +523,13 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                l.t('Every equation has a form.', 'هر معادله‌ای یک فرم دارد.'),
+                l.t('ui.every_equation_has_a_form'),
                 style: Theme.of(context).textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(
-                l.t(
-                  'The answer, the solution path and the validation stay readable at every size.',
-                  'جواب، مسیر حل و اعتبارسنجی در هر اندازه‌ای خوانا می‌مانند.',
-                ),
+                l.t('ui.the_answer_the_solution_path_and_the_validation'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
@@ -618,18 +579,15 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(width: 7),
             Text(
               current.rtl
-                  ? l.t('Right to left', 'راست به چپ')
-                  : l.t('Left to right', 'چپ به راست'),
+                  ? l.t('ui.right_to_left')
+                  : l.t('ui.left_to_right'),
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
         const SizedBox(height: 10),
         Text(
-          l.t(
-            'Changing the language updates labels immediately. Worked solutions stay in English or Persian.',
-            'تغییر زبان برچسب‌ها را فوراً به‌روز می‌کند. متن حل‌های نوشته‌شده به انگلیسی یا فارسی می‌ماند.',
-          ),
+          l.t('ui.changing_the_language_updates_labels_immediately'),
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -639,49 +597,40 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _solutions(BuildContext context, AppSettings s, L10n l) {
     final c = context.colors;
     final decimals = [
-      (0, l.t('Automatic', 'خودکار')),
-      (2, l.t('2 decimals', '۲ رقم اعشار')),
-      (4, l.t('4 decimals', '۴ رقم اعشار')),
-      (6, l.t('6 decimals', '۶ رقم اعشار')),
+      (0, l.t('ui.automatic')),
+      (2, l.t('ui.2_decimals')),
+      (4, l.t('ui.4_decimals')),
+      (6, l.t('ui.6_decimals')),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SwitchRow(
           icon: Icons.route_outlined,
-          title: l.t('Step-by-step solution', 'حل مرحله‌به‌مرحله'),
-          subtitle: l.t(
-            'Show the full reasoning path under every answer. Turn it off for a quick answer-only view.',
-            'مسیر کامل استدلال را زیر هر جواب نشان بده. برای دیدن فقط جواب آن را خاموش کن.',
-          ),
+          title: l.t('ui.step_by_step_solution'),
+          subtitle: l.t('ui.show_the_full_reasoning_path_under_every_answer'),
           value: s.showSteps,
           onChanged: s.setShowSteps,
         ),
         const SizedBox(height: 10),
         _SwitchRow(
           icon: Icons.verified_outlined,
-          title: l.t('Validation checks', 'بررسی اعتبار'),
-          subtitle: l.t(
-            'Show the substitution checks, warnings and assumptions attached to an answer.',
-            'بررسی‌های جایگذاری، هشدارها و فرض‌های هر جواب را نشان بده.',
-          ),
+          title: l.t('ui.validation_checks'),
+          subtitle: l.t('ui.show_the_substitution_checks_warnings_and_assump'),
           value: s.showChecks,
           onChanged: s.setShowChecks,
         ),
         const SizedBox(height: 10),
         _SwitchRow(
           icon: Icons.insights_rounded,
-          title: l.t('Graphs', 'نمودارها'),
-          subtitle: l.t(
-            'Draw direction fields, solution curves, partial-sum plots and contour maps where they help.',
-            'میدان جهت، منحنی جواب، مجموع جزئی و نقشهٔ تراز را هرجا مفید است رسم کن.',
-          ),
+          title: l.t('ui.graphs'),
+          subtitle: l.t('ui.draw_direction_fields_solution_curves_partial_su'),
           value: s.showGraphs,
           onChanged: s.setShowGraphs,
         ),
         const SizedBox(height: 18),
         Text(
-          l.t('Decimal places', 'رقم‌های اعشار'),
+          l.t('ui.decimal_places'),
           style: Theme.of(context).textTheme.bodySmall
               ?.copyWith(fontWeight: FontWeight.w600, color: c.text),
         ),
@@ -693,7 +642,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: Icons.straighten_rounded,
                 label: label,
                 subtitle: value == 0
-                    ? l.t('Keeps full precision', 'دقت کامل را نگه می‌دارد')
+                    ? l.t('ui.keeps_full_precision')
                     : value.toStringAsFixed(value),
                 selected: s.decimalPlaces == value,
                 onTap: () => s.setDecimalPlaces(value),
@@ -707,10 +656,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(width: 7),
             Expanded(
               child: Text(
-                l.t(
-                  'Symbolic answers are always exact; this only changes numeric approximations.',
-                  'جواب‌های نمادین همیشه دقیق‌اند؛ این تنظیم فقط تقریب‌های عددی را تغییر می‌دهد.',
-                ),
+                l.t('ui.symbolic_answers_are_always_exact_this_only_chan'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -727,7 +673,7 @@ class _SettingsPageState extends State<SettingsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l.t('Start page', 'صفحهٔ شروع'),
+          l.t('ui.start_page'),
           style: Theme.of(context).textTheme.bodySmall
               ?.copyWith(fontWeight: FontWeight.w600, color: c.text),
         ),
@@ -765,19 +711,19 @@ class _SettingsPageState extends State<SettingsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                l.t('Keyboard shortcuts', 'کلیدهای میان‌بر'),
+                l.t('ui.keyboard_shortcuts'),
                 style: Theme.of(context).textTheme.bodySmall
                     ?.copyWith(fontWeight: FontWeight.w600, color: c.text),
               ),
               const SizedBox(height: 8),
               _ShortcutRow(
                 keys: const ['Ctrl', 'K'],
-                label: l.t('Search modules', 'جستجوی ماژول‌ها'),
+                label: l.t('ui.search_modules'),
               ),
               const SizedBox(height: 6),
               _ShortcutRow(
                 keys: const ['Ctrl', ','],
-                label: l.t('Open settings', 'باز کردن تنظیمات'),
+                label: l.t('ui.open_settings'),
               ),
             ],
           ),
@@ -804,10 +750,7 @@ class _SettingsPageState extends State<SettingsPage> {
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
-                  l.t(
-                    'Preferences are stored locally in your user configuration folder.',
-                    'تنظیمات به‌صورت محلی در پوشهٔ پیکربندی کاربر ذخیره می‌شوند.',
-                  ),
+                  l.t('ui.preferences_are_stored_locally_in_your_user_conf'),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -822,7 +765,7 @@ class _SettingsPageState extends State<SettingsPage> {
             OutlinedButton.icon(
               onPressed: () => _copyDiagnostics(l),
               icon: const Icon(Icons.copy_all_rounded, size: 17),
-              label: Text(l.t('Copy diagnostics', 'کپی اطلاعات تشخیصی')),
+              label: Text(l.t('ui.copy_diagnostics')),
             ),
             OutlinedButton.icon(
               onPressed: () => showLicensePage(
@@ -831,7 +774,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 applicationVersion: widget.version,
               ),
               icon: const Icon(Icons.article_outlined, size: 17),
-              label: Text(l.t('Licences', 'مجوزها')),
+              label: Text(l.t('ui.licences')),
             ),
             OutlinedButton.icon(
               onPressed: () => _confirmReset(l),
@@ -840,7 +783,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 side: BorderSide(color: c.warning.withValues(alpha: 0.5)),
               ),
               icon: const Icon(Icons.restart_alt_rounded, size: 17),
-              label: Text(l.t('Restore defaults', 'بازگردانی پیش‌فرض‌ها')),
+              label: Text(l.t('ui.restore_defaults_2')),
             ),
           ],
         ),
@@ -866,17 +809,17 @@ class _QuickPreferences extends StatelessWidget {
           icon: Icons.brightness_6_outlined,
           children: [
             _QuickChip(
-              label: l10n.t('System', 'سیستم'),
+              label: l10n.t('ui.system'),
               selected: settings.themeMode == ThemeMode.system,
               onTap: () => settings.setThemeMode(ThemeMode.system),
             ),
             _QuickChip(
-              label: l10n.t('Light', 'روشن'),
+              label: l10n.t('ui.light'),
               selected: settings.themeMode == ThemeMode.light,
               onTap: () => settings.setThemeMode(ThemeMode.light),
             ),
             _QuickChip(
-              label: l10n.t('Dark', 'تاریک'),
+              label: l10n.t('ui.dark'),
               selected: settings.themeMode == ThemeMode.dark,
               onTap: () => settings.setThemeMode(ThemeMode.dark),
             ),

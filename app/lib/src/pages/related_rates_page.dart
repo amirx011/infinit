@@ -85,20 +85,14 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _relation.text.trim();
     if (text.isEmpty) {
       setState(
-        () => _error = l.t(
-          'Enter the relation between the quantities.',
-          'رابطهٔ بین کمیت‌ها را وارد کنید.',
-        ),
+        () => _error = l.t('ui.enter_the_relation_between_the_quantities'),
       );
       return;
     }
@@ -149,19 +143,13 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
             children: [
               PageTitle(
                 icon: Icons.speed_rounded,
-                title: l.t('Related rates', 'نرخ‌های مرتبط'),
-                subtitle: l.t(
-                  'Differentiate a relation with respect to time to link the rates of two quantities.',
-                  'با مشتق‌گیری از یک رابطه نسبت به زمان، نرخ دو کمیت به هم مرتبط می‌شود.',
-                ),
+                title: l.t('ui.related_rates'),
+                subtitle: l.t('ui.differentiate_a_relation_with_respect_to_time_to'),
               ),
               const SizedBox(height: 18),
               ExpressionField(
                 controller: _relation,
-                hint: l.t(
-                  'e.g. x^2 + y^2 = 25',
-                  'مثلاً x^2 + y^2 = 25',
-                ),
+                hint: l.t('ui.e_g_x_2_y_2_25'),
                 onSubmitted: _run,
               ),
               const SizedBox(height: 12),
@@ -171,27 +159,24 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
                 children: [
                   LabelledField(
                     controller: _varQ,
-                    label: l.t('Requested', 'خواسته‌شده'),
+                    label: l.t('ui.requested'),
                     width: 115,
                   ),
                   LabelledField(
                     controller: _varW,
-                    label: l.t('Known rate of', 'نرخ معلوم'),
+                    label: l.t('ui.known_rate_of'),
                     width: 130,
                   ),
                   LabelledField(
                     controller: _time,
-                    label: l.t('Time variable', 'متغیر زمان'),
+                    label: l.t('ui.time_variable'),
                     width: 120,
                   ),
                 ],
               ),
               const SizedBox(height: 14),
               Text(
-                l.t(
-                  'Optional: the instant and the known rate',
-                  'اختیاری: مقدار لحظه‌ای و نرخ معلوم',
-                ),
+                l.t('ui.optional_the_instant_and_the_known_rate'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -215,7 +200,7 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
                   ),
                   LabelledField(
                     controller: _givenRate,
-                    label: l.t('known rate', 'نرخ معلوم'),
+                    label: l.t('ui.known_rate'),
                     width: 120,
                   ),
                 ],
@@ -244,8 +229,8 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
                     : const Icon(Icons.speed_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Differentiating…', 'در حال مشتق‌گیری…')
-                      : l.t('Relate the rates', 'نرخ‌ها را مرتبط کن'),
+                      ? l.t('ui.differentiating')
+                      : l.t('ui.relate_the_rates'),
                 ),
               ),
             ],
@@ -254,29 +239,14 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t('Time hides inside both quantities', 'زمان درون هر دو کمیت پنهان است'),
-          idea: l.t(
-            'A relation such as x² + y² = 25 describes a shape, but if a point moves along it then x and y both depend on time. Differentiating the whole relation with respect to t applies the chain rule to each quantity and leaves an equation linking their rates.',
-            'رابطه‌ای مثل x² + y² = 25 یک شکل را توصیف می‌کند، اما اگر نقطه‌ای روی آن حرکت کند، هم x و هم y به زمان وابسته‌اند. مشتق‌گیری از کل رابطه نسبت به t قاعدهٔ زنجیره‌ای را بر هر کمیت اعمال می‌کند و معادله‌ای می‌سازد که نرخ‌ها را به هم می‌بندد.',
-          ),
+          title: l.t('ui.time_hides_inside_both_quantities'),
+          idea: l.t('ui.a_relation_such_as_x_y_25_describes_a_shape_but'),
           points: [
-            l.t(
-              'Differentiate every term, attaching d/dt to each quantity.',
-              'از هر جمله مشتق بگیرید و به هر کمیت عامل d/dt بچسبانید.',
-            ),
-            l.t(
-              'Substitute the instantaneous values only after differentiating, never before.',
-              'مقادیر لحظه‌ای را فقط بعد از مشتق‌گیری جایگذاری کنید، نه پیش از آن.',
-            ),
-            l.t(
-              'Solve the resulting linear equation for the rate you were asked about.',
-              'معادلهٔ خطی حاصل را برای نرخی که خواسته شده حل کنید.',
-            ),
+            l.t('ui.differentiate_every_term_attaching_d_dt_to_each'),
+            l.t('ui.substitute_the_instantaneous_values_only_after_d'),
+            l.t('ui.solve_the_resulting_linear_equation_for_the_rate'),
           ],
-          pitfall: l.t(
-            'Substituting the numbers first turns the relation into a constant and every rate becomes zero.',
-            'اگر اول اعداد را جایگذاری کنید، رابطه به یک ثابت تبدیل می‌شود و همهٔ نرخ‌ها صفر می‌شوند.',
-          ),
+          pitfall: l.t('ui.substituting_the_numbers_first_turns_the_relatio'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -315,10 +285,7 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                l.t(
-                  'Fill in the two values and the known rate to see the local picture.',
-                  'برای دیدن تصویر موضعی، دو مقدار و نرخ معلوم را پر کنید.',
-                ),
+                l.t('ui.fill_in_the_two_values_and_the_known_rate_to_see'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -358,10 +325,7 @@ class _RelatedRatesPageState extends State<RelatedRatesPage> {
         xLabel: q,
         yLabel: w,
       ),
-      caption: l.t(
-        'At the chosen instant the relation behaves locally like a line through the marked point, and that line slope is the ratio of the two rates.',
-        'در لحظهٔ انتخاب‌شده، رابطه به‌طور موضعی مانند خطی است که از نقطهٔ نشانگر می‌گذرد و شیب آن نسبت دو نرخ است.',
-      ),
+      caption: l.t('ui.at_the_chosen_instant_the_relation_behaves_local'),
     );
   }
 }

@@ -358,7 +358,7 @@ class _LearningCardState extends State<LearningCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l.t('STUDY NOTE', 'نکتهٔ آموزشی'),
+                      l.t('ui.study_note'),
                       style: TextStyle(
                         fontFamily: 'Vazirmatn',
                         fontSize: 12,
@@ -417,9 +417,9 @@ class _LearningCardState extends State<LearningCard> {
                 ),
                 label: Text(
                   _expanded
-                      ? l.t('Hide the detail', 'بستن توضیح')
+                      ? l.t('ui.hide_the_detail')
                       : widget.expandLabel ??
-                            l.t('Worked example & pitfalls', 'مثال و دام‌ها'),
+                            l.t('ui.worked_example_pitfalls'),
                 ),
               ),
             ),
@@ -476,7 +476,7 @@ class _LearningCardState extends State<LearningCard> {
             const SizedBox(height: 8),
             Text(
               widget.exampleCaption ??
-                  l.t('A worked example', 'یک مثال حل‌شده'),
+                  l.t('ui.a_worked_example'),
               style: theme.textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: c.muted,
@@ -498,7 +498,7 @@ class _LearningCardState extends State<LearningCard> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '${l.t('Common pitfall', 'دام رایج')}: ${widget.pitfall}',
+                    '${l.t('ui.common_pitfall')}: ${widget.pitfall}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       height: 1.65,
                       color: c.muted,
@@ -537,7 +537,7 @@ class ResultView extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.t('Copied.', 'کپی شد.'))));
+        .showSnackBar(SnackBar(content: Text(l10n.t('ui.copied'))));
   }
 
   @override
@@ -557,7 +557,7 @@ class ResultView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    l10n.t('Not solved', 'حل نشد'),
+                    l10n.t('ui.not_solved'),
                     style: Theme.of(context).textTheme.titleMedium
                         ?.copyWith(color: scheme.error),
                   ),
@@ -651,7 +651,7 @@ class ResultView extends StatelessWidget {
 
   String _typeName() {
     if (result.mode == 'derivative') {
-      if (result.implicit) return l10n.t('Implicit derivative', 'مشتق ضمنی');
+      if (result.implicit) return l10n.t('ui.implicit_derivative');
       if (result.order > 3) {
         return l10n.t(
           'Derivative of order ${result.order}',
@@ -660,38 +660,38 @@ class ResultView extends StatelessWidget {
       }
       switch (result.order) {
         case 3:
-          return l10n.t('Third derivative', 'مشتق مرتبهٔ سوم');
+          return l10n.t('ui.third_derivative');
         case 2:
-          return l10n.t('Second derivative', 'مشتق مرتبهٔ دوم');
+          return l10n.t('ui.second_derivative');
         default:
-          return l10n.t('First derivative', 'مشتق مرتبهٔ اول');
+          return l10n.t('ui.first_derivative');
       }
     }
     if (result.mode == 'limit') {
-      if (result.side == 'left') return l10n.t('Left-hand limit', 'حد از چپ');
+      if (result.side == 'left') return l10n.t('ui.left_hand_limit');
       if (result.side == 'right') {
-        return l10n.t('Right-hand limit', 'حد از راست');
+        return l10n.t('ui.right_hand_limit');
       }
-      return l10n.t('Limit', 'حد');
+      return l10n.t('ui.limit');
     }
     if (result.mode == 'continuity') {
-      return l10n.t('Continuity', 'پیوستگی');
+      return l10n.t('ui.continuity');
     }
     if (result.mode == 'integral') {
       final def = result.definite;
       switch (result.dimension) {
         case 3:
           return def
-              ? l10n.t('Triple integral (definite)', 'انتگرال سه‌گانهٔ معین')
-              : l10n.t('Triple integral', 'انتگرال سه‌گانه');
+              ? l10n.t('ui.triple_integral_definite')
+              : l10n.t('ui.triple_integral');
         case 2:
           return def
-              ? l10n.t('Double integral (definite)', 'انتگرال دوگانهٔ معین')
-              : l10n.t('Double integral', 'انتگرال دوگانه');
+              ? l10n.t('ui.double_integral_definite')
+              : l10n.t('ui.double_integral');
         default:
           return def
-              ? l10n.t('Definite integral', 'انتگرال معین')
-              : l10n.t('Indefinite integral', 'انتگرال نامعین');
+              ? l10n.t('ui.definite_integral')
+              : l10n.t('ui.indefinite_integral');
       }
     }
     return l10n.isFa ? result.typeFa : result.typeEn;
@@ -702,13 +702,13 @@ class ResultView extends StatelessWidget {
       : '${angle.toStringAsFixed(1)}°';
 
   String _seriesTestLabel(String test) => switch (test) {
-    'geometric' => l10n.t('Geometric series', 'سری هندسی'),
-    'p-series' => l10n.t('p-series', 'سری p'),
-    'ratio' => l10n.t('Ratio test', 'آزمون نسبت'),
-    'root' => l10n.t('Root test', 'آزمون ریشه'),
-    'alternating' => l10n.t('Alternating series', 'سری متناوب'),
-    'nth-term' => l10n.t('nth-term test', 'آزمون جملهٔ nام'),
-    _ => l10n.t('Numeric evidence', 'شواهد عددی'),
+    'geometric' => l10n.t('ui.geometric_series'),
+    'p-series' => l10n.t('ui.p_series'),
+    'ratio' => l10n.t('ui.ratio_test'),
+    'root' => l10n.t('ui.root_test'),
+    'alternating' => l10n.t('ui.alternating_series'),
+    'nth-term' => l10n.t('ui.nth_term_test'),
+    _ => l10n.t('ui.numeric_evidence'),
   };
 
   int _decimals(BuildContext context) =>
@@ -736,7 +736,7 @@ class ResultView extends StatelessWidget {
   String _limitSideText(ExView? value, bool infinite, int sign) {
     if (value != null) return value.pretty;
     if (infinite) return sign < 0 ? '−∞' : '∞';
-    return l10n.t('does not exist', 'وجود ندارد');
+    return l10n.t('ui.does_not_exist');
   }
 
   String _limitSideLatex(ExView? value, bool infinite, int sign) {
@@ -748,29 +748,29 @@ class ResultView extends StatelessWidget {
   String _lawName(String id) {
     switch (id) {
       case 'constant':
-        return l10n.t('constant law', 'قانون ثابت');
+        return l10n.t('ui.constant_law');
       case 'identity':
-        return l10n.t('identity law', 'قانون متغیر');
+        return l10n.t('ui.identity_law');
       case 'sum':
-        return l10n.t('sum law', 'قانون جمع');
+        return l10n.t('ui.sum_law');
       case 'product':
-        return l10n.t('product law', 'قانون ضرب');
+        return l10n.t('ui.product_law');
       case 'quotient':
-        return l10n.t('quotient law', 'قانون تقسیم');
+        return l10n.t('ui.quotient_law');
       case 'power':
-        return l10n.t('power law', 'قانون توان');
+        return l10n.t('ui.power_law');
       case 'composite':
-        return l10n.t('composition', 'ترکیب');
+        return l10n.t('ui.composition');
       case 'lhopital':
-        return l10n.t("L'Hôpital", 'هوپیتال');
+        return l10n.t('ui.l_h_pital');
       case 'algebraic_simplification':
-        return l10n.t('algebraic simplification', 'ساده‌سازی جبری');
+        return l10n.t('ui.algebraic_simplification');
       case 'exponential_rewrite':
-        return l10n.t('exponential rewrite', 'بازنویسی نمایی');
+        return l10n.t('ui.exponential_rewrite');
       case 'squeeze':
-        return l10n.t('squeeze law', 'قانون فشردگی');
+        return l10n.t('ui.squeeze_law');
       case 'two_sided':
-        return l10n.t('two-sided check', 'بررسی دوطرفه');
+        return l10n.t('ui.two_sided_check');
       default:
         return id;
     }
@@ -779,15 +779,15 @@ class ResultView extends StatelessWidget {
   String _discontinuityName(String kind) {
     switch (kind) {
       case 'removable':
-        return l10n.t('Removable discontinuity', 'انقطاع رفع‌شدنی');
+        return l10n.t('ui.removable_discontinuity');
       case 'jump':
-        return l10n.t('Jump discontinuity', 'انقطاع جهشی');
+        return l10n.t('ui.jump_discontinuity');
       case 'infinite':
-        return l10n.t('Infinite discontinuity', 'انقطاع نامتناهی');
+        return l10n.t('ui.infinite_discontinuity');
       case 'oscillatory':
-        return l10n.t('The limit does not exist', 'حد وجود ندارد');
+        return l10n.t('ui.the_limit_does_not_exist');
       default:
-        return l10n.t('Not continuous', 'پیوسته نیست');
+        return l10n.t('ui.not_continuous');
     }
   }
 
@@ -813,7 +813,7 @@ class ResultView extends StatelessWidget {
         ? '\\text{diverges}'
         : (solutionLatex ?? (result.hasNumeric ? valueText : '\\text{?}'));
     final rhsPretty = result.divergent
-        ? l10n.t('diverges', 'واگرا')
+        ? l10n.t('ui.diverges')
         : (solutionPretty ?? (result.hasNumeric ? valueText : '?'));
 
     String latex;
@@ -897,7 +897,7 @@ class ResultView extends StatelessWidget {
     if (!result.closedForm) {
       badges.add(
         TypeBadge(
-          l10n.t('Quadrature answer', 'جواب کوادراتوری'),
+          l10n.t('ui.quadrature_answer'),
           icon: Icons.functions_rounded,
           tone: c.warning,
         ),
@@ -906,7 +906,7 @@ class ResultView extends StatelessWidget {
     if (result.divergent) {
       badges.add(
         TypeBadge(
-          l10n.t('Divergent', 'واگرا'),
+          l10n.t('ui.divergent'),
           icon: Icons.trending_up_rounded,
           tone: c.warning,
         ),
@@ -914,7 +914,7 @@ class ResultView extends StatelessWidget {
     } else if (result.improper) {
       badges.add(
         TypeBadge(
-          l10n.t('Improper integral', 'انتگرال ناسره'),
+          l10n.t('ui.improper_integral'),
           icon: Icons.warning_amber_rounded,
           tone: c.warning,
         ),
@@ -923,7 +923,7 @@ class ResultView extends StatelessWidget {
     if (result.ok && !result.verified) {
       badges.add(
         TypeBadge(
-          l10n.t('Not verified', 'تأییدنشده'),
+          l10n.t('ui.not_verified'),
           icon: Icons.help_outline_rounded,
           tone: c.warning,
         ),
@@ -944,7 +944,7 @@ class ResultView extends StatelessWidget {
     children.add(const SizedBox(height: 16));
 
     if (result.numericOnly) {
-      children.add(SectionLabel(l10n.t('Numerical solution', 'جواب عددی')));
+      children.add(SectionLabel(l10n.t('ui.numerical_solution')));
       children.add(const SizedBox(height: 10));
       final rhs = result.numericRhs.isEmpty ? 'f(x, y, y′)' : result.numericRhs;
       children.add(
@@ -956,17 +956,14 @@ class ResultView extends StatelessWidget {
           ),
           accent: true,
           size: 22,
-          tooltip: l10n.t('Copy', 'کپی'),
+          tooltip: l10n.t('ui.copy'),
         ),
       );
       children.add(const SizedBox(height: 12));
       children.add(
         Text(
           result.numericNote.isEmpty
-              ? l10n.t(
-                  'No closed form was found. The curves below are approximate RK4 trajectories.',
-                  'فرم بسته‌ای پیدا نشد. منحنی‌های زیر مسیرهای تقریبی RK4 هستند.',
-                )
+              ? l10n.t('ui.no_closed_form_was_found_the_curves_below_are_ap')
               : result.numericNote,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
@@ -974,14 +971,14 @@ class ResultView extends StatelessWidget {
       children.add(const SizedBox(height: 10));
       children.add(
         TypeBadge(
-          l10n.t('Approximate', 'تقریبی'),
+          l10n.t('ui.approximate'),
           icon: Icons.straighten_rounded,
           tone: c.warning,
         ),
       );
     } else if (result.mode == 'wronskian') {
       children.add(
-        SectionLabel(l10n.t('Wronskian determinant', 'دترمینان رونسکی')),
+        SectionLabel(l10n.t('ui.wronskian_determinant')),
       );
       children.add(const SizedBox(height: 10));
       if (result.wronskian != null) {
@@ -990,7 +987,7 @@ class ResultView extends StatelessWidget {
             math: result.wronskian!,
             accent: true,
             size: 22,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(context, result.wronskian),
           ),
         );
@@ -1002,8 +999,8 @@ class ResultView extends StatelessWidget {
       children.add(
         SectionLabel(
           isDefinite
-              ? l10n.t('Definite integral', 'انتگرال معین')
-              : l10n.t('Indefinite integral', 'انتگرال نامعین'),
+              ? l10n.t('ui.definite_integral')
+              : l10n.t('ui.indefinite_integral'),
         ),
       );
       children.add(const SizedBox(height: 10));
@@ -1014,7 +1011,7 @@ class ResultView extends StatelessWidget {
             math: formula,
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(context, formula),
           ),
         );
@@ -1034,10 +1031,7 @@ class ResultView extends StatelessWidget {
         children.add(
           _NoteRow(
             icon: Icons.trending_up_rounded,
-            text: l10n.t(
-              'The integral diverges: the integrand is singular or the tail does not vanish.',
-              'انتگرال واگرا است: انتگرال‌ده تکین است یا دنبالهٔ بی‌نهایت به صفر نمی‌رسد.',
-            ),
+            text: l10n.t('ui.the_integral_diverges_the_integrand_is_singular'),
             color: c.warning,
           ),
         );
@@ -1070,7 +1064,7 @@ class ResultView extends StatelessWidget {
         );
       }
     } else if (result.mode == 'limit') {
-      children.add(SectionLabel(l10n.t('Limit', 'حد')));
+      children.add(SectionLabel(l10n.t('ui.limit')));
       children.add(const SizedBox(height: 10));
       final f = result.normalized;
       final v = result.variable.isEmpty ? 'x' : result.variable;
@@ -1093,7 +1087,7 @@ class ResultView extends StatelessWidget {
             '≈ ${_formatNumber(result.numericValue, decimals: _decimals(context))}';
       } else {
         rhsLatex = '\\text{does not exist}';
-        rhsPretty = l10n.t('does not exist', 'وجود ندارد');
+        rhsPretty = l10n.t('ui.does_not_exist');
       }
       final bodyLatex = f == null ? '' : f.latex;
       final bodyPretty = f == null ? '' : f.pretty;
@@ -1107,7 +1101,7 @@ class ResultView extends StatelessWidget {
           math: formula,
           accent: true,
           size: 21,
-          tooltip: l10n.t('Copy', 'کپی'),
+          tooltip: l10n.t('ui.copy'),
           onCopy: () => _copyMath(context, formula),
         ),
       );
@@ -1123,12 +1117,12 @@ class ResultView extends StatelessWidget {
             runSpacing: 8,
             children: [
               TypeBadge(
-                '${l10n.t('Left', 'چپ')}: ${_limitSideText(result.leftValue, result.leftInfinite, result.leftSign)}',
+                '${l10n.t('ui.left_2')}: ${_limitSideText(result.leftValue, result.leftInfinite, result.leftSign)}',
                 icon: Icons.west_rounded,
                 tone: c.muted,
               ),
               TypeBadge(
-                '${l10n.t('Right', 'راست')}: ${_limitSideText(result.rightValue, result.rightInfinite, result.rightSign)}',
+                '${l10n.t('ui.right_2')}: ${_limitSideText(result.rightValue, result.rightInfinite, result.rightSign)}',
                 icon: Icons.east_rounded,
                 tone: c.muted,
               ),
@@ -1140,7 +1134,7 @@ class ResultView extends StatelessWidget {
         children.add(const SizedBox(height: 12));
         children.add(
           Text(
-            '${l10n.t('Rules', 'قوانین')}: ${result.laws.map((e) => _lawName(e)).join(' · ')}',
+            '${l10n.t('ui.rules')}: ${result.laws.map((e) => _lawName(e)).join(' · ')}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         );
@@ -1149,9 +1143,9 @@ class ResultView extends StatelessWidget {
       final v = result.variable.isEmpty ? 'x' : result.variable;
       final a = result.point.isEmpty ? '0' : result.point;
       final verdict = result.continuous
-          ? l10n.t('Continuous at this point', 'در این نقطه پیوسته است')
+          ? l10n.t('ui.continuous_at_this_point')
           : _discontinuityName(result.discontinuity);
-      children.add(SectionLabel(l10n.t('Continuity', 'پیوستگی')));
+      children.add(SectionLabel(l10n.t('ui.continuity')));
       children.add(const SizedBox(height: 10));
       children.add(
         Container(
@@ -1206,7 +1200,7 @@ class ResultView extends StatelessWidget {
         ExView(
           plain: 'f($a) = ${result.valueAt?.plain ?? 'undefined'}',
           pretty:
-              'f($a) = ${result.valueAt?.pretty ?? l10n.t('undefined', 'تعریف‌نشده')}',
+              'f($a) = ${result.valueAt?.pretty ?? l10n.t('ui.undefined')}',
           latex: 'f($a) = ${result.valueAt?.latex ?? '\\text{undefined}'}',
         ),
       ];
@@ -1219,7 +1213,7 @@ class ResultView extends StatelessWidget {
         );
       }
     } else if (result.mode == 'derivative') {
-      children.add(SectionLabel(l10n.t('Derivative', 'مشتق')));
+      children.add(SectionLabel(l10n.t('ui.derivative')));
       children.add(const SizedBox(height: 10));
       final formula = _derivativeFormula();
       if (formula != null) {
@@ -1228,7 +1222,7 @@ class ResultView extends StatelessWidget {
             math: formula,
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(context, formula),
           ),
         );
@@ -1247,7 +1241,7 @@ class ResultView extends StatelessWidget {
       children.addAll(_theoremAnswer(context));
     } else if (result.mode == 'envelope') {
       children.add(
-        SectionLabel(l10n.t('Envelope of the family', 'پوش خانواده')),
+        SectionLabel(l10n.t('ui.envelope_of_the_family')),
       );
       children.add(const SizedBox(height: 10));
       if (result.envelope.isEmpty) {
@@ -1260,7 +1254,7 @@ class ResultView extends StatelessWidget {
               border: Border.all(color: c.line),
             ),
             child: Text(
-              l10n.t('This family has no envelope.', 'این خانواده پوش ندارد.'),
+              l10n.t('ui.this_family_has_no_envelope'),
             ),
           ),
         );
@@ -1280,7 +1274,7 @@ class ResultView extends StatelessWidget {
                 ),
                 accent: true,
                 size: 21,
-                tooltip: l10n.t('Copy', 'کپی'),
+                tooltip: l10n.t('ui.copy'),
                 onCopy: () => _copyMath(context, curve),
               ),
             ),
@@ -1290,7 +1284,7 @@ class ResultView extends StatelessWidget {
       if (result.parametricAvailable) {
         children.add(const SizedBox(height: 14));
         children.add(
-          SectionLabel(l10n.t('Parametric solution', 'جواب پارامتری')),
+          SectionLabel(l10n.t('ui.parametric_solution')),
         );
         if (result.paramX != null) {
           children.add(const SizedBox(height: 8));
@@ -1312,7 +1306,7 @@ class ResultView extends StatelessWidget {
             : '${o.pretty} = C';
         children.add(const SizedBox(height: 16));
         children.add(
-          SectionLabel(l10n.t('Orthogonal trajectories', 'مسیرهای قائم')),
+          SectionLabel(l10n.t('ui.orthogonal_trajectories')),
         );
         children.add(const SizedBox(height: 10));
         children.add(
@@ -1328,7 +1322,7 @@ class ResultView extends StatelessWidget {
             ),
             accent: true,
             size: 20,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(context, o),
           ),
         );
@@ -1341,8 +1335,8 @@ class ResultView extends StatelessWidget {
         children.add(
           SectionLabel(
             oblique
-                ? l10n.t('Oblique trajectories', 'مسیرهای مایل')
-                : l10n.t('Orthogonal trajectories', 'مسیرهای قائم'),
+                ? l10n.t('ui.oblique_trajectories')
+                : l10n.t('ui.orthogonal_trajectories'),
           ),
         );
         children.add(const SizedBox(height: 10));
@@ -1354,7 +1348,7 @@ class ResultView extends StatelessWidget {
             math: ExView(plain: plain, pretty: pretty, latex: latex),
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(
               context,
               ExView(plain: plain, pretty: pretty, latex: latex),
@@ -1379,8 +1373,8 @@ class ResultView extends StatelessWidget {
       children.add(
         SectionLabel(
           result.application == 'maclaurin'
-              ? l10n.t('Maclaurin polynomial', 'چندجمله‌ای مکلورن')
-              : l10n.t('Taylor polynomial', 'چندجمله‌ای تیلور'),
+              ? l10n.t('ui.maclaurin_polynomial')
+              : l10n.t('ui.taylor_polynomial'),
         ),
       );
       children.add(const SizedBox(height: 10));
@@ -1390,14 +1384,14 @@ class ResultView extends StatelessWidget {
             math: result.polynomial!,
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(context, result.polynomial),
           ),
         );
       }
       if (result.coefficients.isNotEmpty) {
         children.add(const SizedBox(height: 14));
-        children.add(SectionLabel(l10n.t('Coefficients', 'ضرایب')));
+        children.add(SectionLabel(l10n.t('ui.coefficients')));
         children.add(const SizedBox(height: 8));
         children.add(
           Wrap(
@@ -1416,16 +1410,16 @@ class ResultView extends StatelessWidget {
       if (result.remainder != null) {
         children.add(const SizedBox(height: 14));
         children.add(
-          SectionLabel(l10n.t('Lagrange remainder', 'باقی‌ماندهٔ لاگرانژ')),
+          SectionLabel(l10n.t('ui.lagrange_remainder')),
         );
         children.add(const SizedBox(height: 8));
         children.add(MathBlock(math: result.remainder!, size: 17));
       }
     } else if (result.mode == 'integral_apps') {
       final label = switch (result.application) {
-        'volume' => l10n.t('Volume of revolution', 'حجم دوران'),
-        'arc_length' => l10n.t('Arc length', 'طول قوس'),
-        _ => l10n.t('Area between curves', 'مساحت بین دو منحنی'),
+        'volume' => l10n.t('ui.volume_of_revolution'),
+        'arc_length' => l10n.t('ui.arc_length'),
+        _ => l10n.t('ui.area_between_curves'),
       };
       children.add(SectionLabel(label));
       children.add(const SizedBox(height: 10));
@@ -1436,7 +1430,7 @@ class ResultView extends StatelessWidget {
             math: answer,
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(context, answer),
           ),
         );
@@ -1453,7 +1447,7 @@ class ResultView extends StatelessWidget {
       }
       if (result.integrand != null) {
         children.add(const SizedBox(height: 14));
-        children.add(SectionLabel(l10n.t('Integrand', 'انتگرال‌ده')));
+        children.add(SectionLabel(l10n.t('ui.integrand')));
         children.add(const SizedBox(height: 8));
         children.add(MathBlock(math: result.integrand!, size: 17));
       }
@@ -1461,7 +1455,7 @@ class ResultView extends StatelessWidget {
       if (result.functionValue != null) {
         children.add(
           SectionLabel(
-            l10n.t('Value at the point', 'مقدار در نقطه') +
+            l10n.t('ui.value_at_the_point') +
                 (result.pointLabel.isEmpty ? '' : ' ${result.pointLabel}'),
           ),
         );
@@ -1470,7 +1464,7 @@ class ResultView extends StatelessWidget {
         children.add(const SizedBox(height: 14));
       }
       if (result.gradient.isNotEmpty) {
-        children.add(SectionLabel(l10n.t('Gradient', 'گرادیان')));
+        children.add(SectionLabel(l10n.t('ui.gradient')));
         children.add(const SizedBox(height: 10));
         children.add(
           Wrap(
@@ -1489,7 +1483,7 @@ class ResultView extends StatelessWidget {
       }
       if (result.partials.isNotEmpty) {
         children.add(
-          SectionLabel(l10n.t('Partial derivatives', 'مشتق‌های جزئی')),
+          SectionLabel(l10n.t('ui.partial_derivatives')),
         );
         children.add(const SizedBox(height: 8));
         for (final p in result.partials) {
@@ -1518,14 +1512,14 @@ class ResultView extends StatelessWidget {
       }
       if (result.laplacian != null) {
         children.add(const SizedBox(height: 8));
-        children.add(SectionLabel(l10n.t('Laplacian', 'لاپلاسیان')));
+        children.add(SectionLabel(l10n.t('ui.laplacian')));
         children.add(const SizedBox(height: 8));
         children.add(MathBlock(math: result.laplacian!, size: 17));
       }
       if (result.directional != null) {
         children.add(const SizedBox(height: 14));
         children.add(
-          SectionLabel(l10n.t('Directional derivative', 'مشتق جهت‌دار')),
+          SectionLabel(l10n.t('ui.directional_derivative')),
         );
         children.add(const SizedBox(height: 8));
         children.add(
@@ -1542,10 +1536,10 @@ class ResultView extends StatelessWidget {
           children: [
             TypeBadge(
               inconclusive
-                  ? l10n.t('Inconclusive', 'بی‌نتیجه')
+                  ? l10n.t('ui.inconclusive')
                   : converges
-                  ? l10n.t('Converges', 'همگرا')
-                  : l10n.t('Diverges', 'واگرا'),
+                  ? l10n.t('ui.converges')
+                  : l10n.t('ui.diverges_2'),
               icon: inconclusive
                   ? Icons.help_outline_rounded
                   : converges
@@ -1567,20 +1561,20 @@ class ResultView extends StatelessWidget {
       );
       children.add(const SizedBox(height: 14));
       if (result.seriesSum != null) {
-        children.add(SectionLabel(l10n.t('Exact sum', 'مجموع دقیق')));
+        children.add(SectionLabel(l10n.t('ui.exact_sum')));
         children.add(const SizedBox(height: 10));
         children.add(
           MathBlock(
             math: result.seriesSum!,
             accent: true,
             size: 21,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(context, result.seriesSum),
           ),
         );
       } else {
         children.add(
-          SectionLabel(l10n.t('Numeric partial sum', 'مجموع جزئی عددی')),
+          SectionLabel(l10n.t('ui.numeric_partial_sum')),
         );
         children.add(const SizedBox(height: 8));
         children.add(
@@ -1597,7 +1591,7 @@ class ResultView extends StatelessWidget {
       final primary = result.primary;
       children.add(
         SectionLabel(
-          l10n.t('Simplest answer', 'ساده‌ترین جواب'),
+          l10n.t('ui.simplest_answer'),
           icon: Icons.bolt_rounded,
         ),
       );
@@ -1617,7 +1611,7 @@ class ResultView extends StatelessWidget {
             math: primary,
             accent: true,
             size: 22,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(context, primary),
           ),
         );
@@ -1645,7 +1639,7 @@ class ResultView extends StatelessWidget {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    '${l10n.t('At', 'در')} ${result.point}: $numericText',
+                    '${l10n.t('ui.at')} ${result.point}: $numericText',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
@@ -1660,8 +1654,8 @@ class ResultView extends StatelessWidget {
         children.add(
           SectionLabel(
             result.isExplicit
-                ? l10n.t('Explicit solution', 'جواب صریح')
-                : l10n.t('General solution', 'جواب عمومی'),
+                ? l10n.t('ui.explicit_solution')
+                : l10n.t('ui.general_solution'),
           ),
         );
         children.add(const SizedBox(height: 10));
@@ -1679,7 +1673,7 @@ class ResultView extends StatelessWidget {
             math: ExView(plain: plain, pretty: expression, latex: latex),
             accent: true,
             size: 22,
-            tooltip: l10n.t('Copy', 'کپی'),
+            tooltip: l10n.t('ui.copy'),
             onCopy: () => _copyMath(
               context,
               ExView(plain: plain, pretty: expression, latex: latex),
@@ -1690,7 +1684,7 @@ class ResultView extends StatelessWidget {
       if (result.parametricAvailable) {
         children.add(const SizedBox(height: 14));
         children.add(
-          SectionLabel(l10n.t('Parametric solution', 'جواب پارامتری')),
+          SectionLabel(l10n.t('ui.parametric_solution')),
         );
         if (result.paramX != null) {
           children.add(const SizedBox(height: 8));
@@ -1708,7 +1702,7 @@ class ResultView extends StatelessWidget {
       if (result.singular.isNotEmpty) {
         children.add(const SizedBox(height: 14));
         children.add(
-          SectionLabel(l10n.t('Singular solutions', 'جواب‌های منفرد')),
+          SectionLabel(l10n.t('ui.singular_solutions')),
         );
         for (final s in result.singular) {
           children.add(
@@ -1733,63 +1727,63 @@ class ResultView extends StatelessWidget {
   List<Widget> _behaviourAnswer(BuildContext context) {
     final out = <Widget>[];
     if (result.derivative != null) {
-      out.add(SectionLabel(l10n.t("First derivative f'", 'مشتق اول f′')));
+      out.add(SectionLabel(l10n.t('ui.first_derivative_f')));
       out.add(const SizedBox(height: 10));
       out.add(
         MathBlock(
           math: result.derivative!,
           accent: true,
           size: 20,
-          tooltip: l10n.t('Copy', 'کپی'),
+          tooltip: l10n.t('ui.copy'),
           onCopy: () => _copyMath(context, result.derivative),
         ),
       );
       out.add(const SizedBox(height: 14));
     }
     if (result.secondDerivative != null) {
-      out.add(SectionLabel(l10n.t("Second derivative f''", 'مشتق دوم f″')));
+      out.add(SectionLabel(l10n.t('ui.second_derivative_f')));
       out.add(const SizedBox(height: 10));
       out.add(
         MathBlock(
           math: result.secondDerivative!,
           size: 18,
-          tooltip: l10n.t('Copy', 'کپی'),
+          tooltip: l10n.t('ui.copy'),
           onCopy: () => _copyMath(context, result.secondDerivative),
         ),
       );
       out.add(const SizedBox(height: 14));
     }
     if (result.critical.isNotEmpty) {
-      out.add(SectionLabel(l10n.t('Critical points', 'نقطه‌های بحرانی')));
+      out.add(SectionLabel(l10n.t('ui.critical_points')));
       out.add(const SizedBox(height: 10));
       out.add(
         PointTable(
           points: result.critical,
           l10n: l10n,
           kindLabels: {
-            'maximum': l10n.t('maximum', 'بیشینه'),
-            'minimum': l10n.t('minimum', 'کمینه'),
-            'inflection': l10n.t('flat point', 'نقطهٔ تخت'),
-            'undecided': l10n.t('undecided', 'نامشخص'),
+            'maximum': l10n.t('ui.maximum'),
+            'minimum': l10n.t('ui.minimum'),
+            'inflection': l10n.t('ui.flat_point'),
+            'undecided': l10n.t('ui.undecided'),
           },
         ),
       );
       out.add(const SizedBox(height: 14));
     }
     if (result.inflections.isNotEmpty) {
-      out.add(SectionLabel(l10n.t('Inflection points', 'نقطه‌های عطف')));
+      out.add(SectionLabel(l10n.t('ui.inflection_points')));
       out.add(const SizedBox(height: 10));
       out.add(
         PointTable(
           points: result.inflections,
           l10n: l10n,
-          kindLabels: {'inflection': l10n.t('inflection', 'عطف')},
+          kindLabels: {'inflection': l10n.t('ui.inflection')},
         ),
       );
       out.add(const SizedBox(height: 14));
     }
     if (result.pieces.isNotEmpty) {
-      out.add(SectionLabel(l10n.t('Monotonicity', 'یکنوایی')));
+      out.add(SectionLabel(l10n.t('ui.monotonicity')));
       out.add(const SizedBox(height: 10));
       out.add(MonotoneStrip(pieces: result.pieces, l10n: l10n));
     }
@@ -1803,7 +1797,7 @@ class ResultView extends StatelessWidget {
       out.add(
         _valueLine(
           context,
-          l10n.t('Value at the point f(a)', 'مقدار در نقطه f(a)'),
+          l10n.t('ui.value_at_the_point_f_a'),
           result.value!,
         ),
       );
@@ -1813,14 +1807,14 @@ class ResultView extends StatelessWidget {
       out.add(
         _valueLine(
           context,
-          l10n.t("Tangent slope f'(a)", 'شیب مماس f′(a)'),
+          l10n.t('ui.tangent_slope_f_a'),
           result.slope!,
         ),
       );
       out.add(const SizedBox(height: 14));
     }
     if (result.tangent != null) {
-      out.add(SectionLabel(l10n.t('Tangent line', 'خط مماس')));
+      out.add(SectionLabel(l10n.t('ui.tangent_line')));
       out.add(const SizedBox(height: 10));
       final formula = ExView(
         plain: 'y = ${result.tangent!.plain}',
@@ -1832,14 +1826,14 @@ class ResultView extends StatelessWidget {
           math: formula,
           accent: true,
           size: 21,
-          tooltip: l10n.t('Copy', 'کپی'),
+          tooltip: l10n.t('ui.copy'),
           onCopy: () => _copyMath(context, formula),
         ),
       );
       out.add(const SizedBox(height: 14));
     }
     if (result.normal != null) {
-      out.add(SectionLabel(l10n.t('Normal line', 'خط عمود')));
+      out.add(SectionLabel(l10n.t('ui.normal_line')));
       out.add(const SizedBox(height: 10));
       final vertical = result.normalSlope == null;
       final latex = vertical
@@ -1857,7 +1851,7 @@ class ResultView extends StatelessWidget {
           math: formula,
           accent: true,
           size: 21,
-          tooltip: l10n.t('Copy', 'کپی'),
+          tooltip: l10n.t('ui.copy'),
           onCopy: () => _copyMath(context, formula),
         ),
       );
@@ -1868,12 +1862,12 @@ class ResultView extends StatelessWidget {
   /// Optimisation: the extreme values and where they occur.
   List<Widget> _optimiseAnswer(BuildContext context) {
     final out = <Widget>[];
-    out.add(SectionLabel(l10n.t('Extreme values', 'مقادیر اکسترمم')));
+    out.add(SectionLabel(l10n.t('ui.extreme_values')));
     out.add(const SizedBox(height: 12));
     if (result.maximum != null && result.maximumAt != null) {
       out.add(
         _labelledMath(
-          l10n.t('Maximum', 'بیشینه'),
+          l10n.t('ui.maximum_2'),
           ExView(
             plain: 'f(${result.maximumAt!.plain}) = ${result.maximum!.plain}',
             pretty:
@@ -1888,7 +1882,7 @@ class ResultView extends StatelessWidget {
     if (result.minimum != null && result.minimumAt != null) {
       out.add(
         _labelledMath(
-          l10n.t('Minimum', 'کمینه'),
+          l10n.t('ui.minimum_2'),
           ExView(
             plain: 'f(${result.minimumAt!.plain}) = ${result.minimum!.plain}',
             pretty:
@@ -1903,7 +1897,7 @@ class ResultView extends StatelessWidget {
     if (result.candidates.isNotEmpty) {
       out.add(const SizedBox(height: 8));
       out.add(
-        SectionLabel(l10n.t('Candidates compared', 'کاندیدهای مقایسه‌شده')),
+        SectionLabel(l10n.t('ui.candidates_compared')),
       );
       out.add(const SizedBox(height: 10));
       out.add(
@@ -1911,8 +1905,8 @@ class ResultView extends StatelessWidget {
           points: result.candidates,
           l10n: l10n,
           kindLabels: {
-            'stationary': l10n.t('stationary', 'سکون'),
-            'endpoint': l10n.t('endpoint', 'سر بازه'),
+            'stationary': l10n.t('ui.stationary'),
+            'endpoint': l10n.t('ui.endpoint'),
           },
         ),
       );
@@ -1924,14 +1918,14 @@ class ResultView extends StatelessWidget {
   List<Widget> _relatedRatesAnswer(BuildContext context) {
     final out = <Widget>[];
     if (result.solution != null) {
-      out.add(SectionLabel(l10n.t('Isolated rate', 'نرخ جداشده')));
+      out.add(SectionLabel(l10n.t('ui.isolated_rate')));
       out.add(const SizedBox(height: 10));
       out.add(
         MathBlock(
           math: result.solution!,
           accent: true,
           size: 21,
-          tooltip: l10n.t('Copy', 'کپی'),
+          tooltip: l10n.t('ui.copy'),
           onCopy: () => _copyMath(context, result.solution),
         ),
       );
@@ -1941,7 +1935,7 @@ class ResultView extends StatelessWidget {
       out.add(
         _valueLine(
           context,
-          l10n.t('At this instant', 'در این لحظه'),
+          l10n.t('ui.at_this_instant'),
           ExView(
             plain: _formatNumber(
               result.numericValue,
@@ -1964,7 +1958,7 @@ class ResultView extends StatelessWidget {
   List<Widget> _theoremAnswer(BuildContext context) {
     final out = <Widget>[];
     if (result.mode == 'lhopital') {
-      out.add(SectionLabel(l10n.t('Limit', 'حد')));
+      out.add(SectionLabel(l10n.t('ui.limit')));
       out.add(const SizedBox(height: 10));
       String latex;
       String pretty;
@@ -1976,7 +1970,7 @@ class ResultView extends StatelessWidget {
         pretty = result.limitSign < 0 ? '−∞' : '∞';
       } else {
         latex = '\\text{does not exist}';
-        pretty = l10n.t('does not exist', 'وجود ندارد');
+        pretty = l10n.t('ui.does_not_exist');
       }
       out.add(
         MathBlock(
@@ -1991,7 +1985,7 @@ class ResultView extends StatelessWidget {
       out.add(
         _valueLine(
           context,
-          l10n.t('Secant slope', 'شیب خط قاطع'),
+          l10n.t('ui.secant_slope'),
           result.slope!,
         ),
       );
@@ -2000,7 +1994,7 @@ class ResultView extends StatelessWidget {
     if (result.points.isNotEmpty) {
       out.add(
         SectionLabel(
-          l10n.t('Point guaranteed by the theorem', 'نقطهٔ تضمین‌شدهٔ قضیه'),
+          l10n.t('ui.point_guaranteed_by_the_theorem'),
         ),
       );
       out.add(const SizedBox(height: 10));
@@ -2084,14 +2078,8 @@ class ResultView extends StatelessWidget {
           Expanded(
             child: Text(
               ok
-                  ? l10n.t(
-                      'The functions are linearly independent on the interval.',
-                      'توابع روی بازهٔ تعریف، مستقل خطی هستند.',
-                    )
-                  : l10n.t(
-                      'The Wronskian is zero; the functions are linearly dependent (or have a degenerate point).',
-                      'دترمینان رونسکی صفر است؛ توابع وابستهٔ خطی‌اند (یا نقطهٔ تبهگن دارند).',
-                    ),
+                  ? l10n.t('ui.the_functions_are_linearly_independent_on_the_in')
+                  : l10n.t('ui.the_wronskian_is_zero_the_functions_are_linearly'),
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
@@ -2106,7 +2094,7 @@ class ResultView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionLabel(
-            l10n.t('Solution path', 'مسیر حل'),
+            l10n.t('ui.solution_path'),
             icon: Icons.route_outlined,
           ),
           const SizedBox(height: 16),
@@ -2130,7 +2118,7 @@ class ResultView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionLabel(
-            l10n.t('Validation', 'اعتبارسنجی'),
+            l10n.t('ui.validation'),
             icon: Icons.verified_outlined,
           ),
           if (result.checks.isNotEmpty) const SizedBox(height: 12),
@@ -2270,7 +2258,7 @@ class _StepRow extends StatelessWidget {
                   MathBlock(
                     math: step.math!,
                     size: 16,
-                    tooltip: l10n.t('Copy', 'کپی'),
+                    tooltip: l10n.t('ui.copy'),
                     onCopy: onCopy == null ? null : () => onCopy!(step.math),
                   ),
                 ],

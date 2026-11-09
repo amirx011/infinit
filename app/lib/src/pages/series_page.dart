@@ -73,10 +73,7 @@ class _SeriesPageState extends State<SeriesPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
@@ -84,10 +81,7 @@ class _SeriesPageState extends State<SeriesPage> {
     final start = int.tryParse(_start.text.trim());
     if (text.isEmpty || start == null) {
       setState(
-        () => _error = l.t(
-          'Enter the series term and a whole start index.',
-          'جملهٔ سری و یک اندیس شروع صحیح وارد کنید.',
-        ),
+        () => _error = l.t('ui.enter_the_series_term_and_a_whole_start_index'),
       );
       return;
     }
@@ -133,16 +127,13 @@ class _SeriesPageState extends State<SeriesPage> {
             children: [
               PageTitle(
                 icon: Icons.waves_rounded,
-                title: l.t('Series & convergence', 'سری و همگرایی'),
-                subtitle: l.t(
-                  'Decide whether an infinite sum settles, and find its exact value when a closed form exists.',
-                  'تصمیم بگیرید یک مجموع بی‌نهایت همگرا می‌شود یا نه، و در صورت وجود فرم بسته مقدار دقیق آن را بیابید.',
-                ),
+                title: l.t('ui.series_convergence'),
+                subtitle: l.t('ui.decide_whether_an_infinite_sum_settles_and_find'),
               ),
               const SizedBox(height: 18),
               ExpressionField(
                 controller: _input,
-                hint: l.t('e.g. 1/n^2', 'مثلاً 1/n^2'),
+                hint: l.t('ui.e_g_1_n_2'),
                 onSubmitted: _run,
               ),
               const SizedBox(height: 12),
@@ -152,12 +143,12 @@ class _SeriesPageState extends State<SeriesPage> {
                 children: [
                   LabelledField(
                     controller: _nv,
-                    label: l.t('Index variable', 'متغیر اندیس'),
+                    label: l.t('ui.index_variable'),
                     width: 150,
                   ),
                   LabelledField(
                     controller: _start,
-                    label: l.t('Start index', 'اندیس شروع'),
+                    label: l.t('ui.start_index'),
                     width: 130,
                   ),
                 ],
@@ -186,8 +177,8 @@ class _SeriesPageState extends State<SeriesPage> {
                     : const Icon(Icons.waves_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Computing…', 'در حال محاسبه…')
-                      : l.t('Test for convergence', 'آزمون همگرایی'),
+                      ? l.t('ui.computing')
+                      : l.t('ui.test_for_convergence'),
                 ),
               ),
             ],
@@ -196,33 +187,15 @@ class _SeriesPageState extends State<SeriesPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t('Pick the test that fits the shape', 'آزمونی را انتخاب کن که با شکل می‌خواند'),
-          idea: l.t(
-            'A series is a sequence of partial sums. Convergence means those sums approach a limit; the tests are shortcuts that prove this without computing every sum.',
-            'یک سری دنباله‌ای از مجموع‌های جزئی است. همگرایی یعنی این مجموع‌ها به یک حد نزدیک می‌شوند؛ آزمون‌ها میان‌برهایی برای اثبات این هستند بدون محاسبهٔ همهٔ جمله‌ها.',
-          ),
+          title: l.t('ui.pick_the_test_that_fits_the_shape'),
+          idea: l.t('ui.a_series_is_a_sequence_of_partial_sums_convergen'),
           points: [
-            l.t(
-              'Geometric: a constant ratio r; converges exactly when |r| < 1.',
-              'هندسی: نسبت ثابت r؛ دقیقاً وقتی |r| < 1 همگرا می‌شود.',
-            ),
-            l.t(
-              'p-series: 1/n^p converges exactly when p > 1.',
-              'سری p: 1/n^p دقیقاً وقتی p > 1 همگرا می‌شود.',
-            ),
-            l.t(
-              'Ratio and root tests: compute a limit; less than 1 converges, more than 1 diverges, 1 is inconclusive.',
-              'آزمون نسبت و ریشه: حد را حساب کن؛ کمتر از ۱ همگرا، بیشتر از ۱ واگرا، و ۱ بی‌نتیجه است.',
-            ),
-            l.t(
-              'Alternating: if |a_n| decreases to 0, the series converges (possibly conditionally).',
-              'متناوب: اگر |a_n| نزولی به صفر برود، سری (احتمالاً شرطی) همگرا می‌شود.',
-            ),
+            l.t('ui.geometric_a_constant_ratio_r_converges_exactly_w'),
+            l.t('ui.p_series_1_n_p_converges_exactly_when_p_1'),
+            l.t('ui.ratio_and_root_tests_compute_a_limit_less_than_1'),
+            l.t('ui.alternating_if_a_n_decreases_to_0_the_series_con'),
           ],
-          pitfall: l.t(
-            'A term that tends to 0 is necessary but not sufficient: 1/n tends to 0 while its series diverges.',
-            'صفر شدن جمله لازم است ولی کافی نیست: 1/n به صفر میل می‌کند در حالی که سری آن واگراست.',
-          ),
+          pitfall: l.t('ui.a_term_that_tends_to_0_is_necessary_but_not_suff'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -285,7 +258,7 @@ class _PartialSumPlot extends StatelessWidget {
         color: limitColor,
         width: 1.4,
         dashed: true,
-        label: l10n.t('last partial sum', 'آخرین مجموع جزئی'),
+        label: l10n.t('ui.last_partial_sum'),
       ),
     ];
     return Container(
@@ -299,7 +272,7 @@ class _PartialSumPlot extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            l10n.t('Partial sums S_k', 'مجموع‌های جزئی S_k'),
+            l10n.t('ui.partial_sums_s_k'),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontSize: 14,
             ),
@@ -308,10 +281,7 @@ class _PartialSumPlot extends StatelessWidget {
           MathPlot(
             spec: PlotSpec(series: series, xLabel: 'k', yLabel: 'S_k'),
             height: 280,
-            caption: l10n.t(
-              'Each point adds one more term. Flattening suggests convergence; steady growth or oscillation suggests divergence.',
-              'هر نقطه یک جملهٔ دیگر اضافه می‌کند. تخت شدن نشانهٔ همگرایی است؛ رشد پیوسته یا نوسان نشانهٔ واگرایی.',
-            ),
+            caption: l10n.t('ui.each_point_adds_one_more_term_flattening_suggest'),
           ),
         ],
       ),

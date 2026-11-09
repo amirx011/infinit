@@ -107,17 +107,14 @@ class _IntegralPageState extends State<IntegralPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
       setState(
-        () => _error = l.t('Enter an expression.', 'یک عبارت وارد کنید.'),
+        () => _error = l.t('ui.enter_an_expression'),
       );
       return;
     }
@@ -131,10 +128,7 @@ class _IntegralPageState extends State<IntegralPage> {
         final hi = _hi[v]!.text.trim();
         if (lo.isEmpty || hi.isEmpty) {
           setState(
-            () => _error = l.t(
-              'Enter both bounds for every variable.',
-              'برای هر متغیر هر دو کران را وارد کنید.',
-            ),
+            () => _error = l.t('ui.enter_both_bounds_for_every_variable'),
           );
           return;
         }
@@ -187,15 +181,12 @@ class _IntegralPageState extends State<IntegralPage> {
               PageTitle(
                 tone: c.success,
                 icon: Icons.integration_instructions_rounded,
-                title: l.t('Integrals', 'انتگرال'),
-                subtitle: l.t(
-                  'Single, double and triple integrals: indefinite or definite with numeric bounds.',
-                  'انتگرال یگانه، دوگانه و سه‌گانه: نامعین یا معین با کران عددی.',
-                ),
+                title: l.t('ui.integrals'),
+                subtitle: l.t('ui.single_double_and_triple_integrals_indefinite_or'),
               ),
               const SizedBox(height: 18),
               Text(
-                l.t('Order', 'تعداد متغیر'),
+                l.t('ui.order'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -204,17 +195,17 @@ class _IntegralPageState extends State<IntegralPage> {
                   ButtonSegment(
                     value: 1,
                     icon: const Icon(Icons.looks_one_outlined, size: 17),
-                    label: Text(l.t('Single', 'یگانه')),
+                    label: Text(l.t('ui.single')),
                   ),
                   ButtonSegment(
                     value: 2,
                     icon: const Icon(Icons.looks_two_outlined, size: 17),
-                    label: Text(l.t('Double', 'دوگانه')),
+                    label: Text(l.t('ui.double')),
                   ),
                   ButtonSegment(
                     value: 3,
                     icon: const Icon(Icons.looks_3_outlined, size: 17),
-                    label: Text(l.t('Triple', 'سه‌گانه')),
+                    label: Text(l.t('ui.triple')),
                   ),
                 ],
                 selected: {_dimension},
@@ -223,7 +214,7 @@ class _IntegralPageState extends State<IntegralPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                l.t('Type', 'نوع انتگرال'),
+                l.t('ui.type'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -232,12 +223,12 @@ class _IntegralPageState extends State<IntegralPage> {
                   ButtonSegment(
                     value: false,
                     icon: const Icon(Icons.all_inclusive_rounded, size: 17),
-                    label: Text(l.t('Indefinite', 'نامعین')),
+                    label: Text(l.t('ui.indefinite')),
                   ),
                   ButtonSegment(
                     value: true,
                     icon: const Icon(Icons.straighten_rounded, size: 17),
-                    label: Text(l.t('Definite', 'معین')),
+                    label: Text(l.t('ui.definite')),
                   ),
                 ],
                 selected: {_definite},
@@ -247,7 +238,7 @@ class _IntegralPageState extends State<IntegralPage> {
               if (_definite) ...[
                 const SizedBox(height: 16),
                 Text(
-                  l.t('Bounds', 'کران‌ها'),
+                  l.t('ui.bounds'),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 8),
@@ -277,7 +268,7 @@ class _IntegralPageState extends State<IntegralPage> {
                   height: 1.5,
                 ),
                 decoration: InputDecoration(
-                  hintText: l.t('e.g. x*exp(x)', 'مثلاً x*exp(x)'),
+                  hintText: l.t('ui.e_g_x_exp_x'),
                   prefixIcon: Icon(
                     Icons.functions_rounded,
                     size: 20,
@@ -299,7 +290,7 @@ class _IntegralPageState extends State<IntegralPage> {
                       fontSize: 14,
                     ),
                     decoration: InputDecoration(
-                      labelText: l.t('Variable', 'متغیر'),
+                      labelText: l.t('ui.variable'),
                       isDense: true,
                     ),
                   ),
@@ -338,7 +329,7 @@ class _IntegralPageState extends State<IntegralPage> {
               ],
               const SizedBox(height: 14),
               Text(
-                l.t('Examples', 'نمونه‌ها'),
+                l.t('ui.examples'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -374,8 +365,8 @@ class _IntegralPageState extends State<IntegralPage> {
                       ),
                 label: Text(
                   _busy
-                      ? l.t('Integrating…', 'در حال انتگرال‌گیری…')
-                      : l.t('Compute integral', 'محاسبهٔ انتگرال'),
+                      ? l.t('ui.integrating')
+                      : l.t('ui.compute_integral'),
                 ),
               ),
             ],
@@ -384,34 +375,19 @@ class _IntegralPageState extends State<IntegralPage> {
         const SizedBox(height: 16),
         LearningCard(
           l10n: l,
-          title: l.t('Integration is accumulation', 'انتگرال یعنی انباشت'),
-          idea: l.t(
-            'A definite integral adds up signed area; an indefinite integral lists every antiderivative at once. The two are linked by the fundamental theorem.',
-            'انتگرال معین مساحت علامت‌دار را جمع می‌زند؛ انتگرال نامعین همهٔ پادمشتق‌ها را یک‌جا نشان می‌دهد. قضیهٔ اساسی حساب این دو را به هم وصل می‌کند.',
-          ),
+          title: l.t('ui.integration_is_accumulation'),
+          idea: l.t('ui.a_definite_integral_adds_up_signed_area_an_indef'),
           points: [
-            l.t(
-              'Substitution reverses the chain rule; look for an inner function and its derivative.',
-              'تغییر متغیر، قاعدهٔ زنجیره‌ای را برمی‌گرداند؛ دنبال تابع درونی و مشتقش بگردید.',
-            ),
-            l.t(
-              'For definite integrals, apply the bounds after finding the antiderivative, and mind the variable order in 2D and 3D.',
-              'در انتگرال معین، پس از یافتن پادمشتق کران‌ها را اعمال کنید و در دوگانه و سه‌گانه ترتیب متغیرها را در نظر بگیرید.',
-            ),
+            l.t('ui.substitution_reverses_the_chain_rule_look_for_an'),
+            l.t('ui.for_definite_integrals_apply_the_bounds_after_fi'),
           ],
           example: const ExView(
             plain: 'integral 2*x*cos(x^2) dx = sin(x^2) + C',
             pretty: '∫ 2x cos(x²) dx = sin(x²) + C',
             latex: r'\int 2x\cos\left(x^{2}\right)\,dx = \sin\left(x^{2}\right) + C',
           ),
-          exampleCaption: l.t(
-            'With u = x², du = 2x dx, the integral becomes ∫ cos u du.',
-            'با u = x² و du = 2x dx، انتگرال به ∫ cos u du تبدیل می‌شود.',
-          ),
-          pitfall: l.t(
-            'An indefinite integral without + C is incomplete, and bounds must follow the same order as the differentials.',
-            'انتگرال نامعین بدون + C ناقص است و کران‌ها باید با ترتیب دیفرانسیل‌ها هماهنگ باشند.',
-          ),
+          exampleCaption: l.t('ui.with_u_x_du_2x_dx_the_integral_becomes_cos_u_du'),
+          pitfall: l.t('ui.an_indefinite_integral_without_c_is_incomplete_a'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -454,21 +430,18 @@ class _IntegralPageState extends State<IntegralPage> {
                   PlotCurveSpec(
                     expression: _result!.normalized!.plain,
                     color: c.accent,
-                    label: l.t('Integrand f(x)', 'انتگرال‌ده f(x)'),
+                    label: l.t('ui.integrand_f_x'),
                   ),
                   PlotCurveSpec(
                     expression: _result!.solution!.plain,
                     color: c.accentAlt,
-                    label: l.t('Antiderivative F(x)', 'پادمشتق F(x)'),
+                    label: l.t('ui.antiderivative_f_x'),
                   ),
                 ],
                 xmin: -8,
                 xmax: 8,
-                title: l.t('Integrand and antiderivative', 'انتگرال‌ده و پادمشتق'),
-                caption: l.t(
-                  'F is one antiderivative of f: its slope at every x equals f(x). The family differs only by the constant C, which shifts the curve vertically.',
-                  'F یک پادمشتق از f است: شیب آن در هر x برابر f(x) است. اعضای خانواده فقط با ثابت C فرق می‌کنند که منحنی را عمودی جابه‌جا می‌کند.',
-                ),
+                title: l.t('ui.integrand_and_antiderivative'),
+                caption: l.t('ui.f_is_one_antiderivative_of_f_its_slope_at_every'),
               )
             else
               CurvePlot(
@@ -476,11 +449,8 @@ class _IntegralPageState extends State<IntegralPage> {
                 l10n: l,
                 expression: _result!.normalized!.plain,
                 variable: _result!.variable.isEmpty ? 'x' : _result!.variable,
-                title: l.t('Integrand over the bounds', 'انتگرال‌ده روی کران‌ها'),
-                caption: l.t(
-                  'The definite integral is the signed area between this curve and the x-axis, accumulated from the lower to the upper bound.',
-                  'انتگرال معین مساحت علامت‌دار بین این منحنی و محور x است که از کران پایین تا بالا انباشته می‌شود.',
-                ),
+                title: l.t('ui.integrand_over_the_bounds'),
+                caption: l.t('ui.the_definite_integral_is_the_signed_area_between'),
               ),
           ],
         ],
@@ -538,11 +508,11 @@ class _BoundPair extends StatelessWidget {
             style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
           ),
           const SizedBox(width: 8),
-          field(lower, l10n.t('from', 'از')),
+          field(lower, l10n.t('ui.from')),
           const SizedBox(width: 6),
           Icon(Icons.arrow_forward_rounded, size: 15, color: c.muted),
           const SizedBox(width: 6),
-          field(upper, l10n.t('to', 'تا')),
+          field(upper, l10n.t('ui.to')),
         ],
       ),
     );

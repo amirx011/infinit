@@ -342,7 +342,7 @@ class ExampleRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          l10n.t('Examples', 'نمونه‌ها'),
+          l10n.t('ui.examples'),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),

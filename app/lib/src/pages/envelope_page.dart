@@ -132,20 +132,14 @@ class _EnvelopePageState extends State<EnvelopePage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final text = _input.text.trim();
     if (text.isEmpty) {
       setState(
-        () => _error = l.t(
-          'Enter a family of curves.',
-          'معادلهٔ خانواده را وارد کنید.',
-        ),
+        () => _error = l.t('ui.enter_a_family_of_curves'),
       );
       return;
     }
@@ -153,10 +147,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
     final angle = _angleValue();
     if (mode == _TrajectoryMode.oblique && angle == null) {
       setState(
-        () => _error = l.t(
-          'The crossing angle must be a number between 0 and 90 degrees.',
-          'زاویهٔ تقاطع باید عددی بین ۰ و ۹۰ درجه باشد.',
-        ),
+        () => _error = l.t('ui.the_crossing_angle_must_be_a_number_between_0_an'),
       );
       return;
     }
@@ -223,27 +214,15 @@ class _EnvelopePageState extends State<EnvelopePage> {
                     ? Icons.swap_calls_rounded
                     : Icons.join_inner_rounded,
                 title: oblique
-                    ? l.t('Oblique trajectories', 'مسیرهای مایل')
+                    ? l.t('ui.oblique_trajectories')
                     : orthogonal
-                    ? l.t('Orthogonal trajectories', 'مسیرهای قائم')
-                    : l.t(
-                        'Envelope & orthogonal trajectories',
-                        'پوش و مسیرهای قائم',
-                      ),
+                    ? l.t('ui.orthogonal_trajectories')
+                    : l.t('ui.envelope_orthogonal_trajectories'),
                 subtitle: oblique
-                    ? l.t(
-                        'Differentiate the family, eliminate its parameter, replace the slope using the constant crossing angle α, then solve the resulting equation.',
-                        'از خانواده مشتق بگیرید، پارامتر را حذف کنید، شیب را با استفاده از زاویهٔ ثابت α جایگزین کنید و معادلهٔ حاصل را حل کنید.',
-                      )
+                    ? l.t('ui.differentiate_the_family_eliminate_its_parameter')
                     : orthogonal
-                    ? l.t(
-                        'Differentiate the family, eliminate its parameter, replace y′ by −1/y′, then solve the resulting equation.',
-                        'از خانواده مشتق بگیرید، پارامتر را حذف کنید، y′ را با −1/y′ جایگزین کنید و معادلهٔ حاصل را حل کنید.',
-                      )
-                    : l.t(
-                        'Eliminate the parameter to find the envelope, and optionally the orthogonal trajectories.',
-                        'با حذف پارامتر، پوش خانواده و در صورت نیاز مسیرهای قائم را بیابید.',
-                      ),
+                    ? l.t('ui.differentiate_the_family_eliminate_its_parameter_2')
+                    : l.t('ui.eliminate_the_parameter_to_find_the_envelope_and'),
               ),
               const SizedBox(height: 18),
               TextField(
@@ -257,7 +236,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
                   height: 1.5,
                 ),
                 decoration: InputDecoration(
-                  hintText: l.t('e.g. y = c*x + c^2', 'مثلاً y = c*x + c^2'),
+                  hintText: l.t('ui.e_g_y_c_x_c_2'),
                   prefixIcon: Icon(
                     Icons.timeline_rounded,
                     size: 20,
@@ -268,7 +247,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
               ),
               const SizedBox(height: 14),
               Text(
-                l.t('Examples', 'نمونه‌ها'),
+                l.t('ui.examples'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 8),
@@ -295,7 +274,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
                       flex: 2,
                       child: _smallField(
                         _angle,
-                        l.t('Crossing angle α (degrees)', 'زاویهٔ تقاطع α (درجه)'),
+                        l.t('ui.crossing_angle_degrees'),
                         '45',
                       ),
                     ),
@@ -303,10 +282,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
                     Expanded(
                       flex: 3,
                       child: Text(
-                        l.t(
-                          'The trajectories meet every family member at this constant angle. 90° gives the orthogonal case.',
-                          'مسیرها هر عضو خانواده را با این زاویهٔ ثابت قطع می‌کنند. زاویهٔ ۹۰ درجه حالت قائم است.',
-                        ),
+                        l.t('ui.the_trajectories_meet_every_family_member_at_thi'),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -324,14 +300,11 @@ class _EnvelopePageState extends State<EnvelopePage> {
                   contentPadding: EdgeInsets.zero,
                   activeThumbColor: c.accent,
                   title: Text(
-                    l.t('Orthogonal trajectories', 'مسیرهای قائم'),
+                    l.t('ui.orthogonal_trajectories'),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   subtitle: Text(
-                    l.t(
-                      'Curves that intersect the family at right angles.',
-                      'خانوادهٔ منحنی‌هایی که خانوادهٔ اصلی را با زاویهٔ قائمه قطع می‌کنند.',
-                    ),
+                    l.t('ui.curves_that_intersect_the_family_at_right_angles'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -343,7 +316,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
                   childrenPadding: const EdgeInsets.only(top: 4, bottom: 4),
                   leading: Icon(Icons.tune_rounded, size: 20, color: c.muted),
                   title: Text(
-                    l.t('Advanced options', 'تنظیمات پیشرفته'),
+                    l.t('ui.advanced_options'),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   children: [
@@ -352,7 +325,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
                         Expanded(
                           child: _smallField(
                             _cv,
-                            l.t('Parameter', 'پارامتر'),
+                            l.t('ui.parameter'),
                             'c',
                           ),
                         ),
@@ -360,7 +333,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
                         Expanded(
                           child: _smallField(
                             _xv,
-                            l.t('Variable x', 'متغیر x'),
+                            l.t('ui.variable_x'),
                             'x',
                           ),
                         ),
@@ -368,7 +341,7 @@ class _EnvelopePageState extends State<EnvelopePage> {
                         Expanded(
                           child: _smallField(
                             _yv,
-                            l.t('Variable y', 'متغیر y'),
+                            l.t('ui.variable_y'),
                             'y',
                           ),
                         ),
@@ -392,15 +365,12 @@ class _EnvelopePageState extends State<EnvelopePage> {
                     : const Icon(Icons.alt_route_rounded, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Analysing…', 'در حال تحلیل…')
+                      ? l.t('ui.analysing')
                       : oblique
-                      ? l.t('Find oblique trajectories', 'یافتن مسیرهای مایل')
+                      ? l.t('ui.find_oblique_trajectories')
                       : orthogonal
-                      ? l.t(
-                          'Find orthogonal trajectories',
-                          'یافتن مسیرهای قائم',
-                        )
-                      : l.t('Analyse family', 'تحلیل خانواده'),
+                      ? l.t('ui.find_orthogonal_trajectories')
+                      : l.t('ui.analyse_family'),
                 ),
               ),
             ],
@@ -448,112 +418,55 @@ class _EnvelopePageState extends State<EnvelopePage> {
     if (mode == _TrajectoryMode.oblique) {
       return LearningCard(
         l10n: l,
-        title: l.t(
-          'How oblique trajectories are found',
-          'مسیرهای مایل چگونه پیدا می‌شوند',
-        ),
-        idea: l.t(
-          'A curve crosses the family at the constant angle α when tan α = (m_t − m)/(1 + m_t m). Solving for the trajectory slope gives m_t = (m + tan α)/(1 − m tan α), the differential equation of the oblique family.',
-          'منحنی وقتی خانواده را با زاویهٔ ثابت α قطع می‌کند که tan α = (m_t − m)/(1 + m_t m) باشد. با حل برای شیب مسیر، m_t = (m + tan α)/(1 − m tan α) به دست می‌آید که معادلهٔ دیفرانسیل خانوادهٔ مایل است.',
-        ),
+        title: l.t('ui.how_oblique_trajectories_are_found'),
+        idea: l.t('ui.a_curve_crosses_the_family_at_the_constant_angle'),
         points: [
-          l.t(
-            'Differentiate F(x, y, c) = 0 implicitly to get the family slope m.',
-            'از F(x, y, c) = 0 به‌صورت ضمنی مشتق بگیرید تا شیب خانواده m به دست آید.',
-          ),
-          l.t(
-            'Eliminate c, substitute m_t = (m + tan α)/(1 − m tan α), and solve the resulting ODE.',
-            'c را حذف کنید، m_t = (m + tan α)/(1 − m tan α) را جایگذاری کنید و معادلهٔ دیفرانسیل حاصل را حل کنید.',
-          ),
-          l.t(
-            'At α = 90° the formula reduces to y′ = −1/y′, the orthogonal family.',
-            'در α = ۹۰ درجه فرمول به y′ = −1/y′ تقلیل می‌یابد که همان خانوادهٔ قائم است.',
-          ),
+          l.t('ui.differentiate_f_x_y_c_0_implicitly_to_get_the_fa'),
+          l.t('ui.eliminate_c_substitute_m_t_m_tan_1_m_tan_and_sol'),
+          l.t('ui.at_90_the_formula_reduces_to_y_1_y_the_orthogona'),
         ],
         example: const ExView(
           plain: 'y = c,  alpha = 45  =>  y = x + C',
           pretty: 'y = c، α = 45° ⇒ y = x + C',
           latex: r'y = c,\quad \alpha = 45^{\circ} \quad\Longrightarrow\quad y = x + C',
         ),
-        exampleCaption: l.t(
-          'A horizontal family has slope 0; the oblique trajectory slope is tan α = 1.',
-          'شیب خانوادهٔ افقی صفر است؛ شیب مسیر مایل tan α = ۱ می‌شود.',
-        ),
-        pitfall: l.t(
-          'The formula fails when the trajectory is vertical; the solver reports x = C instead of dividing by zero.',
-          'وقتی مسیر قائم باشد فرمول کار نمی‌کند؛ حل‌کننده به‌جای تقسیم بر صفر، x = C را گزارش می‌کند.',
-        ),
+        exampleCaption: l.t('ui.a_horizontal_family_has_slope_0_the_oblique_traj'),
+        pitfall: l.t('ui.the_formula_fails_when_the_trajectory_is_vertica'),
       );
     }
     if (mode == _TrajectoryMode.orthogonal) {
       return LearningCard(
         l10n: l,
-        title: l.t(
-          'How orthogonal trajectories are found',
-          'مسیرهای قائم چگونه پیدا می‌شوند',
-        ),
-        idea: l.t(
-          'Two curves cross at a right angle when the product of their slopes is −1. Replacing the family slope y′ by −1/y′ therefore gives the differential equation of the perpendicular family.',
-          'دو منحنی وقتی با زاویهٔ قائمه یکدیگر را قطع می‌کنند که حاصل‌ضرب شیب‌هایشان −1 باشد. پس جایگزینی شیب خانواده y′ با −1/y′ معادلهٔ دیفرانسیل خانوادهٔ قائم را می‌دهد.',
-        ),
+        title: l.t('ui.how_orthogonal_trajectories_are_found'),
+        idea: l.t('ui.two_curves_cross_at_a_right_angle_when_the_produ'),
         points: [
-          l.t(
-            'Differentiate F(x, y, c) = 0 implicitly to get the family slope.',
-            'از F(x, y, c) = 0 به‌صورت ضمنی مشتق بگیرید تا شیب خانواده به دست آید.',
-          ),
-          l.t(
-            'Eliminate c using the family equation, then set y′ = −1/y′ and solve.',
-            'با استفاده از معادلهٔ خانواده c را حذف کنید، سپس y′ = −1/y′ را قرار دهید و حل کنید.',
-          ),
+          l.t('ui.differentiate_f_x_y_c_0_implicitly_to_get_the_fa_2'),
+          l.t('ui.eliminate_c_using_the_family_equation_then_set_y'),
         ],
         example: const ExView(
           plain: 'x^2 + y^2 = c^2  =>  y = C*x',
           pretty: 'x² + y² = c²  ⇒  y = Cx',
           latex: r'x^{2} + y^{2} = c^{2} \quad\Longrightarrow\quad y = Cx',
         ),
-        exampleCaption: l.t(
-          'The circles have slope −x/y; the perpendicular slope is y/x, whose solutions are the lines y = Cx.',
-          'شیب دایره‌ها −x/y است؛ شیب عمود y/x است و جواب‌های آن خطوط y = Cx هستند.',
-        ),
-        pitfall: l.t(
-          'A vertical tangent has no finite slope. The solver treats that case separately instead of dividing by zero.',
-          'مماس قائم شیب متناهی ندارد. حل‌کننده این حالت را جداگانه بررسی می‌کند و بر صفر تقسیم نمی‌کند.',
-        ),
+        exampleCaption: l.t('ui.the_circles_have_slope_x_y_the_perpendicular_slo'),
+        pitfall: l.t('ui.a_vertical_tangent_has_no_finite_slope_the_solve'),
       );
     }
     return LearningCard(
       l10n: l,
-      title: l.t(
-        'Envelopes and orthogonal families',
-        'پوش‌ها و خانواده‌های قائم',
-      ),
-      idea: l.t(
-        'An envelope is a curve tangent to every member of a family. Orthogonal trajectories are the family that crosses every member at a right angle.',
-        'پوش منحنی‌ای است که بر هر عضو یک خانواده مماس است. مسیرهای قائم خانواده‌ای‌اند که هر عضو را با زاویهٔ قائمه قطع می‌کنند.',
-      ),
+      title: l.t('ui.envelopes_and_orthogonal_families'),
+      idea: l.t('ui.an_envelope_is_a_curve_tangent_to_every_member_o'),
       points: [
-        l.t(
-          'To find an envelope, eliminate the parameter between F(x, y, c) = 0 and ∂F/∂c = 0.',
-          'برای یافتن پوش، پارامتر را بین F(x, y, c) = 0 و ∂F/∂c = 0 حذف کنید.',
-        ),
-        l.t(
-          'For orthogonal trajectories, replace y′ by −1/y′ in the differential equation of the family.',
-          'برای مسیرهای قائم، در معادلهٔ دیفرانسیل خانواده y′ را با −1/y′ جایگزین کنید.',
-        ),
+        l.t('ui.to_find_an_envelope_eliminate_the_parameter_betw'),
+        l.t('ui.for_orthogonal_trajectories_replace_y_by_1_y_in'),
       ],
       example: const ExView(
         plain: 'y = c*x + c^2  =>  envelope y = -x^2/4',
         pretty: 'y = cx + c²  ⇒  y = −x²/4',
         latex: r'y = cx + c^{2} \quad\Longrightarrow\quad y = -\frac{x^{2}}{4}',
       ),
-      exampleCaption: l.t(
-        'Differentiate with respect to c, solve for c = −x/2, and substitute back.',
-        'نسبت به c مشتق بگیرید، c = −x/2 را به دست آورید و جایگذاری کنید.',
-      ),
-      pitfall: l.t(
-        'Not every family has a real envelope; a formal elimination can return only a complex or degenerate curve.',
-        'هر خانواده پوش حقیقی ندارد؛ حذف صوری ممکن است فقط یک منحنی مختلط یا تبهگن بدهد.',
-      ),
+      exampleCaption: l.t('ui.differentiate_with_respect_to_c_solve_for_c_x_2'),
+      pitfall: l.t('ui.not_every_family_has_a_real_envelope_a_formal_el'),
     );
   }
 
@@ -578,23 +491,11 @@ class _EnvelopePageState extends State<EnvelopePage> {
       ymin: -5,
       ymax: 5,
       title: oblique
-          ? l.t(
-              'Oblique trajectories, direction field',
-              'مسیرهای مایل، میدان جهت',
-            )
-          : l.t(
-              'Orthogonal trajectories, direction field',
-              'مسیرهای قائم، میدان جهت',
-            ),
+          ? l.t('ui.oblique_trajectories_direction_field')
+          : l.t('ui.orthogonal_trajectories_direction_field'),
       caption: oblique
-          ? l.t(
-              'The arrows are the slope m_t = (m + tan α)/(1 − m tan α) after eliminating c. The solid curves are oblique trajectories; the dashed curves are members of the original family.',
-              'پیکان‌ها شیب m_t = (m + tan α)/(1 − m tan α) پس از حذف c هستند. منحنی‌های پیوسته مسیرهای مایل و منحنی‌های خط‌چین اعضای خانوادهٔ اصلی‌اند.',
-            )
-          : l.t(
-              'The arrows are the slope y′ = −1/f(x,y) after eliminating c. The solid curves are orthogonal trajectories; the dashed curves are members of the original family.',
-              'پیکان‌ها شیب y′ = −1/f(x,y) پس از حذف c هستند. منحنی‌های پیوسته مسیرهای قائم و منحنی‌های خط‌چین اعضای خانوادهٔ اصلی‌اند.',
-            ),
+          ? l.t('ui.the_arrows_are_the_slope_m_t_m_tan_1_m_tan_after')
+          : l.t('ui.the_arrows_are_the_slope_y_1_f_x_y_after_elimina'),
       extraCurves: _familyOverlay(c),
     );
   }

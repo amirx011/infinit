@@ -4,6 +4,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:infinit/main.dart';
 import 'package:infinit/src/app_state.dart';
+import 'package:infinit/src/i18n/catalog.dart';
 import 'package:infinit/src/settings_store.dart';
 
 Future<AppSettings> _settings() async {
@@ -55,6 +56,10 @@ Future<void> _drawerTap(WidgetTester tester, String label) async {
 }
 
 void main() {
+  setUpAll(() async {
+    I18n.instance = await I18n.load();
+  });
+
   testWidgets('defaults to dark mode and English', (tester) async {
     final settings = await _settings();
     expect(settings.themeMode, ThemeMode.dark);

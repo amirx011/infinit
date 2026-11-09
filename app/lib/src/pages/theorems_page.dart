@@ -128,17 +128,14 @@ class _TheoremsPageState extends State<TheoremsPage> {
       setState(
         () => _error =
             widget.engineError ??
-            l.t(
-              'The computation engine is unavailable.',
-              'موتور محاسبات در دسترس نیست.',
-            ),
+            l.t('ui.the_computation_engine_is_unavailable'),
       );
       return;
     }
     final f = _f.text.trim();
     if (f.isEmpty) {
       setState(
-        () => _error = l.t('Enter a function.', 'یک تابع وارد کنید.'),
+        () => _error = l.t('ui.enter_a_function'),
       );
       return;
     }
@@ -163,10 +160,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
           if (g.isEmpty) {
             setState(() {
               _busy = false;
-              _error = l.t(
-                'Cauchy needs a second function g.',
-                'قضیهٔ کوشی به تابع دوم g نیاز دارد.',
-              );
+              _error = l.t('ui.cauchy_needs_a_second_function_g');
             });
             return;
           }
@@ -176,10 +170,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
           if (g.isEmpty) {
             setState(() {
               _busy = false;
-              _error = l.t(
-                'L\'Hôpital needs a denominator g.',
-                'قاعدهٔ هوپیتال به مخرج g نیاز دارد.',
-              );
+              _error = l.t('ui.l_h_pital_needs_a_denominator_g');
             });
             return;
           }
@@ -195,10 +186,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
           if (!(a < b)) {
             setState(() {
               _busy = false;
-              _error = l.t(
-                'The interval must satisfy a < b.',
-                'باید a < b باشد.',
-              );
+              _error = l.t('ui.the_interval_must_satisfy_a_b');
             });
             return;
           }
@@ -251,10 +239,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                     ? Icons.compare_arrows_rounded
                     : Icons.rule_rounded,
                 title: entry.title(l),
-                subtitle: l.t(
-                  'State the theorem, verify its hypotheses, then find the point it promises.',
-                  'قضیه را بیان کنید، فرض‌هایش را بررسی کنید و نقطه‌ای را که تضمین می‌کند بیابید.',
-                ),
+                subtitle: l.t('ui.state_the_theorem_verify_its_hypotheses_then_fin'),
               ),
               const SizedBox(height: 18),
               _statementBlock(entry),
@@ -264,7 +249,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
               if (!isLhopital)
                 ExpressionField(
                   controller: _f,
-                  hint: l.t('e.g. x^2', 'مثلاً x^2'),
+                  hint: l.t('ui.e_g_x_2'),
                   onSubmitted: _run,
                 )
               else
@@ -273,7 +258,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                     Expanded(
                       child: ExpressionField(
                         controller: _f,
-                        hint: l.t('numerator f', 'صورت f'),
+                        hint: l.t('ui.numerator_f'),
                         onSubmitted: _run,
                       ),
                     ),
@@ -281,7 +266,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                     Expanded(
                       child: ExpressionField(
                         controller: _g,
-                        hint: l.t('denominator g', 'مخرج g'),
+                        hint: l.t('ui.denominator_g'),
                         onSubmitted: _run,
                       ),
                     ),
@@ -294,7 +279,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                 children: [
                   LabelledField(
                     controller: _xv,
-                    label: l.t('Variable', 'متغیر'),
+                    label: l.t('ui.variable'),
                     width: 100,
                   ),
                   if (isLhopital)
@@ -306,12 +291,12 @@ class _TheoremsPageState extends State<TheoremsPage> {
                   else ...[
                     LabelledField(
                       controller: _a,
-                      label: l.t('From a', 'از a'),
+                      label: l.t('ui.from_a'),
                       width: 110,
                     ),
                     LabelledField(
                       controller: _b,
-                      label: l.t('To b', 'تا b'),
+                      label: l.t('ui.to_b'),
                       width: 110,
                     ),
                   ],
@@ -321,7 +306,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                 const SizedBox(height: 12),
                 ExpressionField(
                   controller: _g,
-                  hint: l.t('second function g', 'تابع دوم g'),
+                  hint: l.t('ui.second_function_g'),
                   onSubmitted: _run,
                 ),
               ],
@@ -340,8 +325,8 @@ class _TheoremsPageState extends State<TheoremsPage> {
                     : const Icon(Icons.verified_outlined, size: 19),
                 label: Text(
                   _busy
-                      ? l.t('Checking…', 'در حال بررسی…')
-                      : l.t('Check the theorem', 'بررسی قضیه'),
+                      ? l.t('ui.checking')
+                      : l.t('ui.check_the_theorem'),
                 ),
               ),
             ],
@@ -408,7 +393,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          widget.l10n.t('Hypotheses to check', 'فرض‌هایی که باید بررسی شوند'),
+          widget.l10n.t('ui.hypotheses_to_check'),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
@@ -448,7 +433,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionLabel(
-            l.t('Theorem check', 'بررسی قضیه'),
+            l.t('ui.theorem_check'),
             icon: Icons.fact_check_outlined,
           ),
           const SizedBox(height: 14),
@@ -463,10 +448,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                   const SizedBox(width: 9),
                   Expanded(
                     child: Text(
-                      l.t(
-                        'Since f(a) = f(b), Rolle\'s theorem applies here as a special case.',
-                        'چون f(a) = f(b) است، قضیهٔ رول به‌عنوان حالت خاص اینجا هم برقرار می‌شود.',
-                      ),
+                      l.t('ui.since_f_a_f_b_rolle_s_theorem_applies_here_as_a'),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -476,7 +458,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
           if (!isLhopital) ...[
             const SizedBox(height: 6),
             _valueRow(
-              l.t('Secant slope', 'شیب خط قاطع'),
+              l.t('ui.secant_slope'),
               r.slope ??
                   const ExView(plain: '?', pretty: '?', latex: '?'),
             ),
@@ -484,7 +466,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
           if (!isLhopital && points.isNotEmpty) ...[
             const SizedBox(height: 6),
             _valueRow(
-              l.t('Promised point c', 'نقطهٔ تضمین‌شده c'),
+              l.t('ui.promised_point_c'),
               ExView(
                 plain: points.map((p) => 'c = ${p.plain}').join(', '),
                 pretty: points.map((p) => 'c = ${p.pretty}').join(', '),
@@ -502,12 +484,12 @@ class _TheoremsPageState extends State<TheoremsPage> {
           ],
           if (isLhopital && r.solution != null) ...[
             const SizedBox(height: 6),
-            _valueRow(l.t('Limit', 'حد'), r.solution!),
+            _valueRow(l.t('ui.limit'), r.solution!),
           ],
           if (isLhopital && r.limitInfinite) ...[
             const SizedBox(height: 6),
             _valueRow(
-              l.t('Limit', 'حد'),
+              l.t('ui.limit'),
               ExView(
                 plain: r.limitSign < 0 ? '-∞' : '∞',
                 pretty: r.limitSign < 0 ? '−∞' : '∞',
@@ -518,8 +500,8 @@ class _TheoremsPageState extends State<TheoremsPage> {
           if (isLhopital && !r.limitExists && !r.limitInfinite) ...[
             const SizedBox(height: 6),
             _textValueRow(
-              l.t('Limit', 'حد'),
-              l.t('does not exist', 'وجود ندارد'),
+              l.t('ui.limit'),
+              l.t('ui.does_not_exist'),
             ),
           ],
           if (points.isEmpty &&
@@ -605,10 +587,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
         xmax: window.$2,
         variable: xVar,
         height: 320,
-        title: l.t(
-          'Numerator and denominator near the point',
-          'صورت و مخرج نزدیک نقطه',
-        ),
+        title: l.t('ui.numerator_and_denominator_near_the_point'),
         curves: [
           PlotCurveSpec(
             expression: f,
@@ -623,10 +602,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
           ),
         ],
         guides: [?point],
-        caption: l.t(
-          'The dashed guide is the point being approached. When both curves meet the axis there, the quotient is indeterminate and differentiating is justified.',
-          'راهنمای چین همان نقطه‌ای است که به آن نزدیک می‌شویم. وقتی هر دو منحنی آنجا به محور برسند، کسر مبهم است و مشتق‌گیری توجیه دارد.',
-        ),
+        caption: l.t('ui.the_dashed_guide_is_the_point_being_approached_w'),
       );
     }
 
@@ -646,7 +622,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
           xmin: window.$1,
           xmax: window.$2,
           color: c.warning,
-          label: l.t('Secant', 'خط قاطع'),
+          label: l.t('ui.secant'),
           dashed: true,
         ),
       );
@@ -700,7 +676,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
             xmin: window.$1,
             xmax: window.$2,
             color: c.success,
-            label: l.t('Tangent at c', 'مماس در c'),
+            label: l.t('ui.tangent_at_c'),
           ),
         );
       }
@@ -713,18 +689,12 @@ class _TheoremsPageState extends State<TheoremsPage> {
       xmax: window.$2,
       variable: xVar,
       height: 330,
-      title: l.t(
-        'Curve, secant and the promised point',
-        'منحنی، خط قاطع و نقطهٔ تضمین‌شده',
-      ),
+      title: l.t('ui.curve_secant_and_the_promised_point'),
       curves: curves,
       extraSeries: tangents,
       markers: markers,
       guides: [a, b],
-      caption: l.t(
-        'The dashed line joins the two endpoints. The point marker sits at the x the theorem guarantees, where the tangent is parallel to that secant.',
-        'خط چین دو سر بازه را به هم وصل می‌کند. نشانگر نقطه در همان x است که قضیه تضمین می‌کند و مماس آنجا موازی خط قاطع است.',
-      ),
+      caption: l.t('ui.the_dashed_line_joins_the_two_endpoints_the_poin'),
     );
   }
 
@@ -741,18 +711,12 @@ class _TheoremsPageState extends State<TheoremsPage> {
             children: [
               PageTitle(
                 icon: Icons.menu_book_rounded,
-                title: l.t('Theorems of the derivative', 'قضایای مشتق'),
-                subtitle: l.t(
-                  'Every theorem stated in full: hypotheses, conclusion, meaning and the mistakes to avoid.',
-                  'همهٔ قضایا به‌طور کامل: فرض‌ها، نتیجه، معنا و اشتباه‌های رایج.',
-                ),
+                title: l.t('ui.theorems_of_the_derivative'),
+                subtitle: l.t('ui.every_theorem_stated_in_full_hypotheses_conclusi'),
               ),
               const SizedBox(height: 14),
               Text(
-                l.t(
-                  'These are the results the rest of the calculus rests on. Each one is a promise about existence, and each one has a hypothesis that cannot be dropped.',
-                  'این‌ها نتایجی هستند که بقیهٔ حساب دیفرانسیل بر آن‌ها استوار است. هر کدام وعده‌ای دربارهٔ وجود است و هر کدام فرضی دارد که نمی‌توان حذفش کرد.',
-                ),
+                l.t('ui.these_are_the_results_the_rest_of_the_calculus_r'),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.8),
               ),
             ],
@@ -775,7 +739,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
                   Icon(Icons.lightbulb_outline_rounded, size: 19, color: c.accentAlt),
                   const SizedBox(width: 9),
                   Text(
-                    l.t('The mistakes that cost marks', 'اشتباه‌هایی که نمره می‌سوزانند'),
+                    l.t('ui.the_mistakes_that_cost_marks'),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ],
@@ -806,26 +770,11 @@ class _TheoremsPageState extends State<TheoremsPage> {
   }
 
   List<String> _commonPitfalls(L10n l) => [
-    l.t(
-      'Rolle and the MVT need continuity on the CLOSED interval and differentiability on the OPEN one.',
-      'قضیهٔ رول و مقدار میانگین به پیوستگی روی بازهٔ بسته و مشتق‌پذیری روی بازهٔ باز نیاز دارند.',
-    ),
-    l.t(
-      "f'(c) = 0 never proves an extremum on its own; the sign change is the proof.",
-      'صفر بودن f′(c) به‌تنهایی اکسترمم را ثابت نمی‌کند؛ تغییر علامت اثبات است.',
-    ),
-    l.t(
-      "L'Hôpital requires a genuinely indeterminate form before differentiating.",
-      'قاعدهٔ هوپیتال پیش از مشتق‌گیری به شکل مبهم واقعی نیاز دارد.',
-    ),
-    l.t(
-      'Cauchy needs g\'(x) ≠ 0 on the open interval, which is what makes the ratio legal.',
-      'قضیهٔ کوشی به g′(x) ≠ 0 روی بازهٔ باز نیاز دارد؛ همان چیزی که نسبت را مجاز می‌کند.',
-    ),
-    l.t(
-      'The promised point c is guaranteed to exist, not to be unique or easy to find.',
-      'نقطهٔ تضمین‌شدهٔ c وجودش تضمین است، نه یگانگی یا یافت‌شدن آسان آن.',
-    ),
+    l.t('ui.rolle_and_the_mvt_need_continuity_on_the_closed'),
+    l.t('ui.f_c_0_never_proves_an_extremum_on_its_own_the_si'),
+    l.t('ui.l_h_pital_requires_a_genuinely_indeterminate_for'),
+    l.t('ui.cauchy_needs_g_x_0_on_the_open_interval_which_is'),
+    l.t('ui.the_promised_point_c_is_guaranteed_to_exist_not'),
   ];
 
   Widget _catalogueCard(TheoremEntry entry, int index) {
@@ -890,7 +839,7 @@ class _TheoremsPageState extends State<TheoremsPage> {
           if (entry.hypotheses(l).isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
-              l.t('Hypotheses', 'فرض‌ها'),
+              l.t('ui.hypotheses'),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w700,
                 color: c.text,

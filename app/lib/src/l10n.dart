@@ -451,11 +451,21 @@ class L10n {
   String t(String en, [Object? faOrParams]) {
     final key = en.trim();
     if (I18n.instance.hasKey(key)) {
-      return I18n.instance.text(
-        code,
-        key,
-        faOrParams is Map<String, Object?> ? faOrParams : null,
-      );
+      final params = faOrParams is Map<String, Object?> ? faOrParams : null;
+      // Languages still backed by the legacy Dart tables keep their wording:
+      // resolve the key to its English source and look that up first.
+      if (code != 'fa' && code != 'en') {
+        final source = I18n.instance.english(key);
+        if (source != null) {
+          final legacy =
+              _study[code]?[source] ??
+              _extra[code]?[source] ??
+              deTopicTranslations[code]?[source] ??
+              _translations[code]?[source];
+          if (legacy != null) return legacy;
+        }
+      }
+      return I18n.instance.text(code, key, params);
     }
     final hit =
         _study[code]?[key] ??

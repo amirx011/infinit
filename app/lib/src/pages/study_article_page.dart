@@ -40,7 +40,7 @@ class StudyArticlePage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               SectionLabel(
-                l.t('Short answer', 'جواب کوتاه'),
+                l.t('ui.short_answer'),
                 icon: Icons.bolt_rounded,
               ),
               const SizedBox(height: 10),
@@ -60,7 +60,7 @@ class StudyArticlePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionLabel(
-                l.t('Key ideas', 'ایده‌های کلیدی'),
+                l.t('ui.key_ideas'),
                 icon: Icons.lightbulb_outline_rounded,
               ),
               const SizedBox(height: 12),
@@ -100,7 +100,7 @@ class StudyArticlePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionLabel(
-                l.t('Worked example', 'نمونهٔ حل‌شده'),
+                l.t('ui.worked_example_2'),
                 icon: Icons.edit_note_rounded,
               ),
               const SizedBox(height: 12),
@@ -111,7 +111,7 @@ class StudyArticlePage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               SectionLabel(
-                l.t('Simplest answer', 'ساده‌ترین جواب'),
+                l.t('ui.simplest_answer'),
                 icon: Icons.check_circle_outline_rounded,
               ),
               const SizedBox(height: 8),
@@ -124,7 +124,7 @@ class StudyArticlePage extends StatelessWidget {
               MathBlock(math: article.exampleAnswerMath, accent: true),
               const SizedBox(height: 22),
               SectionLabel(
-                l.t('Step by step', 'مرحله به مرحله'),
+                l.t('ui.step_by_step'),
                 icon: Icons.format_list_numbered_rounded,
               ),
               const SizedBox(height: 12),
@@ -146,7 +146,7 @@ class StudyArticlePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SectionLabel(
-                l.t('Common pitfalls', 'اشتباه‌های رایج'),
+                l.t('ui.common_pitfalls'),
                 icon: Icons.warning_amber_rounded,
               ),
               const SizedBox(height: 10),

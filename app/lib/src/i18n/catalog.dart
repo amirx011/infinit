@@ -73,6 +73,10 @@ class I18n {
     return false;
   }
 
+  /// The English source of a key, used as the lookup key in the legacy Dart
+  /// tables until every language has its own JSON catalogue.
+  String? english(String key) => _catalogues['en']?[key];
+
   /// Looks up [key] for [language]; falls back to the default language, then to
   /// the key itself.  Only plain values (numbers, symbols) belong in [params];
   /// formulas travel as separate math widgets.

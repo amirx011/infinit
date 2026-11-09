@@ -599,14 +599,14 @@ class _AppDrawerState extends State<_AppDrawer> {
                               ),
                         ),
                         Text(
-                          widget.l10n.t('Modules', 'ماژول‌ها'),
+                          widget.l10n.t('ui.modules'),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    tooltip: widget.l10n.t('Close menu', 'بستن منو'),
+                    tooltip: widget.l10n.t('ui.close_menu'),
                     onPressed: () => Navigator.of(context).pop(),
                     icon: Icon(Icons.close_rounded, size: 20, color: c.muted),
                   ),
@@ -742,7 +742,7 @@ class _DrawerSearchField extends StatelessWidget {
         isDense: true,
         filled: true,
         fillColor: c.cardAlt,
-        hintText: l10n.t('Search modules…', 'جست‌وجوی ماژول‌ها…'),
+        hintText: l10n.t('ui.search_modules_2'),
         hintStyle: TextStyle(
           fontFamily: 'Vazirmatn',
           fontSize: 12.5,
@@ -752,7 +752,7 @@ class _DrawerSearchField extends StatelessWidget {
         suffixIcon: controller.text.isEmpty
             ? null
             : IconButton(
-                tooltip: l10n.t('Clear', 'پاک کردن'),
+                tooltip: l10n.t('ui.clear'),
                 onPressed: () {
                   controller.clear();
                   onChanged('');
@@ -811,10 +811,7 @@ class _DrawerSearchResults extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            l10n.t(
-              'No module matches that search.',
-              'هیچ ماژولی با این جست‌وجو پیدا نشد.',
-            ),
+            l10n.t('ui.no_module_matches_that_search'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: 'Vazirmatn',
@@ -943,7 +940,7 @@ class _SideNav extends StatelessWidget {
                             ),
                       ),
                       Text(
-                        l10n.t('Symbolic workspace', 'فضای کار نمادین'),
+                        l10n.t('ui.symbolic_workspace'),
                         style: Theme.of(context).textTheme.bodySmall
                             ?.copyWith(fontSize: 11.5),
                       ),
@@ -1018,7 +1015,7 @@ class _SearchLauncher extends StatelessWidget {
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
-                  l10n.t('Search modules', 'جستجوی ماژول‌ها'),
+                  l10n.t('ui.search_modules'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1126,7 +1123,7 @@ class _CommandPaletteState extends State<_CommandPalette> {
                   if (matches.isNotEmpty) _select(matches.first);
                 },
                 decoration: InputDecoration(
-                  hintText: l.t('Search modules…', 'جستجوی ماژول‌ها…'),
+                  hintText: l.t('ui.search_modules_3'),
                   prefixIcon: Icon(Icons.search_rounded, color: c.muted),
                   isDense: true,
                 ),
@@ -1139,10 +1136,7 @@ class _CommandPaletteState extends State<_CommandPalette> {
                     vertical: 24,
                   ),
                   child: Text(
-                    l.t(
-                      'No module matches that search.',
-                      'هیچ ماژولی با این جستجو پیدا نشد.',
-                    ),
+                    l.t('ui.no_module_matches_that_search_2'),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -1211,10 +1205,7 @@ class _CommandPaletteState extends State<_CommandPalette> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      l.t(
-                        'Enter to open · Esc to close',
-                        'Enter برای باز کردن · Esc برای بستن',
-                      ),
+                      l.t('ui.enter_to_open_esc_to_close'),
                       style: Theme.of(context).textTheme.bodySmall
                           ?.copyWith(fontSize: 11),
                     ),
@@ -1242,44 +1233,44 @@ List<_DrawerEntry> _navSections(L10n l10n) {
     _DrawerEntry.link(
       index: 0,
       icon: Icons.home_rounded,
-      label: l10n.t('Home', 'خانه'),
+      label: l10n.t('ui.home'),
     ),
     _DrawerEntry.group(
       icon: Icons.functions_rounded,
-      label: l10n.t('Differential equations', 'معادلات دیفرانسیل'),
-      hint: l10n.t('Solve, apply, transform', 'حل، کاربرد، تبدیل'),
+      label: l10n.t('ui.differential_equations'),
+      hint: l10n.t('ui.solve_apply_transform'),
       children: [
         _DrawerEntry.link(
           index: 2,
           icon: Icons.functions_rounded,
-          label: l10n.t('Solve an equation', 'حل معادله'),
-          hint: l10n.t('Forms', 'فرم‌ها'),
+          label: l10n.t('ui.solve_an_equation'),
+          hint: l10n.t('ui.forms'),
         ),
         _DrawerEntry.group(
           icon: Icons.science_rounded,
-          label: l10n.t('Applications', 'کاربردها'),
+          label: l10n.t('ui.applications'),
           children: [
             _DrawerEntry.link(
               index: 3,
               icon: Icons.grid_on_rounded,
-              label: l10n.t('Wronskian', 'رونسکی'),
+              label: l10n.t('ui.wronskian'),
             ),
             _DrawerEntry.link(
               index: 4,
               icon: Icons.join_inner_rounded,
-              label: l10n.t('Envelope', 'پوش خانواده'),
+              label: l10n.t('ui.envelope'),
             ),
             _DrawerEntry.link(
               index: 20,
               icon: Icons.swap_calls_rounded,
-              label: l10n.t('Orthogonal trajectories', 'مسیرهای قائم'),
-              hint: l10n.t('Right angles', 'زاویهٔ قائمه'),
+              label: l10n.t('ui.orthogonal_trajectories'),
+              hint: l10n.t('ui.right_angles'),
             ),
             _DrawerEntry.link(
               index: 21,
               icon: Icons.straighten_rounded,
-              label: l10n.t('Oblique trajectories', 'مسیرهای مایل'),
-              hint: l10n.t('Constant angle', 'زاویهٔ ثابت'),
+              label: l10n.t('ui.oblique_trajectories'),
+              hint: l10n.t('ui.constant_angle'),
             ),
             topic(
               46,
@@ -1328,7 +1319,7 @@ List<_DrawerEntry> _navSections(L10n l10n) {
         ),
         _DrawerEntry.group(
           icon: Icons.auto_graph_rounded,
-          label: l10n.t('Series & special functions', 'سری‌ها و توابع خاص'),
+          label: l10n.t('ui.series_special_functions'),
           children: [
             soon(
               32,
@@ -1364,7 +1355,7 @@ List<_DrawerEntry> _navSections(L10n l10n) {
         ),
         _DrawerEntry.group(
           icon: Icons.transform_rounded,
-          label: l10n.t('Transforms', 'تبدیل‌ها'),
+          label: l10n.t('ui.transforms'),
           children: [
             topic(
               37,
@@ -1395,7 +1386,7 @@ List<_DrawerEntry> _navSections(L10n l10n) {
         ),
         _DrawerEntry.group(
           icon: Icons.calculate_rounded,
-          label: l10n.t('Numerical methods', 'روش‌های عددی'),
+          label: l10n.t('ui.numerical_methods'),
           children: [
             topic(42, Icons.straighten_rounded, 'Euler method', 'روش اویلر'),
             topic(
@@ -1426,10 +1417,7 @@ List<_DrawerEntry> _navSections(L10n l10n) {
         ),
         _DrawerEntry.group(
           icon: Icons.grid_on_rounded,
-          label: l10n.t(
-            'Partial differential equations',
-            'معادلات دیفرانسیل جزئی',
-          ),
+          label: l10n.t('ui.partial_differential_equations'),
           children: [
             soon(
               54,
@@ -1472,7 +1460,7 @@ List<_DrawerEntry> _navSections(L10n l10n) {
         ),
         _DrawerEntry.group(
           icon: Icons.hub_rounded,
-          label: l10n.t('Systems & stability', 'دستگاه‌ها و پایداری'),
+          label: l10n.t('ui.systems_stability'),
           children: [
             topic(
               27,
@@ -1510,117 +1498,114 @@ List<_DrawerEntry> _navSections(L10n l10n) {
     ),
     _DrawerEntry.group(
       icon: Icons.calculate_rounded,
-      label: l10n.t('Differential & integral', 'حساب دیفرانسیل و انتگرال'),
-      hint: l10n.t('Limits, derivatives, integrals', 'حد، مشتق، انتگرال'),
+      label: l10n.t('ui.differential_integral'),
+      hint: l10n.t('ui.limits_derivatives_integrals'),
       children: [
         _DrawerEntry.link(
           index: 5,
           icon: Icons.drive_file_rename_outline_rounded,
-          label: l10n.t('Derivative', 'مشتق'),
-          hint: l10n.t('1st–10th order', 'مرتبهٔ ۱ تا ۱۰'),
+          label: l10n.t('ui.derivative'),
+          hint: l10n.t('ui.1st_10th_order'),
         ),
         _DrawerEntry.link(
           index: 6,
           icon: Icons.integration_instructions_rounded,
-          label: l10n.t('Integral', 'انتگرال'),
-          hint: l10n.t('1D / 2D / 3D', 'یگانه / دوگانه / سه‌گانه'),
+          label: l10n.t('ui.integral'),
+          hint: l10n.t('ui.1d_2d_3d'),
         ),
         _DrawerEntry.link(
           index: 7,
           icon: Icons.linear_scale_rounded,
-          label: l10n.t('Limit', 'حد'),
-          hint: l10n.t('Both sides', 'دوطرفه'),
+          label: l10n.t('ui.limit'),
+          hint: l10n.t('ui.both_sides'),
         ),
         _DrawerEntry.link(
           index: 8,
           icon: Icons.timeline_rounded,
-          label: l10n.t('Continuity', 'پیوستگی'),
+          label: l10n.t('ui.continuity'),
         ),
         _DrawerEntry.link(
           index: 9,
           icon: Icons.explore_rounded,
-          label: l10n.t('Domain & range', 'دامنه و برد'),
-          hint: l10n.t('Plot', 'نمودار'),
+          label: l10n.t('ui.domain_range'),
+          hint: l10n.t('ui.plot'),
         ),
         _DrawerEntry.link(
           index: 23,
           icon: Icons.polyline_rounded,
-          label: l10n.t('Taylor & Maclaurin', 'تیلور و مکلورن'),
-          hint: l10n.t('Polynomial', 'چندجمله‌ای'),
+          label: l10n.t('ui.taylor_maclaurin'),
+          hint: l10n.t('ui.polynomial'),
         ),
         _DrawerEntry.link(
           index: 24,
           icon: Icons.architecture_rounded,
-          label: l10n.t('Integral applications', 'کاربردهای انتگرال'),
-          hint: l10n.t('Area / volume', 'مساحت / حجم'),
+          label: l10n.t('ui.integral_applications'),
+          hint: l10n.t('ui.area_volume'),
         ),
         _DrawerEntry.link(
           index: 25,
           icon: Icons.grid_4x4_rounded,
-          label: l10n.t('Partial derivatives', 'مشتق‌های جزئی'),
-          hint: l10n.t('Gradient', 'گرادیان'),
+          label: l10n.t('ui.partial_derivatives'),
+          hint: l10n.t('ui.gradient'),
         ),
         _DrawerEntry.link(
           index: 26,
           icon: Icons.waves_rounded,
-          label: l10n.t('Series & convergence', 'سری و همگرایی'),
-          hint: l10n.t('Tests', 'آزمون‌ها'),
+          label: l10n.t('ui.series_convergence'),
+          hint: l10n.t('ui.tests'),
         ),
         _DrawerEntry.group(
           icon: Icons.insights_rounded,
-          label: l10n.t('Applications of the derivative', 'کاربردهای مشتق'),
+          label: l10n.t('ui.applications_of_the_derivative'),
           children: [
             _DrawerEntry.link(
               index: 10,
               icon: Icons.insights_rounded,
-              label: l10n.t('Function behaviour', 'تحلیل رفتار تابع'),
+              label: l10n.t('ui.function_behaviour'),
             ),
             _DrawerEntry.link(
               index: 11,
               icon: Icons.show_chart_rounded,
-              label: l10n.t('Tangent & normal', 'مماس و خط عمود'),
+              label: l10n.t('ui.tangent_normal'),
             ),
             _DrawerEntry.link(
               index: 12,
               icon: Icons.vertical_align_bottom_rounded,
-              label: l10n.t('Optimisation', 'مسایل بهینه‌سازی'),
+              label: l10n.t('ui.optimisation'),
             ),
             _DrawerEntry.link(
               index: 13,
               icon: Icons.speed_rounded,
-              label: l10n.t('Related rates', 'نرخ‌های مرتبط'),
+              label: l10n.t('ui.related_rates'),
             ),
             _DrawerEntry.group(
               icon: Icons.rule_rounded,
-              label: l10n.t('Important theorems', 'قضایای مهم'),
+              label: l10n.t('ui.important_theorems'),
               children: [
                 _DrawerEntry.link(
                   index: 14,
                   icon: Icons.compare_arrows_rounded,
-                  label: l10n.t("L'Hôpital's rule", 'قاعدهٔ هوپیتال'),
+                  label: l10n.t('ui.l_h_pital_s_rule'),
                 ),
                 _DrawerEntry.link(
                   index: 15,
                   icon: Icons.rule_rounded,
-                  label: l10n.t('Mean value theorem', 'قضیهٔ مقدار میانگین'),
+                  label: l10n.t('ui.mean_value_theorem'),
                 ),
                 _DrawerEntry.link(
                   index: 16,
                   icon: Icons.horizontal_rule_rounded,
-                  label: l10n.t("Rolle's theorem", 'قضیهٔ رول'),
+                  label: l10n.t('ui.rolle_s_theorem'),
                 ),
                 _DrawerEntry.link(
                   index: 17,
                   icon: Icons.swap_horiz_rounded,
-                  label: l10n.t("Cauchy's theorem", 'قضیهٔ کوشی'),
+                  label: l10n.t('ui.cauchy_s_theorem'),
                 ),
                 _DrawerEntry.link(
                   index: 18,
                   icon: Icons.menu_book_rounded,
-                  label: l10n.t(
-                    'Derivative theorems, complete',
-                    'قضایای مشتق، کامل',
-                  ),
+                  label: l10n.t('ui.derivative_theorems_complete'),
                 ),
               ],
             ),
@@ -1631,39 +1616,33 @@ List<_DrawerEntry> _navSections(L10n l10n) {
     _DrawerEntry.link(
       index: 1,
       icon: Icons.view_in_ar_rounded,
-      label: l10n.t('Linear algebra', 'جبر خطی'),
-      hint: l10n.t('Matrices & eigenvalues', 'ماتریس و مقدار ویژه'),
+      label: l10n.t('ui.linear_algebra'),
+      hint: l10n.t('ui.matrices_eigenvalues'),
     ),
     _DrawerEntry.group(
       icon: Icons.auto_stories_rounded,
-      label: l10n.t('Educational explanations', 'توضیحات آموزشی'),
-      hint: l10n.t('Study notes', 'یادداشت‌های آموزشی'),
+      label: l10n.t('ui.educational_explanations'),
+      hint: l10n.t('ui.study_notes'),
       children: [
         _DrawerEntry.link(
           index: 61,
           icon: Icons.drive_file_rename_outline_rounded,
-          label: l10n.t('Derivative', 'مشتق'),
+          label: l10n.t('ui.derivative'),
         ),
         _DrawerEntry.link(
           index: 62,
           icon: Icons.integration_instructions_rounded,
-          label: l10n.t('Integral', 'انتگرال'),
+          label: l10n.t('ui.integral'),
         ),
         _DrawerEntry.link(
           index: 63,
           icon: Icons.category_rounded,
-          label: l10n.t(
-            'Types of differential equations',
-            'انواع معادلات دیفرانسیل',
-          ),
+          label: l10n.t('ui.types_of_differential_equations'),
         ),
         _DrawerEntry.link(
           index: 64,
           icon: Icons.science_rounded,
-          label: l10n.t(
-            'Applications of differential equations',
-            'کاربردهای معادلات دیفرانسیل',
-          ),
+          label: l10n.t('ui.applications_of_differential_equations'),
         ),
       ],
     ),
@@ -1877,10 +1856,7 @@ class _DrawerGroupNodeState extends State<_DrawerGroupNode> {
                           10,
                         ),
                         child: Text(
-                          widget.l10n.t(
-                            'Nothing has been added to this section yet.',
-                            'هنوز مطلبی به این بخش اضافه نشده است.',
-                          ),
+                          widget.l10n.t('ui.nothing_has_been_added_to_this_section_yet'),
                           style: TextStyle(
                             fontFamily: 'Vazirmatn',
                             fontSize: 12,
@@ -2082,7 +2058,7 @@ class _Header extends StatelessWidget {
       children: [
         if (showMenu) ...[
           _RoundIconButton(
-            tooltip: l10n.t('Open menu', 'باز کردن منو'),
+            tooltip: l10n.t('ui.open_menu'),
             icon: Icons.menu_rounded,
             onPressed: onMenu,
           ),
@@ -2113,16 +2089,13 @@ class _Header extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         _RoundIconButton(
-          tooltip: l10n.t(
-            'Search modules (Ctrl K)',
-            'جستجوی ماژول‌ها (Ctrl K)',
-          ),
+          tooltip: l10n.t('ui.search_modules_ctrl_k'),
           icon: Icons.search_rounded,
           onPressed: onSearch,
         ),
         const SizedBox(width: 8),
         _RoundIconButton(
-          tooltip: l10n.t('Settings (Ctrl ,)', 'تنظیمات (Ctrl ,)'),
+          tooltip: l10n.t('ui.settings_ctrl'),
           icon: Icons.settings_rounded,
           onPressed: onSettings,
         ),
@@ -2289,32 +2262,20 @@ class _HomePageState extends State<_HomePage> {
         const SizedBox(height: 14),
         LearningCard(
           l10n: l,
-          title: l.t('How to read a solution', 'چگونه یک جواب را بخوانیم'),
-          idea: l.t(
-            'Every answer comes in three layers: the closed form, the solution path, and the validation. Read them together instead of stopping at the result.',
-            'هر جواب سه لایه دارد: شکل بسته، مسیر حل و اعتبارسنجی. این سه را با هم بخوانید، نه فقط نتیجه را.',
-          ),
-          expandLabel: l.t('Read the workflow', 'روند کار را ببینید'),
+          title: l.t('ui.how_to_read_a_solution'),
+          idea: l.t('ui.every_answer_comes_in_three_layers_the_closed_fo'),
+          expandLabel: l.t('ui.read_the_workflow'),
           points: [
-            l.t(
-              'The answer card states what was solved and any assumptions.',
-              'کارت جواب می‌گوید چه چیزی حل شده و چه فرض‌هایی در کار بوده است.',
-            ),
-            l.t(
-              'The solution path names each rule, so you can reproduce it by hand.',
-              'مسیر حل نام هر قاعده را می‌آورد تا بتوانید آن را دستی بازتولید کنید.',
-            ),
-            l.t(
-              'Validation substitutes the answer back; a failed check means the form needs another look.',
-              'اعتبارسنجی جواب را جایگذاری می‌کند؛ اگر بررسی رد شود، فرم معادله را دوباره ببینید.',
-            ),
+            l.t('ui.the_answer_card_states_what_was_solved_and_any_a'),
+            l.t('ui.the_solution_path_names_each_rule_so_you_can_rep'),
+            l.t('ui.validation_substitutes_the_answer_back_a_failed'),
           ],
         ),
         const SizedBox(height: 26),
         LayoutBuilder(
           builder: (context, constraints) {
             final label = SectionLabel(
-              l.t('Forms we recognise', 'فرم‌هایی که می‌شناسیم'),
+              l.t('ui.forms_we_recognise'),
             );
             final switcher = SegmentedButton<int>(
               showSelectedIcon: false,
@@ -2325,11 +2286,11 @@ class _HomePageState extends State<_HomePage> {
               segments: [
                 ButtonSegment(
                   value: 1,
-                  label: Text(l.t('First order', 'مرتبهٔ اول')),
+                  label: Text(l.t('ui.first_order')),
                 ),
                 ButtonSegment(
                   value: 2,
-                  label: Text(l.t('Second order', 'مرتبهٔ دوم')),
+                  label: Text(l.t('ui.second_order')),
                 ),
               ],
               selected: {_order},
@@ -2382,7 +2343,7 @@ class _HomePageState extends State<_HomePage> {
           },
         ),
         const SizedBox(height: 28),
-        SectionLabel(l.t('Beyond solving', 'فراتر از حل')),
+        SectionLabel(l.t('ui.beyond_solving')),
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -2390,20 +2351,14 @@ class _HomePageState extends State<_HomePage> {
             final cards = [
               _WideCard(
                 icon: Icons.grid_on_rounded,
-                title: l.t('Wronskian', 'رونسکی'),
-                subtitle: l.t(
-                  'Linear independence of a set of functions.',
-                  'استقلال خطی یک مجموعه تابع.',
-                ),
+                title: l.t('ui.wronskian'),
+                subtitle: l.t('ui.linear_independence_of_a_set_of_functions'),
                 onTap: () => widget.onOpen(3),
               ),
               _WideCard(
                 icon: Icons.join_inner_rounded,
-                title: l.t('Envelope & trajectories', 'پوش و مسیرهای قائم'),
-                subtitle: l.t(
-                  'Envelopes of a family, orthogonal trajectories, and oblique trajectories.',
-                  'پوش یک خانوادهٔ منحنی، مسیرهای قائم و مسیرهای مایل.',
-                ),
+                title: l.t('ui.envelope_trajectories'),
+                subtitle: l.t('ui.envelopes_of_a_family_orthogonal_trajectories_an'),
                 onTap: () => widget.onOpen(4),
               ),
             ];
@@ -2434,10 +2389,7 @@ class _HomePageState extends State<_HomePage> {
         const SizedBox(height: 30),
         Center(
           child: Text(
-            l.t(
-              'See the steps, not just the answer.',
-              'هر قدم را ببین، نه فقط جواب را.',
-            ),
+            l.t('ui.see_the_steps_not_just_the_answer'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall
                 ?.copyWith(fontSize: 12, letterSpacing: 0.2, color: c.muted),
@@ -2456,7 +2408,7 @@ class _HomePageState extends State<_HomePage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          l.t('Every equation has a form.', 'هر معادله‌ای یک فرم دارد.'),
+          l.t('ui.every_equation_has_a_form'),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontSize: 27,
             fontWeight: FontWeight.w700,
@@ -2466,17 +2418,14 @@ class _HomePageState extends State<_HomePage> {
         ),
         const SizedBox(height: 10),
         Text(
-          l.t(
-            'Enter an ordinary differential equation; Infinit Lab recognises its form, shows the standard shape and solves it step by step.',
-            'یک معادلهٔ دیفرانسیل معمولی وارد کنید؛ Infinit Lab فرم آن را تشخیص می‌دهد، شکل استاندارد را نشان می‌دهد و قدم‌به‌قدم حل می‌کند.',
-          ),
+          l.t('ui.enter_an_ordinary_differential_equation_infinit'),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.65),
         ),
         const SizedBox(height: 20),
         FilledButton.icon(
           onPressed: () => widget.onOpen(2, seed: "y' + y/x = x^2"),
           icon: const Icon(Icons.play_arrow_rounded, size: 20),
-          label: Text(l.t('Solve an equation', 'حل یک معادله')),
+          label: Text(l.t('ui.solve_an_equation_2')),
         ),
         const SizedBox(height: 18),
         Wrap(
@@ -2485,18 +2434,15 @@ class _HomePageState extends State<_HomePage> {
           children: [
             _HeroFeature(
               icon: Icons.check_circle_outline_rounded,
-              label: l.t(
-                'Exact rational arithmetic',
-                'محاسبات دقیق اعداد گویا',
-              ),
+              label: l.t('ui.exact_rational_arithmetic'),
             ),
             _HeroFeature(
               icon: Icons.route_outlined,
-              label: l.t('Every step explained', 'توضیح کامل هر مرحله'),
+              label: l.t('ui.every_step_explained'),
             ),
             _HeroFeature(
               icon: Icons.cloud_off_rounded,
-              label: l.t('Works fully offline', 'کاملاً آفلاین'),
+              label: l.t('ui.works_fully_offline'),
             ),
           ],
         ),
@@ -2544,23 +2490,23 @@ class _HomePageState extends State<_HomePage> {
     final items = [
       (
         icon: Icons.drive_file_rename_outline_rounded,
-        label: l.t('Derivative', 'مشتق'),
+        label: l.t('ui.derivative'),
         index: 5,
       ),
       (
         icon: Icons.integration_instructions_rounded,
-        label: l.t('Integral', 'انتگرال'),
+        label: l.t('ui.integral'),
         index: 6,
       ),
-      (icon: Icons.linear_scale_rounded, label: l.t('Limit', 'حد'), index: 7),
+      (icon: Icons.linear_scale_rounded, label: l.t('ui.limit'), index: 7),
       (
         icon: Icons.timeline_rounded,
-        label: l.t('Continuity', 'پیوستگی'),
+        label: l.t('ui.continuity'),
         index: 8,
       ),
       (
         icon: Icons.explore_rounded,
-        label: l.t('Domain & range', 'دامنه و برد'),
+        label: l.t('ui.domain_range'),
         index: 9,
       ),
     ];
@@ -2570,7 +2516,7 @@ class _HomePageState extends State<_HomePage> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          l.t('Calculus tools', 'ابزارهای حساب دیفرانسیل'),
+          l.t('ui.calculus_tools'),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 12),
         ),
         for (final item in items)
@@ -2647,7 +2593,7 @@ class _HeroPreview extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  l10n.t('Worked example', 'نمونهٔ حل'),
+                  l10n.t('ui.worked_example'),
                   style: TextStyle(
                     fontFamily: 'Vazirmatn',
                     fontSize: 11.5,
@@ -2670,19 +2616,19 @@ class _HeroPreview extends StatelessWidget {
           const SizedBox(height: 12),
           _SolutionStep(
             index: '1',
-            label: l10n.t('Linear first-order', 'خطی مرتبهٔ اول'),
+            label: l10n.t('ui.linear_first_order'),
             latex: r"y' + P(x)\,y = Q(x)",
           ),
           const SizedBox(height: 10),
           _SolutionStep(
             index: '2',
-            label: l10n.t('Integrating factor', 'عامل انتگرال‌گیر'),
+            label: l10n.t('ui.integrating_factor'),
             latex: r"\mu(x) = x",
           ),
           const SizedBox(height: 10),
           _SolutionStep(
             index: '3',
-            label: l10n.t('Substitute back', 'جای‌گذاری در معادله'),
+            label: l10n.t('ui.substitute_back'),
             latex: r"y = \frac{x^3}{4} + \frac{C}{x}",
           ),
           const SizedBox(height: 12),
@@ -2698,7 +2644,7 @@ class _HeroPreview extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    l10n.t('Validate the answer', 'اعتبارسنجی پاسخ'),
+                    l10n.t('ui.validate_the_answer'),
                     style: TextStyle(
                       fontFamily: 'Vazirmatn',
                       fontSize: 11.5,
