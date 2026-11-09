@@ -1845,5 +1845,6 @@
   "plot.isolate_derivative": "The highest derivative could not be isolated from the equation.",
   "plot.domain_exit": "The numeric trajectories left their domain immediately.",
   "plot.unsupported_form": "This form is not supported for plotting.",
-  "plot.failed": "The plot could not be drawn."
+  "plot.failed": "The plot could not be drawn.",
+  "plot.no_finite_samples": "No finite samples in this window."
 }

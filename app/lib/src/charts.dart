@@ -175,6 +175,10 @@ class MathPlot extends StatelessWidget {
                 spec: spec,
                 colors: c,
                 textDirection: Directionality.of(context),
+                emptyMessage:
+                    spec.emptyMessage ??
+                    L10n(Localizations.localeOf(context))
+                        .t('plot.no_finite_samples'),
               ),
               size: Size.infinite,
             ),
@@ -233,11 +237,13 @@ class _PlotPainter extends CustomPainter {
     required this.spec,
     required this.colors,
     required this.textDirection,
+    required this.emptyMessage,
   });
 
   final PlotSpec spec;
   final OdeColors colors;
   final TextDirection textDirection;
+  final String emptyMessage;
 
   static const _padLeft = 46.0;
   static const _padTop = 14.0;
@@ -690,7 +696,7 @@ class _PlotPainter extends CustomPainter {
   void _drawEmpty(Canvas canvas, Size size) {
     final tp = TextPainter(
       text: TextSpan(
-        text: spec.emptyMessage ?? 'No finite samples in this window.',
+        text: emptyMessage,
         style: TextStyle(
           fontFamily: 'Vazirmatn',
           color: colors.muted,
