@@ -3,5 +3,4 @@
 # Counts may only shrink: a migration lowers them in the same commit.
 # Documentation (*.md) and app/assets/i18n/** are outside the scan.
 
-core/src/calculus_api.cpp	113
 core/src/ode.cpp	523

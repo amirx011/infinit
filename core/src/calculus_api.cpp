@@ -20,29 +20,7 @@
 namespace ode {
 namespace {
 
-std::string methodEn(const std::string& id) {
-    if (id == "substitution") return "Substitution";
-    if (id == "parts") return "Integration by parts";
-    if (id == "rational") return "Rational functions";
-    if (id == "trig") return "Trigonometric powers";
-    if (id == "expand") return "Polynomial expansion";
-    if (id == "sum") return "Term-by-term";
-    if (id == "constant") return "Constant";
-    if (id == "table") return "Standard table";
-    return "Standard methods";
-}
 
-std::string methodFa(const std::string& id) {
-    if (id == "substitution") return "تغییر متغیر";
-    if (id == "parts") return "جزء‌به‌جزء";
-    if (id == "rational") return "توابع گویا";
-    if (id == "trig") return "توان‌های مثلثاتی";
-    if (id == "expand") return "بسط چندجمله‌ای";
-    if (id == "sum") return "جمله‌به‌جمله";
-    if (id == "constant") return "تابع ثابت";
-    if (id == "table") return "جدول استاندارد";
-    return "روش‌های استاندارد";
-}
 
 std::string fmtReal(double v) {
     char buf[64];
@@ -50,26 +28,20 @@ std::string fmtReal(double v) {
     return buf;
 }
 
-std::string ruleName(const std::string& id, bool en) {
-    if (id == "sum") return en ? "sum rule" : "قاعدهٔ جمع";
-    if (id == "product") return en ? "product rule" : "قاعدهٔ ضرب";
-    if (id == "product_general") return en ? "generalized product rule" : "قاعدهٔ ضرب تعمیم‌یافته";
-    if (id == "constant_multiple") return en ? "constant multiple" : "ضریب ثابت";
-    if (id == "power") return en ? "power rule" : "قاعدهٔ توان";
-    if (id == "exponential") return en ? "exponential rule" : "قاعدهٔ نمایی";
-    if (id == "general_power") return en ? "logarithmic differentiation" : "مشتق‌گیری لگاریتمی";
-    if (id == "chain") return en ? "chain rule" : "قاعدهٔ زنجیره‌ای";
-    if (id == "log_abs") return en ? "logarithm of an absolute value" : "لگاریتم قدر مطلق";
-    if (id == "absolute_value") return en ? "absolute value" : "قدر مطلق";
-    if (id == "formal_derivative") return en ? "formal derivative" : "مشتق صوری";
-    if (id == "derivative_node") return en ? "derivative node" : "گرهٔ مشتق";
-    if (id == "fundamental_theorem") return en ? "fundamental theorem" : "قضیهٔ اساسی";
-    if (id == "variable") return en ? "variable" : "متغیر";
-    if (id == "constant") return en ? "constant" : "ثابت";
-    return id;
-}
 
 std::string boundText(const Ex& e) { return e ? toPlain(e) : std::string("?"); }
+
+void addStep(Result& r, const std::string& titleKey, const Ex& math = nullptr,
+             const std::string& noteKey = "", const std::string& params = "",
+             const std::string& noteMath = "") {
+    Step s;
+    s.titleKey = titleKey;
+    s.math = math;
+    s.noteKey = noteKey;
+    s.params = params;
+    s.noteMath = noteMath;
+    r.steps.push_back(std::move(s));
+}
 
 // Numeric value of the integrand at a point (used by the verification pass).
 double evalAt(const Ex& f, const std::map<std::string, double>& env) {
@@ -78,13 +50,6 @@ double evalAt(const Ex& f, const std::map<std::string, double>& env) {
     return ok ? v : std::nan("");
 }
 
-std::string integralTypeFa(int dimension, bool definite) {
-    std::string base = dimension <= 1 ? "انتگرال یگانه"
-                       : dimension == 2 ? "انتگرال دوگانه"
-                                        : "انتگرال سه‌گانه";
-    if (definite) base += "ٔ معین";
-    return base;
-}
 
 } // namespace
 
@@ -94,7 +59,6 @@ Result integrateExpression(const std::string& input, const std::string& x,
     Result r;
     r.mode = "integral";
     r.typeId = "integral";
-    r.typeFa = "انتگرال نامعین";
     r.engine = "native";
     r.order = 0;
     r.vars = {x};
@@ -111,16 +75,13 @@ Result integrateExpression(const std::string& input, const std::string& x,
         r.isExplicit = true;
         r.explicitY = F;
         r.closedForm = closed;
-        r.steps.push_back({en ? "Method detection" : "تشخیص روش", nullptr,
-                           en ? ("Detected method: " + methodEn(method))
-                              : ("روش تشخیص‌داده‌شده: " + methodFa(method))});
-        r.steps.push_back({en ? "Indefinite integral" : "انتگرال نامعین", F,
-                           en ? "The constant of integration C is added by convention."
-                              : "ثابت انتگرال‌گیری C طبق قرارداد اضافه می‌شود."});
+        addStep(r, "step.title.method_detection", nullptr,
+                "step.note.detected_method",
+                "{\"method\":\"@ui.method." + method + "\"}");
+        addStep(r, "step.title.indefinite_integral", F,
+                "step.note.constant_of_integration");
         if (!closed) {
-            r.warnings.push_back(en
-                ? "No elementary antiderivative was found; the result is an exact quadrature."
-                : "پادمشتق مقدماتی پیدا نشد؛ جواب به صورت کوادراتور دقیق ارائه شده است.");
+            r.warnings.push_back("step.note.no_elementary_antiderivative");
         } else {
             try {
                 Ex residual = simplify(Add(diff(F, x), Mul(Num(-1), f)));
@@ -134,9 +95,7 @@ Result integrateExpression(const std::string& input, const std::string& x,
         }
         r.ok = true;
     } catch (const std::exception& e) {
-        r.ok = false;
-        r.error = (en ? std::string("Integration error: ") : std::string("خطای انتگرال‌گیری: ")) +
-                  localizeError(e.what(), en);
+        setCodedFailure(r, e, "integral");
     }
     return r;
 }
@@ -532,7 +491,6 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
     Result r;
     r.mode = "integral";
     r.typeId = "integral_definite";
-    r.typeFa = "انتگرال معین";
     r.engine = "native";
     r.variable = x;
     r.dimension = 1;
@@ -545,12 +503,11 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
         Ex lo = parseExpr(loText);
         Ex hi = parseExpr(hiText);
         r.normalized = f;
-        r.steps.push_back({en ? "Integrand" : "انتگرال‌ده", f,
-                           en ? "Integrate with respect to " + x + "."
-                              : "انتگرال‌گیری نسبت به " + x + "."});
-        r.steps.push_back({en ? "Bounds" : "کران‌ها", nullptr,
-                           (en ? "From " : "از ") + boundText(lo) + (en ? " to " : " تا ") +
-                               boundText(hi)});
+        addStep(r, "step.title.integrand", f, "step.note.integrate_with_respect_to",
+                "{\"var\":\"" + x + "\"}");
+        addStep(r, "step.title.bounds", nullptr, "step.note.from_to",
+                "{\"lo\":\"" + boundText(lo) + "\",\"hi\":\"" +
+                    boundText(hi) + "\"}");
 
         int loSign = 1, hiSign = 1;
         const bool loInf = isInfinityPoint(lo, &loSign);
@@ -692,15 +649,9 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                 r.solution = nullptr;
                 r.explicitY = nullptr;
                 r.isExplicit = false;
-                r.steps.push_back(
-                    {en ? "Singularity analysis" : "تحلیل تکینگی", nullptr,
-                     en ? "The antiderivative does not have a finite one-sided limit at a "
-                          "singular point, so the improper integral diverges."
-                        : "پادمشتق در یک نقطهٔ تکین حد یک‌طرفهٔ متناهی ندارد؛ بنابراین انتگرال "
-                          "ناسره واگرا است."});
-                r.warnings.push_back(
-                    en ? "The definite integral diverges; no finite value exists."
-                       : "انتگرال معین واگرا است؛ مقدار متناهی وجود ندارد.");
+                addStep(r, "step.title.singularity_analysis", nullptr,
+                        "step.note.singular_diverges");
+                r.warnings.push_back("step.note.definite_diverges");
                 addCheck(r, "check.convergence_analysis", true,
                          "check.divergence_one_sided");
             } else {
@@ -734,26 +685,18 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                         if (!list.empty()) list += ", ";
                         list += p.exact && p.at ? toPlain(p.at) : fmtReal(p.numericAt);
                     }
-                    r.steps.push_back(
-                        {en ? "Improper integral" : "انتگرال ناسره", nullptr,
-                         en ? ("Singular points: " + list +
-                               ". The interval is split there and one-sided limits are used.")
-                            : ("نقاط تکین: " + list +
-                               "؛ بازه در آن‌ها تقسیم و حدهای یک‌طرفه استفاده می‌شود.")});
+                    addStep(r, "step.title.improper_integral", nullptr,
+                            "step.note.singular_points_split",
+                            "{\"points\":\"" + list + "\"}");
                 }
                 if (loInf || hiInf) {
-                    r.steps.push_back(
-                        {en ? "Infinite bounds" : "کران‌های نامتناهی", nullptr,
-                         en ? "The antiderivative is evaluated in the limit at infinity."
-                            : "پادمشتق در حد بی‌نهایت ارزیابی می‌شود."});
+                    addStep(r, "step.title.infinite_bounds", nullptr,
+                            "step.note.limit_at_infinity");
                 }
                 addCheck(r, "check.convergence_analysis", true,
                          "check.converges_one_sided");
                 if (!allExact) {
-                    r.warnings.push_back(
-                        en ? "The improper integral was evaluated numerically from finite "
-                             "limits; the result is approximate."
-                           : "انتگرال ناسره به‌صورت عددی از حدهای متناهی محاسبه شد؛ نتیجه تقریبی است.");
+                    r.warnings.push_back("step.note.improper_numeric_finite");
                 }
             }
             r.ok = true;
@@ -778,11 +721,10 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                 r.closedForm = true;
                 r.hasNumeric = true;
                 r.numericValue = value;
-                r.steps.push_back({en ? "Antiderivative" : "پادمشتق", F,
-                                   en ? ("Method: " + methodEn(method))
-                                      : ("روش: " + methodFa(method))});
-                r.steps.push_back({en ? "Apply the bounds" : "جای‌گذاری کران‌ها", val,
-                                   "F(" + boundText(hi) + ") − F(" + boundText(lo) + ")"});
+                addStep(r, "step.title.antiderivative", F, "step.note.method",
+                        "{\"method\":\"@ui.method." + method + "\"}");
+                addStep(r, "step.title.apply_the_bounds", val, "", "",
+                        "F(" + boundText(hi) + ") - F(" + boundText(lo) + ")");
                 if (std::isfinite(numeric)) {
                     const double scale = std::max(1.0, std::fabs(numeric));
                     const bool match = std::fabs(numeric - value) <= 1e-6 * scale;
@@ -822,8 +764,7 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                 r.divergent = true;
                 r.hasNumeric = false;
                 r.solution = nullptr;
-                r.warnings.push_back(en ? "The definite integral diverges; no finite value exists."
-                                        : "انتگرال معین واگرا است؛ مقدار متناهی وجود ندارد.");
+                r.warnings.push_back("step.note.definite_diverges");
             } else if (std::isfinite(value)) {
                 r.hasNumeric = true;
                 r.numericValue = value;
@@ -831,25 +772,18 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
                 r.explicitY = nullptr;
                 r.isExplicit = false;
                 r.verified = false;
-                r.warnings.push_back(
-                    en ? "The improper integral was evaluated numerically; convergence was "
-                         "checked, but the value is approximate."
-                       : "انتگرال ناسره به‌صورت عددی محاسبه شد؛ همگرایی بررسی شد اما مقدار تقریبی است.");
+                r.warnings.push_back("step.note.improper_numeric");
             } else {
-                throw std::runtime_error(
-                    en ? "the integrand is singular and no elementary antiderivative was found"
-                       : "انتگرال‌ده تکین است و پادمشتق مقدماتی پیدا نشد");
+                throw EngineError("unavailable", "the integrand is singular");
             }
-            r.steps.push_back(
-                {en ? "Numerical improper integral" : "انتگرال ناسرهٔ عددی", nullptr,
-                 en ? "The singular points are excluded and the truncated integrals are compared."
-                    : "نقاط تکین کنار گذاشته و انتگرال‌های بریده‌شده مقایسه می‌شوند."});
+            addStep(r, "step.title.numerical_improper_integral", nullptr,
+                    "step.note.singular_points_excluded");
             r.ok = true;
             return r;
         }
 
         if (!std::isfinite(numeric))
-            throw std::runtime_error(en ? "quadrature failed" : "کوادراتور شکست خورد");
+            throw EngineError("unavailable", "quadrature failed");
         r.method = "numeric";
         r.closedForm = false;
         r.hasNumeric = true;
@@ -857,20 +791,12 @@ Result integrateDefiniteSingle(const std::string& input, const std::string& x,
         r.solution = nullptr;
         r.explicitY = nullptr;
         r.isExplicit = false;
-        r.steps.push_back(
-            {en ? "Quadrature" : "کوادراتور", nullptr,
-             en ? ("No elementary antiderivative; adaptive Gauss–Kronrod gives " +
-                   fmtReal(numeric) + ".")
-                : ("پادمشتق مقدماتی موجود نیست؛ گاوس–کرانرود تطبیقی مقدار " +
-                   fmtReal(numeric) + " را می‌دهد.")});
-        r.warnings.push_back(en
-            ? "The answer is a high-accuracy numerical value, not a closed form."
-            : "جواب یک مقدار عددی با دقت بالا است، نه فرم بسته.");
+        addStep(r, "step.title.quadrature", nullptr, "step.note.quadrature_value",
+                "{\"value\":\"" + fmtReal(numeric) + "\"}");
+        r.warnings.push_back("step.note.answer_numeric");
         r.ok = true;
     } catch (const std::exception& e) {
-        r.ok = false;
-        r.error = (en ? std::string("Definite integral error: ")
-                      : std::string("خطای انتگرال معین: ")) + localizeError(e.what(), en);
+        setCodedFailure(r, e, "definite_integral");
     }
     return r;
 }
@@ -897,7 +823,6 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
         Result r;
         r.mode = "integral";
         r.typeId = "integral_multiple";
-        r.typeFa = integralTypeFa((int)vars.size(), false);
         r.engine = "native";
         r.variable = vars[0];
         r.vars = vars;
@@ -906,9 +831,7 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
         try {
             Ex f = parseExpr(input);
             r.normalized = f;
-            r.steps.push_back({en ? "Integrand" : "انتگرال‌ده", f,
-                               en ? "Iterated integral, innermost variable first."
-                                  : "انتگرال تکراری، از درونی‌ترین متغیر آغاز می‌شود."});
+            addStep(r, "step.title.integrand", f, "step.note.iterated_innermost");
             Ex g = f;
             bool closedAll = true;
             std::string lastMethod;
@@ -919,10 +842,10 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
                 lastMethod = method;
                 if (!closed) closedAll = false;
                 g = simplify(G);
-                r.steps.push_back(
-                    {en ? ("Integrate with respect to " + v) : ("انتگرال نسبت به " + v), g,
-                     en ? ("Method: " + methodEn(method) + "; one constant per variable is added.")
-                        : ("روش: " + methodFa(method) + "؛ برای هر متغیر یک ثابت اضافه می‌شود.")});
+                addStep(r, "step.title.integrate_with_respect_to", g,
+                        "step.note.one_constant_per_variable",
+                        "{\"var\":\"" + v + "\",\"method\":\"@ui.method." +
+                            method + "\"}");
             }
             r.solution = g;
             r.explicitY = g;
@@ -930,16 +853,12 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
             r.method = lastMethod;
             r.closedForm = closedAll;
             if (!closedAll)
-                r.warnings.push_back(en ? "At least one stage has no elementary antiderivative."
-                                        : "حداقل یک مرحله پادمشتق مقدماتی ندارد.");
-            r.steps.push_back({en ? "Result" : "نتیجه", g,
-                               en ? "Add one integration constant per variable."
-                                  : "برای هر متغیر یک ثابت انتگرال‌گیری اضافه می‌شود."});
+                r.warnings.push_back("step.note.no_elementary_stage");
+            addStep(r, "step.title.result", g, "step.note.constant_per_variable");
             r.ok = true;
         } catch (const std::exception& e) {
             r.ok = false;
-            r.error = (en ? std::string("Integration error: ") : std::string("خطای انتگرال‌گیری: ")) +
-                  localizeError(e.what(), en);
+            setCodedFailure(r, e, "multiple_integral");
         }
         return r;
     }
@@ -954,7 +873,6 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
     Result r;
     r.mode = "integral";
     r.typeId = "integral_multiple_definite";
-    r.typeFa = integralTypeFa((int)vars.size(), true);
     r.engine = "native";
     r.variable = vars[0];
     r.vars = vars;
@@ -964,15 +882,13 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
     r.upper = upper;
     if (lower.size() != vars.size() || upper.size() != vars.size()) {
         r.ok = false;
-        r.error = en ? "Bounds are missing for the integration variables."
-                     : "کران‌ها برای متغیرهای انتگرال‌گیری کامل نیست.";
+        r.errorCode = "bounds_missing";
         return r;
     }
     try {
         Ex f = parseExpr(input);
         r.normalized = f;
-        r.steps.push_back({en ? "Integrand" : "انتگرال‌ده", f,
-                           en ? "Iterated definite integral." : "انتگرال معین تکراری."});
+        addStep(r, "step.title.integrand", f, "step.note.iterated_definite");
 
         // 1) Try a fully symbolic evaluation of the iterated integral.
         Ex g = f;
@@ -988,10 +904,10 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
             Ex lo = parseExpr(lower[i]);
             Ex hi = parseExpr(upper[i]);
             g = simplify(Add(substitute(G, vars[i], hi), Mul(Num(-1), substitute(G, vars[i], lo))));
-            r.steps.push_back(
-                {en ? ("Integrate over " + vars[i]) : ("انتگرال نسبت به " + vars[i]), g,
-                 en ? ("From " + boundText(lo) + " to " + boundText(hi) + " (" + methodEn(method) + ").")
-                    : ("از " + boundText(lo) + " تا " + boundText(hi) + " (" + methodFa(method) + ").")});
+            addStep(r, "step.title.integrate_over", g, "step.note.from_to_method",
+                    "{\"var\":\"" + vars[i] + "\",\"lo\":\"" + boundText(lo) +
+                        "\",\"hi\":\"" + boundText(hi) + "\",\"method\":\"@ui.method." +
+                        method + "\"}");
         }
 
         double value = std::nan("");
@@ -1009,7 +925,7 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
             r.closedForm = true;
             r.hasNumeric = true;
             r.numericValue = value;
-            r.steps.push_back({en ? "Value" : "مقدار", r.solution, fmtReal(value)});
+            addStep(r, "step.title.value", r.solution, "", "", fmtReal(value));
         } else {
             std::vector<double> lo, hi;
             for (size_t i = 0; i < vars.size(); ++i) {
@@ -1017,8 +933,7 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
                 const double la = evalReal(parseExpr(lower[i]), {}, &a);
                 const double ub = evalReal(parseExpr(upper[i]), {}, &b);
                 if (!a || !b || !std::isfinite(la) || !std::isfinite(ub))
-                    throw std::runtime_error(en ? "the bounds must be numeric"
-                                                : "کران‌ها باید عددی باشند");
+                    throw EngineError("bad_bounds", "the bounds must be numeric");
                 lo.push_back(la);
                 hi.push_back(ub);
             }
@@ -1031,22 +946,15 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
             r.solution = nullptr;
             r.explicitY = nullptr;
             r.isExplicit = false;
-            r.steps.push_back(
-                {en ? "Nested quadrature" : "کوادراتور تودرتو", nullptr,
-                 en ? ("No closed form at every stage; nested Gauss–Kronrod gives " +
-                       fmtReal(value) + ".")
-                    : ("در همهٔ مراحل فرم بسته پیدا نشد؛ گاوس–کرانرود تودرتو مقدار " +
-                       fmtReal(value) + " را می‌دهد.")});
-            r.warnings.push_back(en
-                ? "The answer is a high-accuracy numerical value, not a closed form."
-                : "جواب یک مقدار عددی با دقت بالا است، نه فرم بسته.");
+            addStep(r, "step.title.nested_quadrature", nullptr,
+                    "step.note.nested_quadrature_value",
+                    "{\"value\":\"" + fmtReal(value) + "\"}");
+            r.warnings.push_back("step.note.answer_numeric");
         }
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;
-        r.error = (en ? std::string("Multiple integral error: ")
-                      : std::string("خطای انتگرال چندگانه: ")) +
-                  localizeError(e.what(), en);
+        setCodedFailure(r, e, "multiple_integral");
     }
     return r;
 }
@@ -1062,22 +970,16 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
     if (order < 1 || order > 10) {
         r.ok = false;
         r.order = order < 1 ? 0 : order;
-        r.error = en ? "The derivative order must be between 1 and 10."
-                     : "مرتبهٔ مشتق باید بین ۱ و ۱۰ باشد.";
+        r.errorCode = "derivative_order";
         return r;
     }
     r.order = order;
-    r.typeFa = r.order == 1 ? "مشتق مرتبهٔ اول"
-               : r.order == 2 ? "مشتق مرتبهٔ دوم"
-               : r.order == 3 ? "مشتق مرتبهٔ سوم"
-                              : "مشتق مرتبهٔ " + std::to_string(r.order);
     try {
         const bool equation = input.find('=') != std::string::npos;
         if (equation) {
             // ------------------------------------------------ implicit form
             r.implicit = true;
             r.typeId = "derivative_implicit";
-            r.typeFa = "مشتق ضمنی";
             Ex F = parseEquation(input);
             r.normalized = F;
 
@@ -1097,8 +999,7 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
                 }
             }
             if (dep.empty())
-                throw std::runtime_error(en ? "the equation has no dependent variable"
-                                            : "معادله متغیر وابسته ندارد");
+                throw EngineError("implicit_no_dependent", "no dependent variable");
             r.method = "implicit";
             r.vars = {dep};
 
@@ -1112,30 +1013,28 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
             r.closedForm = true;
 
             const std::string dy = "d" + dep + "/d" + x;
-            r.steps.push_back({en ? "Implicit equation" : "معادلهٔ ضمنی", F,
-                               en ? "Differentiate both sides with respect to " + x + "."
-                                  : "دو طرف را نسبت به " + x + " مشتق می‌گیریم."});
-            r.steps.push_back({en ? "Partial derivative F_" + x : "مشتق جزئی F_" + x, Fx});
-            r.steps.push_back({en ? "Partial derivative F_" + dep : "مشتق جزئی F_" + dep, Fy});
-            r.steps.push_back({en ? "First derivative" : "مشتق اول", first,
-                               dy + " = -F_" + x + " / F_" + dep});
-            if (r.order >= 2)
-                r.steps.push_back({en ? "Second derivative" : "مشتق دوم", d,
-                                   en ? ("Differentiate " + dy + " again, treating " + dep +
-                                         " as a function of " + x + ".")
-                                      : ("از " + dy + " یک بار دیگر مشتق می‌گیریم و " + dep +
-                                         " را تابعی از " + x + " می‌دانیم.")});
-            if (r.order >= 3)
-                r.steps.push_back({en ? "Third derivative" : "مشتق سوم", d,
-                                   en ? "Apply the total derivative once more."
-                                      : "بار دیگر مشتق کل را اعمال می‌کنیم."});
-            if (r.order > 3)
-                r.steps.push_back(
-                    {en ? ("Derivative of order " + std::to_string(r.order))
-                        : ("مشتق مرتبهٔ " + std::to_string(r.order)),
-                     d,
-                     en ? "The total derivative D = ∂/∂x + y′·∂/∂y is applied repeatedly."
-                        : "عملگر مشتق کل D = ∂/∂x + y′·∂/∂y به‌طور مکرر اعمال می‌شود."});
+            addStep(r, "step.title.implicit_equation", F,
+                    "step.note.differentiate_both_sides", "{\"var\":\"" + x + "\"}");
+            addStep(r, "step.title.partial_derivative_F", Fx, "", "",
+                    "F_" + x);
+            addStep(r, "step.title.partial_derivative_F", Fy, "", "",
+                    "F_" + dep);
+            addStep(r, "step.title.first_derivative", first, "", "",
+                    dy + " = -F_" + x + " / F_" + dep);
+            if (r.order >= 2) {
+                addStep(r, "step.title.second_derivative", d,
+                        "step.note.differentiate_again",
+                        "{\"dy\":\"" + dy + "\",\"dep\":\"" + dep +
+                            "\",\"x\":\"" + x + "\"}");
+            }
+            if (r.order >= 3) {
+                addStep(r, "step.title.third_derivative", d,
+                        "step.note.total_derivative_again");
+            }
+            if (r.order > 3) {
+                addStep(r, "step.title.derivative_of_order", d, "", "",
+                        "D^" + std::to_string(r.order));
+            }
 
             // Consistency check: F_x + F_y·y' must vanish.
             try {
@@ -1168,27 +1067,24 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
         std::string rules;
         for (const auto& n : notes) {
             if (n.depth > 2) continue;
-            const std::string name = ruleName(n.rule, en);
+            const std::string name = n.rule;
             if (rules.find(name) != std::string::npos) continue;
-            if (!rules.empty()) rules += en ? ", " : "، ";
+            if (!rules.empty()) rules += ", ";
             rules += name;
         }
-        r.steps.push_back({en ? "Differentiation rules" : "قواعد مشتق‌گیری", f,
-                           !rules.empty()
-                               ? (en ? ("Rules: " + rules) : ("قواعد: " + rules))
-                               : (en ? "Differentiate node by node."
-                                     : "گره‌به‌گره مشتق می‌گیریم.")});
+        addStep(r, "step.title.differentiation_rules", f,
+                rules.empty() ? "step.note.differentiate_node_by_node"
+                              : "step.note.differentiation_rules",
+                "{\"rules\":\"" + rules + "\"}");
         if (derivatives.size() >= 1)
-            r.steps.push_back({en ? "First derivative" : "مشتق اول", derivatives[0]});
+            addStep(r, "step.title.first_derivative", derivatives[0]);
         if (derivatives.size() >= 2)
-            r.steps.push_back({en ? "Second derivative" : "مشتق دوم", derivatives[1]});
+            addStep(r, "step.title.second_derivative", derivatives[1]);
         if (derivatives.size() >= 3)
-            r.steps.push_back({en ? "Third derivative" : "مشتق سوم", derivatives[2]});
+            addStep(r, "step.title.third_derivative", derivatives[2]);
         for (size_t k = 3; k < derivatives.size(); ++k) {
-            r.steps.push_back(
-                {en ? ("Derivative of order " + std::to_string(k + 1))
-                    : ("مشتق مرتبهٔ " + std::to_string(k + 1)),
-                 derivatives[k]});
+            addStep(r, "step.title.derivative_of_order", derivatives[k], "", "",
+                    "D^" + std::to_string(k + 1));
         }
 
         // Cross-check against the ODE engine's differentiator.
@@ -1203,8 +1099,7 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;
-        r.error = (en ? std::string("Derivative error: ") : std::string("خطای مشتق‌گیری: ")) +
-                  localizeError(e.what(), en);
+        setCodedFailure(r, e, "derivative");
     }
     return r;
 }
@@ -1252,7 +1147,7 @@ std::string outcomeText(const LimitOutcome& l, bool en) {
             return l.value ? toPlain(l.value) : fmtReal(l.number);
         case LimitOutcome::PosInf: return "\xE2\x88\x9E";
         case LimitOutcome::NegInf: return "-\xE2\x88\x9E";
-        default: return en ? "does not exist" : "وجود ندارد";
+        default: return std::string();
     }
 }
 
@@ -1362,9 +1257,6 @@ Result limitExpression(const std::string& input, const std::string& x, const std
     r.variable = x;
     r.point = point;
     r.side = side == "left" || side == "right" ? side : "both";
-    r.typeFa = r.side == "left" ? "\u062d\u062f \u0627\u0632 \u0686\u067e"
-               : r.side == "right" ? "\u062d\u062f \u0627\u0632 \u0631\u0627\u0633\u062a"
-                                   : "\u062d\u062f";
     try {
         Ex f = parseExpr(input);
         Ex a = parsePoint(point);
@@ -1427,8 +1319,7 @@ Result limitExpression(const std::string& input, const std::string& x, const std
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;
-        r.error = (en ? std::string("Limit error: ") : std::string("\u062e\u0637\u0627\u06cc \u062d\u062f: ")) +
-                  localizeError(e.what(), en);
+        setCodedFailure(r, e, "limit");
     }
     return r;
 }
@@ -1443,7 +1334,6 @@ Result continuityExpression(const std::string& input, const std::string& x,
     r.variable = x;
     r.point = point;
     r.side = "both";
-    r.typeFa = "\u067e\u06cc\u0648\u0633\u062a\u06af\u06cc";
     try {
         Ex f = parseExpr(input);
         Ex a = parsePoint(point);
@@ -1565,9 +1455,7 @@ Result continuityExpression(const std::string& input, const std::string& x,
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;
-        r.error = (en ? std::string("Continuity error: ")
-                      : std::string("\u062e\u0637\u0627\u06cc \u067e\u06cc\u0648\u0633\u062a\u06af\u06cc: ")) +
-                  localizeError(e.what(), en);
+        setCodedFailure(r, e, "continuity");
     }
     return r;
 }

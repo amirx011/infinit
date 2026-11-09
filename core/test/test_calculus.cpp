@@ -54,12 +54,12 @@ int main() {
     {
         Result r = derivativeExpression("x^3", "x", 0, "en");
         expect(!r.ok, "order 0 is rejected explicitly");
-        expect(!r.error.empty(), "order 0 produces an error message");
+        expect(r.errorCode == "derivative_order", "order 0 reports the order code");
     }
     {
         Result r = derivativeExpression("x^3", "x", 11, "en");
         expect(!r.ok, "order 11 is rejected explicitly");
-        expect(!r.error.empty(), "order 11 produces an error message");
+        expect(r.errorCode == "derivative_order", "order 11 reports the order code");
     }
     {
         Result r = derivativeExpression("x^2 + y^2 = 4", "x", 4, "en");

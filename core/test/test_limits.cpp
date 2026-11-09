@@ -123,7 +123,7 @@ int main() {
         Result r = limitExpression("1/", "x", "0", "both", "en");
         expect(!r.ok, "a malformed limit fails");
         expect(!hasPersian(r.error), "English error messages stay English");
-        expect(!r.error.empty(), "the English error explains the failure");
+        expect(!r.errorCode.empty(), "the failure carries a stable code");
     }
     {
         Result r = derivativeExpression("1/", "x", 1, "en");

@@ -91,7 +91,7 @@ void main() {
 
     final rejected = engine.derivative('x^2', order: 11);
     expect(rejected.ok, isFalse);
-    expect(rejected.error, isNotEmpty);
+    expect(rejected.errorCode, 'derivative_order');
   });
 
   test('improper and divergent integrals are reported honestly', () {
