@@ -296,6 +296,7 @@ class SolveResult {
     this.numericOnly = false,
     this.numericRhs = '',
     this.numericNote = '',
+    this.numericNoteParams = const {},
     this.errorCode = '',
     this.errorDetail = '',
     this.errorPoint,
@@ -478,6 +479,7 @@ class SolveResult {
   final bool numericOnly;
   final String numericRhs;
   final String numericNote;
+  final Map<String, Object?> numericNoteParams;
 
   static List<ExView> _exList(dynamic value) {
     if (value is! List) return const [];
@@ -638,6 +640,9 @@ class SolveResult {
     numericOnly: j['numeric_only'] == true,
     numericRhs: (j['numeric_rhs'] ?? '').toString(),
     numericNote: (j['numeric_note'] ?? '').toString(),
+    numericNoteParams: (j['numeric_note_params'] is Map)
+        ? (j['numeric_note_params'] as Map).cast<String, Object?>()
+        : const {},
   );
 
   static List<PointView> _pointList(dynamic value) {

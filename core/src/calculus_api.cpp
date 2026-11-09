@@ -31,6 +31,45 @@ std::string fmtReal(double v) {
 
 std::string boundText(const Ex& e) { return e ? toPlain(e) : std::string("?"); }
 
+static std::string jsonEscapeStr(const std::string& v) {
+    std::string out;
+    out.reserve(v.size() + 8);
+    for (char c : v) {
+        switch (c) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default: out += c;
+        }
+    }
+    return out;
+}
+
+static std::string pjson(
+    std::initializer_list<std::pair<std::string, std::string>> kv) {
+    std::string out = "{";
+    for (const auto& item : kv) {
+        if (out.size() > 1) out += ",";
+        out += "\"" + item.first + "\":\"" + jsonEscapeStr(item.second) + "\"";
+    }
+    out += "}";
+    return out;
+}
+
+static void addStepKey(Result& r, const std::string& titleKey, const Ex& math = nullptr,
+                       const std::string& noteKey = "", const std::string& params = "",
+                       const std::string& noteMath = "") {
+    Step s;
+    s.titleKey = titleKey;
+    s.math = math;
+    s.noteKey = noteKey;
+    s.params = params;
+    s.noteMath = noteMath;
+    r.steps.push_back(std::move(s));
+}
+
 void addStep(Result& r, const std::string& titleKey, const Ex& math = nullptr,
              const std::string& noteKey = "", const std::string& params = "",
              const std::string& noteMath = "") {
@@ -1178,47 +1217,6 @@ bool outcomeSame(const LimitOutcome& a, const LimitOutcome& b) {
     }
 }
 
-const char* lawEn(const std::string& id) {
-    if (id == "constant") return "constant law";
-    if (id == "identity") return "identity law";
-    if (id == "sum") return "sum law";
-    if (id == "product") return "product law";
-    if (id == "quotient") return "quotient law";
-    if (id == "power") return "power law";
-    if (id == "composite") return "composition (continuity)";
-    if (id == "lhopital") return "L'H\u00f4pital's rule";
-    if (id == "algebraic_simplification") return "algebraic simplification";
-    if (id == "exponential_rewrite") return "exponential rewrite";
-    if (id == "two_sided") return "two-sided comparison";
-    if (id == "squeeze") return "squeeze theorem (numeric bounds)";
-    return "limit law";
-}
-
-const char* lawFa(const std::string& id) {
-    if (id == "constant") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062b\u0627\u0628\u062a";
-    if (id == "identity") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u0645\u062a\u063a\u06cc\u0631";
-    if (id == "sum") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062c\u0645\u0639";
-    if (id == "product") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u0636\u0631\u0628";
-    if (id == "quotient") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062e\u0627\u0631\u062c\u200c\u0642\u0633\u0645\u062a";
-    if (id == "power") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062a\u0648\u0627\u0646";
-    if (id == "composite") return "\u062a\u0631\u06a9\u06cc\u0628 (\u067e\u06cc\u0648\u0633\u062a\u06af\u06cc)";
-    if (id == "lhopital") return "\u0642\u0627\u0639\u062f\u0647\u0654 \u0647\u0648\u067e\u06cc\u062a\u0627\u0644";
-    if (id == "algebraic_simplification") return "\u0633\u0627\u062f\u0647\u200c\u0633\u0627\u0632\u06cc \u062c\u0628\u0631\u06cc";
-    if (id == "exponential_rewrite") return "\u0628\u0627\u0632\u0646\u0648\u06cc\u0633\u06cc \u0646\u0645\u0627\u06cc\u06cc";
-    if (id == "two_sided") return "\u0645\u0642\u0627\u06cc\u0633\u0647\u0654 \u062f\u0648\u0637\u0631\u0641\u0647";
-    if (id == "squeeze") return "\u0642\u0636\u06cc\u0647\u0654 \u0641\u0634\u0627\u0631\u062f\u0646 (\u06a9\u0631\u0627\u0646\u200c\u0647\u0627\u06cc \u0639\u062f\u062f\u06cc)";
-    return "\u0642\u0627\u0639\u062f\u0647\u0654 \u062d\u062f";
-}
-
-std::string lawsText(const std::vector<std::string>& laws, bool en) {
-    std::string out;
-    for (const auto& l : laws) {
-        if (!out.empty()) out += en ? ", " : "\u060c ";
-        out += en ? lawEn(l) : lawFa(l);
-    }
-    return out;
-}
-
 void publish(Result& r, const LimitOutcome& l) {
     r.limitExists = l.kind != LimitOutcome::Undefined;
     r.limitInfinite = l.kind == LimitOutcome::PosInf || l.kind == LimitOutcome::NegInf;
@@ -1239,13 +1237,18 @@ void publish(Result& r, const LimitOutcome& l) {
     }
 }
 
-std::string sideText(const std::string& side, bool en) {
-    if (side == "left") return en ? "from the left" : "\u0627\u0632 \u0633\u0645\u062a \u0686\u067e";
-    if (side == "right") return en ? "from the right" : "\u0627\u0632 \u0633\u0645\u062a \u0631\u0627\u0633\u062a";
-    return en ? "two-sided" : "\u062f\u0648\u0637\u0631\u0641\u0647";
-}
 
 } // namespace
+
+std::string lawsParam(const std::vector<std::string>& laws) {
+    std::string out = "{\"laws\":[";
+    for (size_t i = 0; i < laws.size(); ++i) {
+        if (i) out += ",";
+        out += "\"@ui.law." + laws[i] + "\"";
+    }
+    out += "]}";
+    return out;
+}
 
 Result limitExpression(const std::string& input, const std::string& x, const std::string& point,
                        const std::string& side, const std::string& lang) {
@@ -1270,9 +1273,11 @@ Result limitExpression(const std::string& input, const std::string& x, const std
         publish(r, L);
         r.laws = laws;
 
-        r.steps.push_back(
-            {en ? "Expression and limit point" : "\u0639\u0628\u0627\u0631\u062a \u0648 \u0646\u0642\u0637\u0647\u0654 \u062d\u062f", f,
-             x + " \u2192 " + pointText(a) + "  (" + sideText(r.side, en) + ")"});
+        addStepKey(r, "ode.t.expression_and_limit_point", f,
+                   "ode.n.expression_and_limit_point",
+                   pjson({{"var", x},
+                          {"point", pointText(a)},
+                          {"side", "@ui.side." + r.side}}));
 
         if (r.side == "both" && !isInfinityPoint(a)) {
             LimitOutcome left = limitOf(f, x, a, -1, nullptr);
@@ -1285,36 +1290,35 @@ Result limitExpression(const std::string& input, const std::string& x, const std
             r.rightSign = right.kind == LimitOutcome::NegInf ? -1 : 1;
             if (left.kind == LimitOutcome::Finite) r.leftValue = left.value;
             if (right.kind == LimitOutcome::Finite) r.rightValue = right.value;
-            r.steps.push_back({en ? "Left limit" : "\u062d\u062f \u0686\u067e", left.value,
-                               outcomeText(left, en)});
-            r.steps.push_back({en ? "Right limit" : "\u062d\u062f \u0631\u0627\u0633\u062a", right.value,
-                               outcomeText(right, en)});
+            if (left.kind == LimitOutcome::Finite) {
+                addStepKey(r, "ode.t.left_limit", left.value, "", "",
+                           limitMath(left));
+            } else {
+                addStepKey(r, "ode.t.left_limit", nullptr, "ode.n.does_not_exist");
+            }
+            if (right.kind == LimitOutcome::Finite) {
+                addStepKey(r, "ode.t.right_limit", right.value, "", "",
+                           limitMath(right));
+            } else {
+                addStepKey(r, "ode.t.right_limit", nullptr, "ode.n.does_not_exist");
+            }
             const bool agree = outcomeSame(left, right);
             addCheck(r, "check.one_sided_agree", agree,
                      agree ? "check.limits_equal" : "check.limits_differ");
         }
 
-        const std::string lawSuffix = laws.empty()
-            ? std::string()
-            : (en ? (" (laws: " + lawsText(laws, en) + ")")
-                  : (" (\u0642\u0648\u0627\u0646\u06cc\u0646: " + lawsText(laws, en) + ")"));
         if (L.kind == LimitOutcome::Finite) {
-            r.steps.push_back({en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", L.value,
-                               outcomeText(L, en) + lawSuffix});
-            if (L.numeric) {
-                r.warnings.push_back(
-                    en ? "This value was established numerically; no closed form was found."
-                       : "\u0627\u06cc\u0646 \u0645\u0642\u062f\u0627\u0631 \u0628\u0647\u200c\u0635\u0648\u0631\u062a \u0639\u062f\u062f\u06cc \u0628\u0647\u200c\u062f\u0633\u062a \u0622\u0645\u062f\u0647 \u0627\u0633\u062a\u061b \u0641\u0631\u0645 \u0628\u0633\u062a\u0647\u200c\u0627\u06cc \u067e\u06cc\u062f\u0627 \u0646\u0634\u062f.");
-            }
+            addStepKey(r, "ode.t.result", L.value, "", "", limitMath(L));
+            if (L.numeric) r.warnings.push_back("ode.w.numeric_limit");
         } else if (L.kind == LimitOutcome::Undefined) {
-            r.steps.push_back(
-                {en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
-                 (en ? "The limit does not exist: " : "\u062d\u062f \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f: ") +
-                     L.reason + lawSuffix});
+            addStepKey(r, "ode.t.result", nullptr, "ode.n.limit_does_not_exist");
         } else {
-            r.steps.push_back({en ? "Result" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
-                               (en ? "The expression diverges to " : "\u0639\u0628\u0627\u0631\u062a \u0628\u0647 ") +
-                                   outcomeText(L, en) + lawSuffix});
+            addStepKey(r, "ode.t.result", nullptr, "ode.n.limit_diverges",
+                       pjson({{"value", outcomeText(L, en)}}));
+        }
+        if (!laws.empty()) {
+            addStepKey(r, "ode.t.limit_laws", nullptr, "ode.n.limit_laws",
+                       lawsParam(laws));
         }
         r.ok = true;
     } catch (const std::exception& e) {
@@ -1338,8 +1342,7 @@ Result continuityExpression(const std::string& input, const std::string& x,
         Ex f = parseExpr(input);
         Ex a = parsePoint(point);
         if (isInfinityPoint(a))
-            throw std::runtime_error(en ? "continuity needs a finite point"
-                                        : "\u067e\u06cc\u0648\u0633\u062a\u06af\u06cc \u062f\u0631 \u0646\u0642\u0637\u0647\u0654 \u0645\u062a\u0646\u0627\u0647\u06cc \u0645\u0639\u0646\u0627 \u0646\u062f\u0627\u0631\u062f");
+            throw EngineError("continuity_needs_finite_point", "continuity needs a finite point");
         r.normalized = f;
         r.vars = {x};
         r.point = pointText(a);
@@ -1372,16 +1375,26 @@ Result continuityExpression(const std::string& input, const std::string& x,
             r.closedForm = false;
         }
 
-        r.steps.push_back({en ? "Function and point" : "\u062a\u0627\u0628\u0639 \u0648 \u0646\u0642\u0637\u0647", f,
-                           x + " = " + pointText(a)});
-        r.steps.push_back({en ? "Left limit" : "\u062d\u062f \u0686\u067e", c.left.value,
-                           outcomeText(c.left, en)});
-        r.steps.push_back({en ? "Right limit" : "\u062d\u062f \u0631\u0627\u0633\u062a", c.right.value,
-                           outcomeText(c.right, en)});
-        r.steps.push_back(
-            {en ? "Value of the function" : "\u0645\u0642\u062f\u0627\u0631 \u062a\u0627\u0628\u0639", c.value,
-             c.valueDefined ? safeText(c.value)
-                            : (en ? "not defined at this point" : "\u062f\u0631 \u0627\u06cc\u0646 \u0646\u0642\u0637\u0647 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647")});
+        addStepKey(r, "ode.t.function_and_point", f, "ode.n.function_and_point",
+                   pjson({{"point", pointText(a)}}));
+        if (c.left.kind == LimitOutcome::Finite) {
+            addStepKey(r, "ode.t.left_limit", c.left.value, "", "",
+                       limitMath(c.left));
+        } else {
+            addStepKey(r, "ode.t.left_limit", nullptr, "ode.n.does_not_exist");
+        }
+        if (c.right.kind == LimitOutcome::Finite) {
+            addStepKey(r, "ode.t.right_limit", c.right.value, "", "",
+                       limitMath(c.right));
+        } else {
+            addStepKey(r, "ode.t.right_limit", nullptr, "ode.n.does_not_exist");
+        }
+        if (c.valueDefined) {
+            addStepKey(r, "ode.t.value_of_function", c.value, "", "",
+                       safeText(c.value));
+        } else {
+            addStepKey(r, "ode.t.value_of_function", nullptr, "ode.n.value_undefined");
+        }
 
         // The four conditions the definition of continuity requires.
         const bool sameLimits = r.leftExists && r.rightExists && outcomeSame(c.left, c.right);
@@ -1419,39 +1432,13 @@ Result continuityExpression(const std::string& input, const std::string& x,
         addCheck(r, "check.value_equals_limit", sameValue,
                  sameValue ? "check.value_equals" : "check.value_differs");
 
-        std::string verdict;
-        if (r.continuous) {
-            verdict = en ? "Continuous at this point." : "\u062f\u0631 \u0627\u06cc\u0646 \u0646\u0642\u0637\u0647 \u067e\u06cc\u0648\u0633\u062a\u0647 \u0627\u0633\u062a.";
-        } else if (c.kind == "removable") {
-            verdict = en ? "Removable discontinuity." : "\u0627\u0646\u0642\u0637\u0627\u0639 \u0631\u0641\u0639\u200c\u0634\u062f\u0646\u06cc.";
-        } else if (c.kind == "jump") {
-            verdict = en ? "Jump discontinuity." : "\u0627\u0646\u0642\u0637\u0627\u0639 \u062c\u0647\u0634\u06cc.";
-        } else if (c.kind == "infinite") {
-            verdict = en ? "Infinite discontinuity (vertical asymptote)."
-                         : "\u0627\u0646\u0642\u0637\u0627\u0639 \u0646\u0627\u0645\u062a\u0646\u0627\u0647\u06cc (\u0645\u062c\u0627\u0646\u0628 \u0639\u0645\u0648\u062f\u06cc).";
-        } else {
-            verdict = en ? "The limit does not exist, so the function is not continuous here."
-                         : "\u062d\u062f \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f\u060c \u067e\u0633 \u062a\u0627\u0628\u0639 \u0627\u06cc\u0646\u062c\u0627 \u067e\u06cc\u0648\u0633\u062a\u0647 \u0646\u06cc\u0633\u062a.";
-        }
-        std::string explanation;
-        if (r.continuous) {
-            explanation = en ? "The left limit, the right limit and f(a) all agree."
-                             : "\u062d\u062f \u0686\u067e\u060c \u062d\u062f \u0631\u0627\u0633\u062a \u0648 \u0645\u0642\u062f\u0627\u0631 \u062a\u0627\u0628\u0639 \u0628\u0627 \u0647\u0645 \u0628\u0631\u0627\u0628\u0631\u0646\u062f.";
-        } else if (c.kind == "removable") {
-            explanation = en ? "The two-sided limit exists but does not match f(a)."
-                             : "\u062d\u062f \u062f\u0648\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u062f\u0627\u0631\u062f \u0627\u0645\u0627 \u0628\u0627 \u0645\u0642\u062f\u0627\u0631 \u062a\u0627\u0628\u0639 \u0628\u0631\u0627\u0628\u0631 \u0646\u06cc\u0633\u062a.";
-        } else if (c.kind == "jump") {
-            explanation = en ? "The one-sided limits exist but are different."
-                             : "\u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u062f\u0627\u0631\u0646\u062f \u0627\u0645\u0627 \u0628\u0631\u0627\u0628\u0631 \u0646\u06cc\u0633\u062a\u0646\u062f.";
-        } else if (c.kind == "infinite") {
-            explanation = en ? "At least one one-sided limit is infinite (vertical asymptote)."
-                             : "\u062f\u0633\u062a\u200c\u06a9\u0645 \u06cc\u06a9\u06cc \u0627\u0632 \u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0628\u06cc\u200c\u0646\u0647\u0627\u06cc\u062a \u0627\u0633\u062a (\u0645\u062c\u0627\u0646\u0628 \u0639\u0645\u0648\u062f\u06cc).";
-        } else {
-            explanation = en ? "At least one one-sided limit does not exist."
-                             : "\u062f\u0633\u062a\u200c\u06a9\u0645 \u06cc\u06a9\u06cc \u0627\u0632 \u062d\u062f\u0647\u0627\u06cc \u06cc\u06a9\u200c\u0637\u0631\u0641\u0647 \u0648\u062c\u0648\u062f \u0646\u062f\u0627\u0631\u062f.";
-        }
-        r.steps.push_back({en ? "Conclusion" : "\u0646\u062a\u06cc\u062c\u0647", nullptr,
-                           verdict + " " + explanation});
+        const std::string verdictKey =
+            r.continuous ? "ode.n.continuous"
+            : c.kind == "removable" ? "ode.n.removable_discontinuity"
+            : c.kind == "jump" ? "ode.n.jump_discontinuity"
+            : c.kind == "infinite" ? "ode.n.infinite_discontinuity"
+                                   : "ode.n.not_continuous";
+        addStepKey(r, "ode.t.conclusion", nullptr, verdictKey);
         r.ok = true;
     } catch (const std::exception& e) {
         r.ok = false;

@@ -44,11 +44,8 @@ math               ->  ExView / LaTeX, never inside a translated sentence
 ## Persian/Arabic leak table (L0)
 
 At the start of this pass the allowlist covered 49 files and more than 3,000
-lines. It now contains one engine file:
-
-| file | lines with Persian/Arabic | category |
-| --- | --- | --- |
-| `core/src/ode.cpp` | 523 | engine |
+lines. It now contains **zero entries**: no Persian/Arabic text exists outside
+`app/assets/i18n/` (plus documentation and explicitly named i18n fixtures).
 
 Everything else — UI, catalogues, tests, scripts and fixtures — is clean. The
 allowlist may only shrink; the guard test fails if a count grows or a stale
@@ -66,12 +63,16 @@ flutter analyze --no-pub                            # no issues
 
 ## Remaining work
 
-Only the native exact-ODE engine remains. It still builds sentences in C++:
+The native exact-ODE engine was the last piece: every first-order/linear ODE
+step, Wronskian, envelope and trajectory sentence now travels as a catalogue
+key with plain/math params. The `enTitle`/`enNote` tables, the bilingual
+`typeFa` labels and the last escaped Persian strings are gone.
 
-- `ode.cpp` — first-order/linear ODE steps, Wronskian, envelope and trajectory
-  text plus the `enTitle`/`enNote` translation maps (523 lines).
+## Notes
 
-The target is the same as for the migrated sections: replace each
-text-producing call with `titleKey`/`noteKey`/`nameKey`/`detailKey`, put plain
-values in `params`, put formulas in the math fields, and move every sentence
-into `fa.json` and `en.json` (then sync the other ten catalogues).
+- The engine never returns a user-facing sentence: steps/checks carry keys,
+  failures carry codes (`error.<code>`), and technical exception text stays in
+  `errorDetail` for logs only.
+- Chart/plot diagnostics in `graph.cpp` are developer-facing English strings
+  surfaced through the generic `ui.plot_error` message; they are not part of
+  the Persian language catalogue.

@@ -2148,7 +2148,7 @@ class ResultView extends StatelessWidget {
           if (result.assumptions.isNotEmpty) ...[
             const SizedBox(height: 8),
             for (final a in result.assumptions)
-              _NoteRow(icon: Icons.rule_rounded, text: a, color: c.muted),
+              _NoteRow(icon: Icons.rule_rounded, text: l10n.t(a), color: c.muted),
           ],
         ],
       ),

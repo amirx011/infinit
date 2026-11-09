@@ -207,6 +207,7 @@ struct Result {
     bool numericOnly = false;
     std::string numericRhs;
     std::string numericNote;
+    std::string numericNoteParams;
     // True when every reported check passed.  `ok` says the solver produced an
     // answer; `verified` says the answer survived independent verification.
     bool verified = true;

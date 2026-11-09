@@ -42,7 +42,7 @@ int main() {
         expect(r.ok, "sin(x)/x at 0 succeeds");
         expect(r.limitExists, "sin(x)/x has a limit at 0");
         expect(closeTo(r.solution, 1.0), "sin(x)/x -> 1");
-        expect(r.steps.size() == 4, "two-sided finite limit emits 4 steps");
+        expect(r.steps.size() == 5, "two-sided finite limit emits expression, sides, result and laws");
     }
     {
         Result r = limitExpression("(1-cos(x))/x^2", "x", "0", "both", "en");

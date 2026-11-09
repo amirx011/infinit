@@ -619,6 +619,7 @@ std::string resultJson(const ode::Result& r) {
     o << ",\"numeric_only\":" << (r.numericOnly ? "true" : "false");
     o << ",\"numeric_rhs\":" << q(r.numericRhs);
     o << ",\"numeric_note\":" << q(r.numericNote);
+    if (!r.numericNoteParams.empty()) o << ",\"numeric_note_params\":" << r.numericNoteParams;
 
     o << "}";
     return o.str();

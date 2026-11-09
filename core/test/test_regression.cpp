@@ -275,20 +275,20 @@ int main() {
                "orthogonal solver exposes the original family for plotting");
         bool hasElimination = false, hasFamilyOde = false, hasOrthogonalOde = false;
         for (const auto& step : r.steps) {
-            if (step.title.find("Eliminate") != std::string::npos) hasElimination = true;
-            if (step.title.find("family ODE") != std::string::npos)
+            if (step.titleKey == "ode.t.eliminate_c") {
+                hasElimination = true;
                 hasFamilyOde = true;
-            if (step.title.find("Orthogonal-trajectory equation") != std::string::npos)
-                hasOrthogonalOde = true;
+            }
+            if (step.titleKey == "ode.t.orthogonal_eq") hasOrthogonalOde = true;
         }
         expect(hasElimination, "orthogonal steps show the c-elimination");
         expect(hasFamilyOde, "orthogonal steps show the family ODE");
         expect(hasOrthogonalOde, "orthogonal steps show the orthogonal ODE");
-        expect(!r.steps.empty() && r.steps.back().title == "Orthogonal family",
+        expect(!r.steps.empty() && r.steps.back().titleKey == "ode.t.orthogonal_family",
                "orthogonal derivation ends with exactly one family answer step");
         for (const auto& step : r.steps)
-            expect(step.title != "General solution",
-                   "orthogonal steps do not duplicate the final answer");
+            expect(step.title.empty(),
+                   "orthogonal steps carry keys, not raw titles");
     }
     {
         Result r = solveOrthogonal("y = c*x");
@@ -342,7 +342,7 @@ int main() {
         expect(r.trajectoryExplicit, "oblique lines are explicit");
         expect(r.trajectorySlope && toPlain(r.trajectorySlope) == "1",
                "oblique slope is tan(45) = 1");
-        expect(!r.steps.empty() && r.steps.back().title == "Oblique family",
+        expect(!r.steps.empty() && r.steps.back().titleKey == "ode.t.oblique_family",
                "oblique derivation ends with exactly one family answer step");
     }
     {
@@ -360,14 +360,12 @@ int main() {
         expect(r.closedForm, "oblique spirals have an implicit closed form");
         bool hasObliqueOde = false;
         for (const auto& step : r.steps)
-            if (step.title.find("Oblique-trajectory equation") != std::string::npos)
-                hasObliqueOde = true;
+            if (step.titleKey == "ode.t.oblique_eq") hasObliqueOde = true;
         expect(hasObliqueOde, "oblique steps show the oblique ODE");
-        expect(!r.steps.empty() && r.steps.back().title == "Oblique family",
+        expect(!r.steps.empty() && r.steps.back().titleKey == "ode.t.oblique_family",
                "oblique circle derivation has one final answer");
         for (const auto& step : r.steps)
-            expect(step.title != "General solution",
-                   "oblique steps do not duplicate the final answer");
+            expect(step.title.empty(), "oblique steps carry keys, not raw titles");
     }
     {
         Result r = solveOblique("x^2 + y^2 = c^2", "c", 90.0);
@@ -519,9 +517,9 @@ int main() {
     {
         Result r = solve("(2*x+y) + (x+2*y)*y' = 0");
         expect(r.ok && r.steps.size() == 3, "exact equation emits 3 steps");
-        expect(r.steps.size() >= 1 && r.steps[0].title == "Exactness test" &&
+        expect(r.steps.size() >= 1 && !r.steps[0].titleKey.empty() &&
                    r.steps[0].math && toPlain(r.steps[0].math) == "1",
-               "exactness step shows the shared partial derivative");
+               "exactness step carries a key and the shared partial derivative");
     }
     {
         Result r = solve("(2*y^2+3*x)dx + 2*x*y dy = 0");
