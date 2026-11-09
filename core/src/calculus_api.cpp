@@ -1054,9 +1054,9 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
             const std::string dy = "d" + dep + "/d" + x;
             addStep(r, "step.title.implicit_equation", F,
                     "step.note.differentiate_both_sides", "{\"var\":\"" + x + "\"}");
-            addStep(r, "step.title.partial_derivative_F", Fx, "", "",
+            addStep(r, "step.title.partial_derivative_f", Fx, "", "",
                     "F_" + x);
-            addStep(r, "step.title.partial_derivative_F", Fy, "", "",
+            addStep(r, "step.title.partial_derivative_f", Fy, "", "",
                     "F_" + dep);
             addStep(r, "step.title.first_derivative", first, "", "",
                     dy + " = -F_" + x + " / F_" + dep);

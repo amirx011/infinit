@@ -172,19 +172,90 @@ def test_l1_translation_keys_match():
     assert not problems, "translation key mismatch:\n" + "\n".join(problems)
 
 
+def test_l1b_english_catalogue_is_persian_free():
+    """X1 proof: the English catalogue must never fall back to Persian text."""
+    english = I18N_DIR / "en.json"
+    if not english.is_file():
+        return
+    data = json.loads(english.read_text(encoding="utf-8"))
+    offenders = sorted(key for key, value in data.items() if FORBIDDEN.search(str(value)))
+    assert not offenders, (
+        "Persian text found in en.json values: " + ", ".join(offenders)
+    )
+
+
 def test_l2_used_keys_exist_and_report_unused():
     if not (I18N_DIR / "fa.json").is_file():
         return  # Phase 2 creates the catalogue.
 
     default_keys = set(json.loads((I18N_DIR / "fa.json").read_text(encoding="utf-8")))
     used: set[str] = set()
+    # Keys can be passed as arguments (`messageKey:`, nav helpers) as well as
+    # through `t(...)`, so scan every quoted literal with a known namespace.
+    dart_key = re.compile(
+        r"'((?:nav|note|ui|topic|theorem|study|step|check|error|plot|ode)\."
+        r"[a-z][a-z0-9_.]*)'"
+    )
     for path in APP_LIB.rglob("*.dart"):
-        used.update(DOTTED_KEY_CALL.findall(path.read_text(encoding="utf-8")))
+        text = path.read_text(encoding="utf-8")
+        used.update(DOTTED_KEY_CALL.findall(text))
+        used.update(dart_key.findall(text))
+    # Fixture-only keys live in tests and are not part of the shipped catalogue.
+    test_keys: set[str] = set()
+    for path in (ROOT / "app" / "test").rglob("*.dart"):
+        text = path.read_text(encoding="utf-8")
+        test_keys.update(DOTTED_KEY_CALL.findall(text))
+        test_keys.update(dart_key.findall(text))
 
+    # The native engine is part of the code too: collect its literal keys and
+    # its stable failure codes (the UI resolves `error.<code>`).
+    engine_key = re.compile(
+        r'"((?:ode|step|check|error|note|ui|plot|topic)\.[a-z][a-z0-9_.]*)"'
+    )
+    for path in (ROOT / "core" / "src").rglob("*.cpp"):
+        text = path.read_text(encoding="utf-8")
+        used.update(engine_key.findall(text))
+        for code in re.findall(r'errorCode\s*=\s*"([a-z0-9_]+)"', text):
+            used.add(f"error.{code}")
+    # Dynamic prefixes are keys by construction, not by a literal lookup.
+    for prefix in (
+        "ui.type.",
+        "ui.method.",
+        "ui.law.",
+        "ui.side.",
+        "topic.",
+        "theorem.",
+        "study.",
+        "nav.",
+        "validation.",
+        "step.note.origin_",
+        "__meta.",
+    ):
+        used.update(key for key in default_keys if key.startswith(prefix))
+
+    # Fragments used to build dynamic keys are not keys themselves.
+    used = {key for key in used if not key.endswith(("_", "."))}
+    # `study.<id>.step.<n>` is a prefix; `.title`/`.detail` are the keys.
+    used = {
+        key
+        for key in used
+        if not re.fullmatch(r"study\.[a-z_]+\.step\.\d+", key)
+    }
+    # `ode.fN` literals are failure codes: the UI resolves `error.<code>`.
+    used = {
+        f"error.{key}" if re.fullmatch(r"ode\.f\d+", key) else key
+        for key in used
+    }
     missing = sorted(used - default_keys)
-    assert not missing, f"keys used in Dart but missing from fa.json: {missing}"
+    assert not missing, f"keys used in code but missing from fa.json: {missing}"
 
-    unused = sorted(default_keys - used)
+    # Error sentences are selected at runtime from engine codes, so a literal
+    # scan cannot see them; do not report the whole `error.*` family as unused.
+    unused = sorted(
+        key
+        for key in default_keys - used - test_keys
+        if not key.startswith("error.")
+    )
     if unused:
         print(
             f"warning: {len(unused)} unused translation keys, first 20: {unused[:20]}",
