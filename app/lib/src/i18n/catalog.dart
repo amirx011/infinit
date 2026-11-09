@@ -100,16 +100,32 @@ class I18n {
       if (kDebugMode) debugPrint('i18n: missing "$key" for "$language"');
       return key;
     }
-    return _fill(template, params);
+    return _fill(language, template, params);
   }
 
   static final _placeholder = RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}');
 
-  static String _fill(String template, Map<String, Object?>? params) {
+  String _fill(
+    String language,
+    String template,
+    Map<String, Object?>? params, [
+    int depth = 0,
+  ]) {
     if (params == null || params.isEmpty) return template;
     return template.replaceAllMapped(_placeholder, (match) {
       final value = params[match[1]];
-      return value == null ? match[0]! : value.toString();
+      if (value == null) return match[0]!;
+      // A value of the form `@key` is another catalogue key (for example a
+      // translated method name); resolve it instead of showing the id.
+      if (value is String && value.startsWith('@') && depth < 4) {
+        final nested =
+            _catalogues[language]?[value.substring(1)] ??
+            _catalogues[defaultLanguage]?[value.substring(1)];
+        if (nested != null) {
+          return _fill(language, nested, params, depth + 1);
+        }
+      }
+      return value.toString();
     });
   }
 }
