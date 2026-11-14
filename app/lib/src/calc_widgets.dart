@@ -177,17 +177,25 @@ class MonotoneStrip extends StatelessWidget {
               ),
               const SizedBox(width: 9),
               Expanded(
-                child: Text(
-                  '[${_short(pieces[i].lo)}, ${_short(pieces[i].hi)}]  '
-                  '${pieces[i].trend}',
-                  textDirection: TextDirection.ltr,
-                  textAlign: TextAlign.left,
-                  style: TextStyle(
-                    fontFamily: 'DejaVu Sans Mono',
-                    fontFamilyFallback: const ['monospace', 'Vazirmatn'],
-                    fontSize: 12.5,
-                    color: c.text,
-                  ),
+                child: Row(
+                  children: [
+                    MathInline(
+                      math: ExView(
+                        plain: '[${_short(pieces[i].lo)}, ${_short(pieces[i].hi)}]',
+                        pretty:
+                            '[${_short(pieces[i].lo)}, ${_short(pieces[i].hi)}]',
+                        latex: _intervalLatex(pieces[i].lo, pieces[i].hi),
+                      ),
+                      size: 14,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _trendLabel(pieces[i].trend),
+                      textDirection: TextDirection.ltr,
+                      textAlign: TextAlign.left,
+                      style: TextStyle(fontSize: 12.5, color: c.text),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -195,6 +203,25 @@ class MonotoneStrip extends StatelessWidget {
         ],
       ],
     );
+  }
+
+  String _trendLabel(String trend) => switch (trend) {
+    'increasing' => l10n.t('ui.increasing'),
+    'decreasing' => l10n.t('ui.decreasing'),
+    'constant' => l10n.t('ui.constant_function'),
+    'undecided' => l10n.t('ui.undecided'),
+    _ => trend,
+  };
+
+  static String _intervalLatex(double lo, double hi) =>
+      '\\left[${_latexBound(lo)},\\; ${_latexBound(hi)}\\right]';
+
+  static String _latexBound(double v) {
+    if (!v.isFinite) return v < 0 ? '-\\infty' : '\\infty';
+    var s = v.toStringAsFixed(3);
+    s = s.replaceFirst(RegExp(r'0+$'), '');
+    s = s.replaceFirst(RegExp(r'\.$'), '');
+    return s;
   }
 
   static String _short(double v) {

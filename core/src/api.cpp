@@ -422,6 +422,7 @@ std::string resultJson(const ode::Result& r) {
     o << ",\"type_id\":" << q(r.typeId);
     o << ",\"type_fa\":" << q(r.typeFa.empty() && !r.typeId.empty() ? ode::typeNameFa(r.typeId) : r.typeFa);
     o << ",\"type_en\":" << q(ode::typeNameEn(r.typeId));
+    o << ",\"also_forms\":" << strArrayJson(r.alsoForms);
     o << ",\"method\":" << q(r.method);
     o << ",\"variable\":" << q(r.variable);
     o << ",\"order\":" << r.order;
@@ -489,9 +490,12 @@ std::string resultJson(const ode::Result& r) {
     bool verified = r.ok && r.verified;
     for (const auto& c : r.checks) if (!c.ok) verified = false;
     o << ",\"verified\":" << (verified ? "true" : "false");
-    o << ",\"has_numeric\":" << (r.hasNumeric ? "true" : "false");
-    o << ",\"numeric_value\":" << std::setprecision(17)
-      << (r.hasNumeric ? r.numericValue : 0.0);
+    // A non-finite numeric value would serialise as a bare `inf`/`nan` token
+    // and break every consumer's JSON parser, so advertise it as absent.
+    const bool finiteNumeric = r.hasNumeric && std::isfinite(r.numericValue);
+    o << ",\"has_numeric\":" << (finiteNumeric ? "true" : "false");
+    o << ",\"numeric_value\":"
+      << (finiteNumeric ? numJson(r.numericValue) : "null");
     o << ",\"vars\":" << strArrayJson(r.vars);
     o << ",\"lower\":" << strArrayJson(r.lower);
     o << ",\"upper\":" << strArrayJson(r.upper);

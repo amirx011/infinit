@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../charts.dart';
+import '../input_ambiguity.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
@@ -39,6 +40,7 @@ class _OdePageState extends State<OdePage> {
   String? _error;
   bool _busy = false;
   String? _fieldEquation;
+  String? _ambiguitySuggestion;
   String _fieldX = 'x';
   String _fieldY = 'y';
 
@@ -94,6 +96,8 @@ class _OdePageState extends State<OdePage> {
 
   Future<void> _solve() async {
     final engine = widget.engine;
+    // A previous answer must not stay on screen once a new run starts.
+    if (_result != null) setState(() => _result = null);
     if (engine == null) {
       setState(
         () => _error =
@@ -111,12 +115,14 @@ class _OdePageState extends State<OdePage> {
     }
     final xVar = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
     final yVar = _yv.text.trim().isEmpty ? 'y' : _yv.text.trim();
+    final suggestion = ambiguousDenominatorSuggestion(text);
     setState(() {
       _busy = true;
       _error = null;
       _fieldEquation = text;
       _fieldX = xVar;
       _fieldY = yVar;
+      _ambiguitySuggestion = suggestion == text ? null : suggestion;
     });
     try {
       final result = await engine.solveOdeAsync(
@@ -313,12 +319,89 @@ class _OdePageState extends State<OdePage> {
             ),
           ),
         ],
+        if (_ambiguitySuggestion != null) ...[
+          const SizedBox(height: 16),
+          SoftCard(
+            color: c.warningSoft,
+            borderColor: c.warning.withValues(alpha: 0.35),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.help_outline_rounded,
+                      color: c.warning,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Text(
+                        l.t('ui.check_the_grouping'),
+                        style: Theme.of(context).textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l.t('ui.the_input_can_be_read_in_two_ways'),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(height: 1.6),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l.t('note.interpreted_as'),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  _result?.normalized?.plain ?? _fieldEquation ?? '',
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(
+                    fontFamily: 'DejaVu Sans Mono',
+                    fontFamilyFallback: ['monospace'],
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  l.t('ui.did_you_mean'),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  _ambiguitySuggestion!,
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(
+                    fontFamily: 'DejaVu Sans Mono',
+                    fontFamilyFallback: ['monospace'],
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.tonalIcon(
+                  onPressed: () {
+                    _input.text = _ambiguitySuggestion!;
+                    _solve();
+                  },
+                  icon: const Icon(Icons.check_rounded, size: 18),
+                  label: Text(l.t('ui.use_the_suggested_form')),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (_result != null && _fieldEquation != null) ...[
           const SizedBox(height: 16),
           if ((_result?.order ?? 1) <= 1)
             FieldPlot(
               engine: widget.engine,
-              expression: _fieldEquation!,
+              expression: _result?.normalized?.plain ?? _fieldEquation!,
               l10n: l,
               xVariable: _fieldX,
               yVariable: _fieldY,
@@ -330,7 +413,7 @@ class _OdePageState extends State<OdePage> {
           else
             OdeSolutionPlot(
               engine: widget.engine,
-              expression: _fieldEquation!,
+              expression: _result?.normalized?.plain ?? _fieldEquation!,
               l10n: l,
               xVariable: _fieldX,
               yVariable: _fieldY,

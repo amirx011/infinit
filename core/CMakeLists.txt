@@ -24,6 +24,14 @@ set(ODE_SOURCES
     src/calculus_more.cpp
     src/limits.cpp
     src/topics.cpp
+    src/series_solutions.cpp
+    src/linear_systems.cpp
+    src/dynamical_systems.cpp
+    src/bvp.cpp
+    src/special_functions.cpp
+    src/special_series.cpp
+    src/pde_series.cpp
+    src/calculus_topics.cpp
 )
 
 option(ODE_BUILD_TESTS "Build native test executables" ON)
@@ -77,6 +85,30 @@ if(ODE_BUILD_TESTS)
   add_executable(odetest_calculus_more test/test_calculus_more.cpp)
   target_link_libraries(odetest_calculus_more PRIVATE odecore)
 
+  add_executable(odetest_pde test/test_pde.cpp)
+  target_link_libraries(odetest_pde PRIVATE odecore)
+
+  add_executable(odetest_series test/test_series.cpp)
+  target_link_libraries(odetest_series PRIVATE odecore)
+
+  add_executable(odetest_linear test/test_linear.cpp)
+  target_link_libraries(odetest_linear PRIVATE odecore)
+
+  add_executable(odetest_dynamical test/test_dynamical.cpp)
+  target_link_libraries(odetest_dynamical PRIVATE odecore)
+
+  add_executable(odetest_bvp test/test_bvp.cpp)
+  target_link_libraries(odetest_bvp PRIVATE odecore)
+
+  add_executable(odetest_special test/test_special.cpp)
+  target_link_libraries(odetest_special PRIVATE odecore)
+
+  add_executable(odetest_pde_series test/test_pde_series.cpp)
+  target_link_libraries(odetest_pde_series PRIVATE odecore)
+
+  add_executable(odetest_calculus_topics test/test_calculus_topics.cpp)
+  target_link_libraries(odetest_calculus_topics PRIVATE odecore)
+
   enable_testing()
   add_test(NAME algebra COMMAND odetest)
   add_test(NAME ode COMMAND odetest_ode)
@@ -85,4 +117,12 @@ if(ODE_BUILD_TESTS)
   add_test(NAME limits COMMAND odetest_limits)
   add_test(NAME calculus_apps COMMAND odetest_calculus_apps)
   add_test(NAME calculus_more COMMAND odetest_calculus_more)
+  add_test(NAME pde COMMAND odetest_pde)
+  add_test(NAME series COMMAND odetest_series)
+  add_test(NAME linear COMMAND odetest_linear)
+  add_test(NAME dynamical COMMAND odetest_dynamical)
+  add_test(NAME bvp COMMAND odetest_bvp)
+  add_test(NAME special COMMAND odetest_special)
+  add_test(NAME pde_series COMMAND odetest_pde_series)
+  add_test(NAME calculus_topics COMMAND odetest_calculus_topics)
 endif()

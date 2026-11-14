@@ -68,6 +68,8 @@ class _DomainRangePageState extends State<DomainRangePage> {
 
   Future<void> _compute() async {
     final engine = widget.engine;
+    // A previous answer must not stay on screen once a new run starts.
+    if (_result != null) setState(() => _result = null);
     final l = widget.l10n;
     if (engine == null) {
       setState(

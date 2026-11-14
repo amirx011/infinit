@@ -3,7 +3,8 @@
 // The section is split into four articles: derivative, integral, types of
 // differential equations and applications of differential equations.  Each
 // page is rendered by the shared StudyArticlePage so the reading order is the
-// same everywhere: short answer, ideas, worked example, steps, pitfalls.
+// same everywhere: short answer, long explanation, ideas, worked examples,
+// steps, pitfalls and links to the matching workbench.
 import 'package:flutter/material.dart';
 
 import '../l10n.dart';
@@ -15,10 +16,14 @@ class EducationalPage extends StatelessWidget {
     super.key,
     required this.l10n,
     this.articleId = 'derivative',
+    this.onOpen,
   });
 
   final L10n l10n;
   final String articleId;
+
+  /// Opens a workbench page from the article footer.
+  final void Function(int page, String? seed)? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +35,7 @@ class EducationalPage extends StatelessWidget {
       key: ValueKey('study-${article.id}'),
       article: article,
       l10n: l10n,
+      onOpen: onOpen,
     );
   }
 }

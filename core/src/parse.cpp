@@ -339,6 +339,65 @@ std::string normalizeInput(std::string s) {
     return out;
 }
 
+// sech and csch are not primitive tokens.  Rewriting them to reciprocals
+// before parsing keeps the derivative/integral tables unchanged and makes
+// inputs such as y' + y tanh(x) = sech(x) solvable.
+std::string rewriteReciprocalHyperbolics(std::string s) {
+    struct Rule { const char* from; const char* to; };
+    static const Rule rules[] = {{"sech", "1/cosh"}, {"csch", "1/sinh"}};
+    for (const auto& rule : rules) {
+        const size_t len = std::strlen(rule.from);
+        size_t pos = 0;
+        while ((pos = s.find(rule.from, pos)) != std::string::npos) {
+            const bool leftOk = pos == 0 || !(std::isalnum((unsigned char)s[pos - 1]) ||
+                                              s[pos - 1] == '_');
+            size_t after = pos + len;
+            while (after < s.size() && std::isspace((unsigned char)s[after])) ++after;
+            const bool rightOk = after < s.size() && s[after] == '(';
+            if (leftOk && rightOk) {
+                s.replace(pos, len, rule.to);
+                pos += std::strlen(rule.to);
+            } else {
+                pos += len;
+            }
+        }
+    }
+    return s;
+}
+
+// `y^(4)` is the fourth derivative, not a power: textbooks print the order in
+// parentheses so it is not confused with an exponent.  Rewrite it to primes
+// before tokenising.  The independent variable and the constants e/pi keep
+// their power meaning.
+std::string preprocessDerivativePowers(const std::string& in, const std::string& indep) {
+    std::string s = in;
+    try {
+        std::regex re(R"(([A-Za-z_][A-Za-z0-9_]*)\s*\^\s*\(\s*(\d+)\s*\))");
+        std::string out;
+        size_t last = 0;
+        for (auto it = std::sregex_iterator(s.begin(), s.end(), re);
+             it != std::sregex_iterator(); ++it) {
+            const std::smatch& m = *it;
+            const std::string name = m[1].str();
+            if (name == indep || name == "e" || name == "pi" || isKnownFunctionName(name))
+                continue;
+            const size_t pos = (size_t)m.position();
+            if (pos > 0 && (std::isalnum((unsigned char)s[pos - 1]) || s[pos - 1] == '_'))
+                continue;
+            const int order = std::stoi(m[2].str());
+            if (order <= 0) continue;
+            out += s.substr(last, pos - last);
+            out += name;
+            out += std::string((size_t)order, '\'');
+            last = pos + (size_t)m.length();
+        }
+        out += s.substr(last);
+        return out;
+    } catch (const std::exception&) {
+        return s;
+    }
+}
+
 // convert dy/dx, d^2y/dx^2, d/dx(...) into Deriv(f,x,n)
 std::string preprocessDifferentials(const std::string& in, const std::string& indep) {
     std::string s = in;
@@ -633,7 +692,10 @@ Ex parseWith(const std::string& raw, const std::string& indep, std::string* depO
     // Bound the input: the regex preprocessor and the recursive parser should
     // not be exposed to arbitrarily large or adversarial strings.
     if (raw.size() > 1000) throw EngineError("too_long", "expression too long");
-    std::string s = preprocessDifferentials(normalizeInput(raw), indep);
+    std::string s = preprocessDifferentials(
+        rewriteReciprocalHyperbolics(
+            normalizeInput(preprocessDerivativePowers(raw, indep))),
+        indep);
     s = naturalizeImplicit(s, implicitVars);
     s = replaceAll(s, "==", "=");
     // split on top-level '='

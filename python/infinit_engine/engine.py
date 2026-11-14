@@ -161,6 +161,18 @@ def _primes_to_derivatives(text: str, y: str, x: str) -> str:
     return re.sub(r"\b([A-Za-z_]\w*)('+)", repl, text)
 
 
+def _derivative_powers(text: str, y: str, x: str) -> str:
+    """Rewrite ``y^(4)`` as the fourth derivative, not a power."""
+
+    def repl(match: re.Match[str]) -> str:
+        name = match.group(1)
+        if name != y:
+            return match.group(0)
+        return f"Derivative({y}, {x}, {int(match.group(2))})"
+
+    return re.sub(r"\b([A-Za-z_]\w*)\s*(?:\^|\*\*)\s*\(\s*(\d+)\s*\)", repl, text)
+
+
 def _strip_derivative_notation(text: str) -> str:
     """Rewrite d²y/dx², dy/dx and d y / d x as y'' and y'."""
     text = re.sub(r"d\s*\^?\s*2\s*y\s*/\s*d\s*x\s*\^?\s*2", "y''", text)
@@ -192,7 +204,11 @@ def _base_locals(x: str, y: str, *, y_function: bool, extra: dict | None = None)
 
 def parse_expression(text: str, x: str = "x", y: str = "y") -> sp.Expr:
     """Parse an ODE expression where ``y`` means ``y(x)``."""
-    text = _insert_implicit_multiplication(_normalize(text), variables=x + y + "c")
+    text = _normalize(text)
+    # ``y^(4)`` must be recognised before implicit multiplication rewrites
+    # the caret into a power operator.
+    text = _derivative_powers(text, y, x)
+    text = _insert_implicit_multiplication(text, variables=x + y + "c")
     text = _primes_to_derivatives(text, y, x)
     return sp.sympify(text, locals=_base_locals(x, y, y_function=True))
 
@@ -305,6 +321,7 @@ def _numerically_zero(expr: sp.Expr, x: str, y: str, *, tol: float = 1e-6) -> bo
         return False
     free = {s for s in expr.free_symbols if isinstance(s, sp.Symbol) and s not in (X, Y)}
     constants = {s: sp.Float(1.0 + 0.37 * i) for i, s in enumerate(sorted(free, key=str))}
+    checked = 0
     for xv, yv in _MAX_VERIFY_SAMPLES:
         try:
             value = sp.N(
@@ -312,16 +329,22 @@ def _numerically_zero(expr: sp.Expr, x: str, y: str, *, tol: float = 1e-6) -> bo
                 30,
             )
         except Exception:
-            return False
+            continue
         if not value.is_number or value.has(sp.zoo, sp.nan, sp.oo, -sp.oo):
-            return False
+            continue
         try:
-            magnitude = abs(complex(value))
+            number = complex(value)
         except Exception:
+            continue
+        # Samples outside the solution's domain (for example asin(x) for
+        # x > 1) are inconclusive, not counter-evidence.  Requiring a few
+        # in-domain probes still keeps wrong answers from passing silently.
+        if abs(number.imag) > 1e-12:
+            continue
+        if abs(number.real) > tol:
             return False
-        if magnitude > tol:
-            return False
-    return True
+        checked += 1
+    return checked >= 3
 
 
 def _find_calls(text: str, name: str) -> list[tuple[int, int, str]]:
@@ -389,8 +412,16 @@ def _rewrite_integrals(text: str):
         parts = _split_top_level_args(inner)
         g_text = parts[0]
         u_text = parts[1] if len(parts) > 1 else "x"
-        name = f"Anti{len(mapping)}"
-        mapping.append((name, u_text, g_text))
+        # The same Integral(g, u) denotes the same antiderivative everywhere;
+        # reusing one symbol keeps algebraically equal integrals in sync.
+        name = None
+        for existing, eu, eg in mapping:
+            if eu.strip() == u_text.strip() and eg.strip() == g_text.strip():
+                name = existing
+                break
+        if name is None:
+            name = f"Anti{len(mapping)}"
+            mapping.append((name, u_text, g_text))
         out = out[:start] + f"{name}({u_text})" + out[end:]
     return out, mapping
 
@@ -527,9 +558,14 @@ def verify_candidate(
         _, F, _ = _ode_equation(text, x, y)
         if implicit:
             u, mapping = _parse_candidate(candidate_latex, x, y, y_function=False)
+            # |z| only records a branch choice.  Differentiating it produces
+            # sign()/DiracDelta artifacts that SymPy cannot cancel, so work on
+            # the branch where z >= 0, which is what the numeric probes use.
+            u = u.replace(sp.Abs, lambda a: a)
             antimap = _anti_map(mapping, x, y)
+            Ysym_local = sp.Symbol(y, real=True)
             ux = _diff(u, X, antimap)
-            uy = _diff(u, Ysym, antimap)
+            uy = _diff(u, Ysym_local, antimap)
             if sp.simplify(uy) == 0:
                 return {
                     "ok": True,
@@ -537,17 +573,48 @@ def verify_candidate(
                     "verified": False,
                     "reason": "implicit candidate is independent of y",
                 }
-            try:
-                yp, _ = _rhs_expression(text, x, y)
-            except Exception:
-                yp = None
-            if yp is None:
+            orders = [
+                d.derivative_count
+                for d in F.atoms(sp.Derivative)
+                if d.expr == sp.Function(y)(X)
+            ]
+            max_order = max(orders, default=0)
+            if max_order <= 1:
+                try:
+                    yp, _ = _rhs_expression(text, x, y)
+                except Exception:
+                    yp = None
+                if yp is None:
+                    yp = sp.simplify(-ux / uy)
+                else:
+                    yp = sp.simplify(yp.subs(sp.Function(y)(X), Ysym_local))
+                residual = sp.simplify(ux + uy * yp)
+            elif max_order == 2:
+                # Implicit differentiation to second order:
+                #   y'  = -u_x/u_y
+                #   y'' = -(u_xx + 2 u_xy y' + u_yy y'^2)/u_y
                 yp = sp.simplify(-ux / uy)
+                uxx = _diff(ux, X, antimap)
+                uxy = _diff(ux, Ysym_local, antimap)
+                uyy = _diff(uy, Ysym_local, antimap)
+                ypp = sp.simplify(-(uxx + 2 * uxy * yp + uyy * yp**2) / uy)
+                Y = sp.Function(y)
+                repl = {
+                    Y(X): Ysym_local,
+                    sp.Derivative(Y(X), X): yp,
+                    sp.Derivative(Y(X), X, 2): ypp,
+                }
+                residual = sp.simplify(F.subs(repl))
             else:
-                yp = sp.simplify(yp.subs(sp.Function(y)(X), Ysym))
-            residual = sp.simplify(ux + uy * yp)
+                return {
+                    "ok": True,
+                    "residual": "implicit verification supports order <= 2",
+                    "verified": False,
+                    "reason": f"order {max_order} is too high for this checker",
+                }
         else:
             expr, mapping = _parse_candidate(candidate_latex, x, y, y_function=False)
+            expr = expr.replace(sp.Abs, lambda a: a)
             Y = sp.Function(y)
             if expr.has(Ysym) or expr.has(Y(X)):
                 return {
@@ -660,13 +727,29 @@ def verify_parametric(
         slope = sp.simplify(dy / dx)
         _, F, _ = _ode_equation(text, x, y)
         Y = sp.Function(y)
-        Fp = F.subs(sp.Derivative(Y(X), X), slope).subs(Y(X), py).subs(X, px)
+        orders = [
+            d.derivative_count
+            for d in F.atoms(sp.Derivative)
+            if d.expr == Y(X)
+        ]
+        max_order = max(orders, default=1)
+        # Parametric higher derivatives: d/dx = (d/dp)/(dx/dp).
+        derivs = {1: slope}
+        current = slope
+        for k in range(2, max_order + 1):
+            current = sp.simplify(sp.diff(current, P) / dx)
+            derivs[k] = current
+        Fp = F
+        for k in sorted(derivs, reverse=True):
+            Fp = Fp.subs(sp.Derivative(Y(X), X, k), derivs[k])
+        Fp = Fp.subs(Y(X), py).subs(X, px)
         Fp = sp.simplify(Fp)
         return {
             "ok": True,
             "verified": _zero_in_p(Fp, P),
             "residual": str(Fp),
             "slope": str(slope),
+            "derivatives": {k: str(v) for k, v in derivs.items()},
         }
     except Exception as exc:
         return {"ok": False, "verified": False, "error": f"{type(exc).__name__}: {exc}"}

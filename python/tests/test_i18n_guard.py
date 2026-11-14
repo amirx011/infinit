@@ -51,6 +51,17 @@ SKIP_DIRS = {
 # (U+06F0-U+06F9) are inside the first range.
 FORBIDDEN = re.compile(r"[\u0600-\u06FF\uFB50-\uFDFF\uFE70-\uFEFF\u200C]")
 PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+# A `$...$` or `$$...$$` span is typeset mathematics; its braces group LaTeX
+# arguments (`\frac{dy}{dx}`) and are not translation placeholders.  Older
+# catalogues also write supersubscripts bare (`e^{rx}`, `C_{1}`).
+MATH_SPAN = re.compile(r"\$\$[\s\S]+?\$\$|\$[\s\S]+?\$")
+SUPERSCRIPT = re.compile(r"[\^_]\{[^{}]*\}")
+
+
+def _placeholders(value: str) -> set[str]:
+    text = MATH_SPAN.sub("", str(value))
+    text = SUPERSCRIPT.sub("", text)
+    return set(PLACEHOLDER.findall(text))
 DOTTED_KEY_CALL = re.compile(
     r"(?<![A-Za-z0-9_])t\(\s*'([a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+)'"
 )
@@ -162,8 +173,8 @@ def test_l1_translation_keys_match():
         if extra:
             problems.append(f"{language}: unexpected keys {extra}")
         for key in sorted(default_keys & set(catalogue)):
-            expected = set(PLACEHOLDER.findall(catalogues["fa"][key]))
-            actual = set(PLACEHOLDER.findall(catalogue[key]))
+            expected = _placeholders(catalogues["fa"][key])
+            actual = _placeholders(catalogue[key])
             if expected != actual:
                 problems.append(
                     f"{language}:{key}: placeholders {sorted(actual)}"
@@ -236,11 +247,12 @@ def test_l2_used_keys_exist_and_report_unused():
     # Fragments used to build dynamic keys are not keys themselves.
     used = {key for key in used if not key.endswith(("_", "."))}
     # `study.<id>.step.<n>` is a prefix; `.title`/`.detail` are the keys.
-    used = {
-        key
-        for key in used
-        if not re.fullmatch(r"study\.[a-z_]+\.step\.\d+", key)
-    }
+    # The same holds for `study.<id>.example.<n>` (`.problem`, `.answer`) and
+    # `study.<id>.example.<n>.step.<k>`.
+    study_prefix = re.compile(
+        r"study\.[a-z_]+(?:\.example\.\d+(?:\.step\.\d+)?|\.step\.\d+)"
+    )
+    used = {key for key in used if not study_prefix.fullmatch(key)}
     # `ode.fN` literals are failure codes: the UI resolves `error.<code>`.
     used = {
         f"error.{key}" if re.fullmatch(r"ode\.f\d+", key) else key

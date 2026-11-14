@@ -57,5 +57,11 @@ Ex polyToExpr(const Poly& p, const std::string& x);
 Ex integratePolynomial(const Poly& p, const std::string& x);
 // integrate a rational function n/d exactly (or return nullptr)
 Ex integrateRational(const Ex& num, const Ex& den, const std::string& x);
+// Inverse Laplace transform of N(s)/D(s) by exact partial fractions over Q.
+// Handles proper rational functions whose denominator factors into linear and
+// irreducible quadratic factors (repeated linear roots included).  Returns
+// nullptr when the form is outside that class.
+Ex inverseLaplaceRational(const Ex& num, const Ex& den, const std::string& s,
+                          const std::string& t);
 
 } // namespace ode

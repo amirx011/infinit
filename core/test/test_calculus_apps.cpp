@@ -126,6 +126,30 @@ static void obliqueApiCase() {
         expect(t.find("1732/1000") == std::string::npos && t.find("1.732") == std::string::npos,
                "oblique angle does not use a decimal approximation");
     }
+
+    // Crossing angles are defined modulo 180 degrees: -90 and 270 are the same
+    // as +90 (orthogonal), and 180 is the same as 0.  A previous version fed
+    // the angle straight into tan() and leaked a slope of about -1.6e16.
+    for (int angle : {-90, 270}) {
+        const std::string t = api(
+            "{\"mode\":\"oblique\",\"input\":\"y = c*x\",\"c\":\"c\",\"angle\":" +
+            std::to_string(angle) + ",\"x\":\"x\",\"y\":\"y\",\"lang\":\"en\"}");
+        expect(t.find("\"ok\":true") != std::string::npos,
+               "oblique right-angle request succeeds for every representative");
+        expect(t.find("\"trajectory_angle\":90") != std::string::npos,
+               "oblique right-angle request normalises the angle to 90");
+        expect(t.find("16331239") == std::string::npos,
+               "oblique right-angle request has no tan-pole coefficient");
+    }
+    for (int angle : {0, 180, 360}) {
+        const std::string t = api(
+            "{\"mode\":\"oblique\",\"input\":\"x = c\",\"c\":\"c\",\"angle\":" +
+            std::to_string(angle) + ",\"x\":\"x\",\"y\":\"y\",\"lang\":\"en\"}");
+        expect(t.find("\"ok\":true") != std::string::npos,
+               "oblique full-turn request succeeds for a vertical family");
+        expect(t.find("\"trajectory_angle\":0") != std::string::npos,
+               "oblique full-turn request normalises the angle to 0");
+    }
 }
 
 static void domainCase() {
@@ -139,6 +163,26 @@ static void domainCase() {
     if (d.asymptotes.size() == 1)
         expect(std::fabs(d.asymptotes[0] - 1.5707963267948966) < 1e-4,
                "domain: the pole is refined to pi/2");
+
+    // cot(x) is continuous on its runs and crosses zero at every multiple of
+    // pi, so its range is one interval, not two branches split at zero.
+    DomainOutput cot = analyseDomain("cot(x)", "x", -5.0, 5.0, 2401);
+    expect(cot.error.empty(), "domain: cot(x) succeeds");
+    expect(cot.range.size() == 1, "domain: cot(x) range is one interval");
+    if (cot.range.size() == 1) {
+        expect(cot.range[0].loInfinite && cot.range[0].hiInfinite,
+               "domain: cot(x) range is (-inf, inf)");
+    }
+
+    // A removable hole can hold the extreme value: sin(x)/x reaches 1 as
+    // x -> 0 even though x = 0 is undefined, so the supremum is 1.
+    DomainOutput sinc = analyseDomain("sin(x)/x", "x", -5.0, 5.0, 2401);
+    expect(sinc.error.empty(), "domain: sin(x)/x succeeds");
+    bool maxIsOne = false;
+    for (const auto& in : sinc.range) {
+        if (!in.hiInfinite && std::fabs(in.hi - 1.0) < 1e-9) maxIsOne = true;
+    }
+    expect(maxIsOne, "domain: sin(x)/x range supremum is 1 from the hole limit");
 }
 
 static void behaviourCase() {

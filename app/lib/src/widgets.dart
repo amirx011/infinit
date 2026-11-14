@@ -238,6 +238,103 @@ class MathInline extends StatelessWidget {
   }
 }
 
+/// Prose with inline mathematics.
+///
+/// The catalogue stores sentences with `$...$` for inline math and `$$...$$`
+/// for display math, exactly the delimiters the TeX renderer expects.  This
+/// widget splits the sentence and replaces every formula with a real
+/// mathematical layout, so a fraction inside a paragraph stacks instead of
+/// collapsing into `a/b`.  Text without delimiters renders as a plain [Text]
+/// and costs nothing extra.
+class MathText extends StatelessWidget {
+  const MathText(
+    this.text, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.maxLines,
+    this.softWrap = true,
+  });
+
+  final String text;
+  final TextStyle? style;
+  final TextAlign? textAlign;
+  final int? maxLines;
+  final bool softWrap;
+
+  static final RegExp _pattern = RegExp(r'\$\$([\s\S]+?)\$\$|\$([\s\S]+?)\$');
+
+  @override
+  Widget build(BuildContext context) {
+    final base = style ?? DefaultTextStyle.of(context).style;
+    final direction = Directionality.of(context);
+    final matches = _pattern.allMatches(text);
+    if (matches.isEmpty) {
+      return Text(
+        text,
+        style: style,
+        textAlign: textAlign,
+        maxLines: maxLines,
+        softWrap: softWrap,
+      );
+    }
+
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    for (final match in matches) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, match.start)));
+      }
+      final display = match.group(1) != null;
+      final tex = (match.group(1) ?? match.group(2) ?? '').trim();
+      final size = base.fontSize ?? 14;
+      if (tex.isNotEmpty) {
+        // Isolate the formula from the surrounding sentence so the bidi
+        // algorithm keeps Persian/Arabic punctuation on the correct side.
+        if (direction == TextDirection.rtl) {
+          spans.add(const TextSpan(text: '\u200E'));
+        }
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Directionality(
+              textDirection: TextDirection.ltr,
+              child: Math.tex(
+                tex,
+                mathStyle: display ? MathStyle.display : MathStyle.text,
+                textStyle: base.copyWith(fontSize: display ? size + 2 : size),
+                textScaleFactor: MediaQuery.textScalerOf(context).scale(1.0),
+                onErrorFallback: (error) => Text(
+                  tex,
+                  style: base.copyWith(
+                    fontFamily: 'DejaVu Sans Mono',
+                    fontFamilyFallback: const ['monospace', 'Vazirmatn'],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        if (direction == TextDirection.rtl) {
+          spans.add(const TextSpan(text: '\u200E'));
+        }
+      }
+      cursor = match.end;
+    }
+    if (cursor < text.length) {
+      spans.add(TextSpan(text: text.substring(cursor)));
+    }
+
+    return Text.rich(
+      TextSpan(children: spans),
+      style: style,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      softWrap: softWrap,
+    );
+  }
+}
+
 class TypeBadge extends StatelessWidget {
   const TypeBadge(this.text, {super.key, this.icon, this.tone});
 
@@ -263,7 +360,7 @@ class TypeBadge extends StatelessWidget {
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 5),
           ],
-          Text(
+          MathText(
             text,
             style: TextStyle(
               fontFamily: 'Vazirmatn',
@@ -381,7 +478,7 @@ class _LearningCardState extends State<LearningCard> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
+          MathText(
             widget.idea,
             style: theme.textTheme.bodyMedium?.copyWith(height: 1.7),
           ),
@@ -459,7 +556,7 @@ class _LearningCardState extends State<LearningCard> {
                     ),
                     const SizedBox(width: 9),
                     Expanded(
-                      child: Text(
+                      child: MathText(
                         point,
                         style: theme.textTheme.bodySmall?.copyWith(
                           height: 1.65,
@@ -495,7 +592,7 @@ class _LearningCardState extends State<LearningCard> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
+                  child: MathText(
                     '${l.t('ui.common_pitfall')}: ${widget.pitfall}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       height: 1.65,
@@ -698,6 +795,9 @@ class ResultView extends StatelessWidget {
       ? '${angle.toStringAsFixed(0)}°'
       : '${angle.toStringAsFixed(1)}°';
 
+  String _joinFormNames(List<String> names) =>
+      names.join(l10n.t('ui.list_separator'));
+
   String _seriesTestLabel(String test) => switch (test) {
     'geometric' => l10n.t('ui.geometric_series'),
     'p-series' => l10n.t('ui.p_series'),
@@ -736,10 +836,33 @@ class ResultView extends StatelessWidget {
     return l10n.t('ui.does_not_exist');
   }
 
+  /// Badge-ready LaTeX for the two one-sided limits.
+  String _limitSideBadge(ExView? value, bool infinite, int sign) {
+    if (value != null) return '\$${value.latex}\$';
+    if (infinite) return sign < 0 ? r'$-\infty$' : r'$\infty$';
+    return l10n.t('ui.does_not_exist');
+  }
+
   String _limitSideLatex(ExView? value, bool infinite, int sign) {
     if (value != null) return value.latex;
     if (infinite) return sign < 0 ? '-\\infty' : '\\infty';
     return '\\text{DNE}';
+  }
+
+  /// Badge-ready LaTeX for one gradient component.
+  String _gradientLatex(int index, ExView component) {
+    final vars = result.vars;
+    final variable = index < vars.length && vars[index].isNotEmpty
+        ? vars[index]
+        : 'x_{${index + 1}}';
+    return '\$\\frac{\\partial f}{\\partial $variable} = ${component.latex}\$';
+  }
+
+  /// `f_xx` -> `f_{xx}`, so a partial-derivative label keeps its subscript.
+  String _partialLabel(String label) {
+    final underscore = label.indexOf('_');
+    if (underscore < 0) return label;
+    return '${label.substring(0, underscore)}_{${label.substring(underscore + 1)}}';
   }
 
   String _lawName(String id) {
@@ -885,8 +1008,8 @@ class ResultView extends StatelessWidget {
     if (result.mode == 'oblique') {
       final angle = result.trajectoryAngle;
       final text = angle == angle.roundToDouble()
-          ? 'α = ${angle.toStringAsFixed(0)}°'
-          : 'α = ${angle.toStringAsFixed(1)}°';
+          ? r'$\alpha = ' + angle.toStringAsFixed(0) + r'^\circ$'
+          : r'$\alpha = ' + angle.toStringAsFixed(1) + r'^\circ$';
       badges.add(TypeBadge(text, icon: Icons.straighten_rounded));
     }
     if (!result.closedForm) {
@@ -936,18 +1059,40 @@ class ResultView extends StatelessWidget {
 
     final children = <Widget>[];
     children.add(Wrap(spacing: 8, runSpacing: 8, children: badges));
+    final alternates = <String>[];
+    for (final id in result.alsoForms) {
+      if (id == result.typeId) continue;
+      final key = 'ui.type.$id';
+      if (l10n.has(key)) alternates.add(l10n.t(key));
+    }
+    if (alternates.isNotEmpty) {
+      children.add(const SizedBox(height: 10));
+      children.add(
+        _NoteRow(
+          icon: Icons.layers_outlined,
+          text: l10n.t('ui.also_forms', {'forms': _joinFormNames(alternates)}),
+          color: c.muted,
+        ),
+      );
+    }
     children.add(const SizedBox(height: 16));
 
-    if (result.numericOnly) {
+    if (result.numericOnly && result.mode != 'topic') {
       children.add(SectionLabel(l10n.t('ui.numerical_solution')));
       children.add(const SizedBox(height: 10));
       final rhs = result.numericRhs.isEmpty ? 'f(x, y, y′)' : result.numericRhs;
+      final order = result.order < 1 ? 1 : result.order;
+      final asciiPrime = List.filled(order, "'").join();
+      const prettyPrimes = ['', '′', '″', '‴', '⁗'];
+      final prettyPrime = order < prettyPrimes.length
+          ? prettyPrimes[order]
+          : '($order)';
       children.add(
         MathBlock(
           math: ExView(
-            plain: "y'' = $rhs",
-            pretty: "y″ = $rhs",
-            latex: "y'' = ${rhs.replaceAll('−', '-')}",
+            plain: "y$asciiPrime = $rhs",
+            pretty: "y$prettyPrime = $rhs",
+            latex: "y$asciiPrime = ${rhs.replaceAll('−', '-')}",
           ),
           accent: true,
           size: 22,
@@ -1109,12 +1254,12 @@ class ResultView extends StatelessWidget {
             runSpacing: 8,
             children: [
               TypeBadge(
-                '${l10n.t('ui.left_2')}: ${_limitSideText(result.leftValue, result.leftInfinite, result.leftSign)}',
+                '${l10n.t('ui.left_2')}: ${_limitSideBadge(result.leftValue, result.leftInfinite, result.leftSign)}',
                 icon: Icons.west_rounded,
                 tone: c.muted,
               ),
               TypeBadge(
-                '${l10n.t('ui.right_2')}: ${_limitSideText(result.rightValue, result.rightInfinite, result.rightSign)}',
+                '${l10n.t('ui.right_2')}: ${_limitSideBadge(result.rightValue, result.rightInfinite, result.rightSign)}',
                 icon: Icons.east_rounded,
                 tone: c.muted,
               ),
@@ -1382,7 +1527,7 @@ class ResultView extends StatelessWidget {
             children: [
               for (var i = 0; i < result.coefficients.length; i++)
                 TypeBadge(
-                  'c$i = ${result.coefficients[i].pretty}',
+                  '\$c_{$i} = ${result.coefficients[i].latex}\$',
                   icon: Icons.tag_rounded,
                 ),
             ],
@@ -1453,7 +1598,7 @@ class ResultView extends StatelessWidget {
             children: [
               for (var i = 0; i < result.gradient.length; i++)
                 TypeBadge(
-                  '∂${i + 1} = ${result.gradient[i].pretty}',
+                  _gradientLatex(i, result.gradient[i]),
                   icon: Icons.north_east_rounded,
                 ),
             ],
@@ -1473,10 +1618,9 @@ class ResultView extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: 64,
-                    child: Text(
-                      p.label,
+                    child: MathText(
+                      '\$${_partialLabel(p.label)}\$',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontFamily: 'DejaVu Sans Mono',
                         color: c.muted,
                       ),
                     ),
@@ -1576,6 +1720,10 @@ class ResultView extends StatelessWidget {
         );
       }
       children.add(const SizedBox(height: 10));
+      final numericText = _formatNumber(
+        result.numericValue,
+        decimals: _decimals(context),
+      );
       if (primary != null) {
         children.add(
           MathBlock(
@@ -1586,11 +1734,20 @@ class ResultView extends StatelessWidget {
             onCopy: () => _copyMath(context, primary),
           ),
         );
+      } else if (result.hasNumeric) {
+        children.add(
+          MathBlock(
+            math: ExView(
+              plain: '≈ $numericText',
+              pretty: '≈ $numericText',
+              latex: '\\approx $numericText',
+            ),
+            accent: true,
+            size: 22,
+            tooltip: l10n.t('ui.copy'),
+          ),
+        );
       }
-      final numericText = _formatNumber(
-        result.numericValue,
-        decimals: _decimals(context),
-      );
       final answerIsNumeric =
           primary != null &&
           double.tryParse(primary.plain.replaceAll('−', '-')) != null;
@@ -1618,6 +1775,37 @@ class ResultView extends StatelessWidget {
             ),
           ),
         );
+      }
+      if (result.numericOnly || result.numericNote.isNotEmpty) {
+        children.add(const SizedBox(height: 12));
+        children.add(
+          TypeBadge(
+            l10n.t('ui.numeric_evidence'),
+            icon: Icons.straighten_rounded,
+            tone: c.warning,
+          ),
+        );
+        if (result.numericNote.isNotEmpty) {
+          children.add(const SizedBox(height: 8));
+          children.add(
+            Text(
+              result.numericNote,
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(height: 1.6, color: c.muted),
+            ),
+          );
+        }
+      }
+      if (result.functions.isNotEmpty) {
+        children.add(const SizedBox(height: 16));
+        children.add(
+          SectionLabel(
+            l10n.t('ui.computed_results'),
+            icon: Icons.table_chart_outlined,
+          ),
+        );
+        children.add(const SizedBox(height: 8));
+        children.add(_functionsBlock(context));
       }
     } else {
       final primary = result.primary;
@@ -1687,6 +1875,48 @@ class ResultView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
       ),
+    );
+  }
+
+  /// Engine-computed tables and label/value lines.
+  ///
+  /// The strings arrive as raw text with `\t`-separated columns and `\n`
+  /// rows, so they stay left-to-right and monospace even in an RTL locale.
+  Widget _functionsBlock(BuildContext context) {
+    final c = context.colors;
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+      fontFamily: 'DejaVu Sans Mono',
+      fontSize: 12.5,
+      height: 1.55,
+      color: c.text,
+    );
+    final rows = <Widget>[];
+    for (final entry in result.functions) {
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 8));
+      rows.add(
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: c.cardAlt,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: c.line),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Text(
+              entry.replaceAll('\t', '    '),
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.left,
+              style: style,
+            ),
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
     );
   }
 

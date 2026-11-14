@@ -4,6 +4,7 @@
 #include "solver.hpp"
 #include "topics.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <string>
@@ -21,23 +22,41 @@ static void expect(bool condition, const std::string& what) {
     }
 }
 
+static bool hasForm(const Result& r, const std::string& id) {
+    return std::find(r.alsoForms.begin(), r.alsoForms.end(), id) !=
+           r.alsoForms.end();
+}
+
 static Result solve(const std::string& input) { return solveODE(input); }
 
 int main() {
     {
         Result r = solve("y' = y");
         expect(r.ok, "y'=y solved");
-        expect(r.typeId == "linear", "y'=y classified linear");
+        expect(r.typeId == "separable", "y'=y classified separable");
         expect(r.isExplicit, "y'=y explicit");
         expect(r.checks.size() == 1 && r.checks[0].ok, "y'=y verified");
     }
     {
         Result r = solve("y' = y^2");
         expect(r.ok, "y'=y^2 solved");
-        expect(r.typeId == "bernoulli", "y'=y^2 classified as Bernoulli");
+        expect(r.typeId == "separable", "y'=y^2 classified as separable");
         expect(r.closedForm, "y'=y^2 closed form");
-        expect(r.isExplicit && toPlain(r.explicitY).find("C - x") != std::string::npos,
+        const std::string ex = r.explicitY ? toPlain(r.explicitY) : std::string();
+        expect(r.isExplicit &&
+                   (ex.find("C - x") != std::string::npos ||
+                    ex.find("-C - x") != std::string::npos),
                "y'=y^2 gives the explicit family 1/(C-x)");
+    }
+    {
+        // Separable equations are classified as separable even when they are
+        // also linear; the shorter method is the primary answer.
+        Result r = solve("y' = 4*x*y/(x^2+1)");
+        expect(r.ok, "separable linear equation solved");
+        expect(r.typeId == "separable", "4xy/(x^2+1) classified separable");
+        expect(r.isExplicit && r.explicitY &&
+                   toPlain(r.explicitY).find("(x^2 + 1)^2") != std::string::npos,
+               "4xy/(x^2+1) gives C(x^2+1)^2");
     }
     // Second-order non-homogeneous equations: undetermined coefficients.
     {
@@ -97,7 +116,7 @@ int main() {
     {
         Result r = solve("2*y + x*y' = 0");
         expect(r.ok, "2y+xy'=0 solved");
-        expect(r.typeId == "linear", "2y+xy'=0 linear");
+        expect(r.typeId == "separable", "2y+xy'=0 separable");
     }
     {
         Result r = solve("(2x+y) + (x+2y)*y' = 0");
@@ -444,6 +463,48 @@ int main() {
         Result r = solve("dy/dx = x + y");
         expect(r.ok, "dy/dx notation accepted");
         expect(r.typeId == "linear", "dy/dx equation classified linear");
+    }
+    // Catalogue order: the first matching family owns the label and every
+    // other family the equation belongs to is reported in also_forms.
+    {
+        Result r = solve("y' = y");
+        expect(r.typeId == "separable", "catalogue: separable outranks linear");
+        expect(hasForm(r, "linear"), "catalogue: y'=y also reported as linear");
+    }
+    {
+        Result r = solve("(2*y-3*x)dx + x dy = 0");
+        expect(r.typeId == "linear",
+               "catalogue: differential form follows the same order as y' input");
+        expect(hasForm(r, "homogeneous"),
+               "catalogue: shifted linear form also reported as homogeneous");
+    }
+    {
+        Result r = solve("(2*x+y) + (x+2*y)*y' = 0");
+        expect(r.typeId == "exact", "catalogue: exact outranks homogeneous");
+        expect(hasForm(r, "homogeneous"),
+               "catalogue: exact equation also reported as homogeneous");
+    }
+    {
+        Result r = solve("y' = y^2");
+        expect(hasForm(r, "bernoulli") && hasForm(r, "riccati"),
+               "catalogue: y'=y^2 reports Bernoulli and Riccati as alternatives");
+    }
+    {
+        Result r = solve("y' = y/x + y^2");
+        expect(r.typeId == "bernoulli", "catalogue: Bernoulli outranks Riccati");
+        expect(hasForm(r, "riccati"),
+               "catalogue: Bernoulli equation also reported as Riccati");
+    }
+    {
+        Result r = solve("y' = 1 + x^2 - 2*x*y + y^2");
+        expect(r.typeId == "riccati", "catalogue: Riccati outranks linear substitution");
+        expect(hasForm(r, "linear_sub"),
+               "catalogue: Riccati equation also reported as linear substitution");
+    }
+    {
+        Result r = solve("y' = exp(-x^2)");
+        expect(r.alsoForms.empty(),
+               "catalogue: pure quadrature reports no alternative families");
     }
     {
         Result r = solve("d^2y/dx^2 = 6*x");
@@ -876,6 +937,890 @@ int main() {
         expect(!unknown.ok, "unknown function is rejected");
         expect(unknown.errorCode == "unknown_function",
                "unknown function carries its code");
+    }
+
+    // The particular solution of a resonant oscillator is b t sin(wt); its
+    // derivative vanishes at t = 0, so the initial velocity must survive.
+    {
+        TopicRequest req;
+        req.topic = "spring_mass";
+        req.nums["m"] = 1;
+        req.nums["c"] = 0;
+        req.nums["k"] = 4;
+        req.nums["f0"] = 1;
+        req.nums["w"] = 2;
+        req.nums["y0"] = 1;
+        req.nums["v0"] = 0;
+        Result r = solveTopic(req);
+        expect(r.ok, "resonant oscillator solves");
+        bool initial = false;
+        for (const auto& c : r.checks) {
+            if (c.nameKey == "check.initial_displacement" && c.ok) initial = true;
+        }
+        expect(initial, "resonant oscillator honours y(0) and y'(0)");
+    }
+    // Zero forcing at the natural frequency is not resonance: no growing term
+    // and no resonance step.
+    {
+        TopicRequest req;
+        req.topic = "spring_mass";
+        req.nums["m"] = 1;
+        req.nums["c"] = 0;
+        req.nums["k"] = 4;
+        req.nums["f0"] = 0;
+        req.nums["w"] = 2;
+        req.nums["y0"] = 1;
+        req.nums["v0"] = 0;
+        Result r = solveTopic(req);
+        expect(r.ok && toPlain(r.solution) == "cos(2*t)",
+               "unforced oscillator at the natural frequency stays bounded");
+        bool resonant = false;
+        for (const auto& s : r.steps) {
+            if (s.titleKey == "step.title.resonance") resonant = true;
+        }
+        expect(!resonant, "unforced oscillator does not claim resonance");
+    }
+    // Constant forcing at zero frequency needs a t or t^2 particular, not
+    // b t sin(wt) with w = 0.
+    {
+        TopicRequest req;
+        req.topic = "spring_mass";
+        req.nums["m"] = 2;
+        req.nums["c"] = 0;
+        req.nums["k"] = 0;
+        req.nums["f0"] = 1;
+        req.nums["w"] = 0;
+        req.nums["y0"] = 1;
+        req.nums["v0"] = 2;
+        Result r = solveTopic(req);
+        expect(r.ok, "constant forcing with no spring solves");
+        expect(toPlain(r.solution) == "1/4*t^2 + 2*t + 1",
+               "constant forcing gives the quadratic particular");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "quadratic particular matches the initial conditions");
+    }
+    {
+        TopicRequest req;
+        req.topic = "spring_mass";
+        req.nums["m"] = 1;
+        req.nums["c"] = 1;
+        req.nums["k"] = 0;
+        req.nums["f0"] = 1;
+        req.nums["w"] = 0;
+        req.nums["y0"] = 0;
+        req.nums["v0"] = 0;
+        Result r = solveTopic(req);
+        expect(r.ok, "damped constant forcing solves");
+        expect(toPlain(r.solution) == "t + exp(-t) - 1",
+               "damped constant forcing gives the linear particular");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "linear particular matches the initial conditions");
+    }
+    // Damped solutions carry decimal coefficients; the numeric verifier must
+    // evaluate them instead of failing on the display-only decimal wrapper.
+    {
+        TopicRequest req;
+        req.topic = "spring_mass";
+        req.nums["m"] = 2;
+        req.nums["c"] = 1;
+        req.nums["k"] = 9;
+        req.nums["f0"] = 0;
+        req.nums["w"] = 2;
+        req.nums["y0"] = -2;
+        req.nums["v0"] = 2;
+        Result r = solveTopic(req);
+        expect(r.ok, "underdamped oscillator solves");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "underdamped solution verifies the initial conditions");
+    }
+    {
+        TopicRequest req;
+        req.topic = "falling_body";
+        req.nums["m"] = 2;
+        req.nums["k"] = 1;
+        req.nums["g"] = 9.8;
+        req.nums["v0"] = 3;
+        req.nums["t"] = 5;
+        Result r = solveTopic(req);
+        expect(r.ok, "falling body solves");
+        bool terminal = false;
+        for (const auto& c : r.checks) {
+            if (c.nameKey == "check.terminal_velocity" && c.ok) terminal = true;
+        }
+        expect(terminal, "falling body approaches mg/k");
+    }
+    // Degenerate rates must not turn correct solutions into red checks.
+    {
+        TopicRequest req;
+        req.topic = "cooling";
+        req.nums["k"] = 0;
+        req.nums["room"] = 20;
+        req.nums["t0"] = 90;
+        req.nums["t"] = 10;
+        Result r = solveTopic(req);
+        expect(r.ok && toPlain(r.solution) == "90", "zero cooling rate keeps the temperature");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "zero cooling rate still verifies the initial value");
+    }
+    {
+        TopicRequest req;
+        req.topic = "logistic";
+        req.nums["r"] = 0;
+        req.nums["K"] = 1000;
+        req.nums["p0"] = 50;
+        req.nums["t"] = 10;
+        Result r = solveTopic(req);
+        expect(r.ok && toPlain(r.solution) == "50", "zero growth rate keeps the population");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "zero growth rate still verifies the initial value");
+    }
+    // The tank empties at t = V0/(rout-rin); asking beyond that is an error,
+    // not a NaN in the JSON response.
+    {
+        TopicRequest req;
+        req.topic = "mixing";
+        req.nums["V0"] = 100;
+        req.nums["q0"] = 10;
+        req.nums["rin"] = 2;
+        req.nums["rout"] = 5;
+        req.nums["cin"] = 0.2;
+        req.nums["t"] = 100;
+        Result r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "tank_empties",
+               "mixing refuses a time after the tank empties");
+    }
+    {
+        TopicRequest req;
+        req.topic = "mixing";
+        req.nums["V0"] = 100;
+        req.nums["q0"] = 10;
+        req.nums["rin"] = 2;
+        req.nums["rout"] = 5;
+        req.nums["cin"] = 0.2;
+        req.nums["t"] = 20;
+        Result r = solveTopic(req);
+        expect(r.ok && std::isfinite(r.numericValue),
+               "mixing still solves before the tank empties");
+    }
+
+    // Laplace checks are numerical: the transformed answer is compared with a
+    // direct Simpson evaluation of the defining integral.
+    {
+        TopicRequest req;
+        req.topic = "laplace";
+        req.strs["f"] = "t*exp(2*t)";
+        Result r = solveTopic(req);
+        expect(r.ok && toPlain(r.solution) == "(s - 2)^-2",
+               "Laplace t*e^(2t) = (s-2)^-2");
+        expect(r.checks.size() == 1 && r.checks[0].ok &&
+                   r.checks[0].detailMath.find("integral") != std::string::npos,
+               "Laplace check compares the answer with the integral");
+    }
+    // Inverse Laplace: a constant numerator scales the table entry instead of
+    // falling through to unsupported_form.
+    {
+        TopicRequest req;
+        req.topic = "inverse_laplace";
+        req.strs["F"] = "5/(s^2+4)";
+        Result r = solveTopic(req);
+        expect(r.ok && toPlain(r.solution) == "5/2*sin(2*t)",
+               "constant numerator scales the inverse Laplace entry");
+    }
+    {
+        TopicRequest req;
+        req.topic = "inverse_laplace";
+        req.strs["F"] = "3/(s-1)";
+        Result r = solveTopic(req);
+        expect(r.ok && toPlain(r.solution) == "3*exp(t)",
+               "constant numerator scales the shifted exponential entry");
+    }
+
+    // Convolution is defined natively as (f * g)(t) = ∫_0^t f(τ) g(t−τ) dτ.
+    {
+        TopicRequest req;
+        req.topic = "convolution";
+        req.strs["f"] = "t";
+        req.strs["g"] = "1";
+        req.nums["t"] = 2.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "convolution t*1 solves");
+        expect(r.solution && toPlain(r.solution) == "1/2*t^2",
+               "convolution t*1 = t^2/2");
+        expect(r.checks.size() == 1 && r.checks[0].ok &&
+                   r.checks[0].nameKey == "check.convolution_value",
+               "convolution value is checked against swapped quadrature");
+    }
+    {
+        TopicRequest req;
+        req.topic = "convolution";
+        req.strs["f"] = "t";
+        req.strs["g"] = "exp(t)";
+        req.nums["t"] = 2.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "convolution t*e^t solves");
+        expect(r.solution && toPlain(r.solution) == "exp(t) - t - 1",
+               "convolution t*e^t = e^t - t - 1");
+    }
+    // Transform of derivatives: L{y'} = sY - y(0), L{y''} = s^2Y - s y(0) - y'(0).
+    {
+        TopicRequest req;
+        req.topic = "transform_derivatives";
+        req.strs["f"] = "t";
+        req.nums["y0"] = 1.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "transform of derivatives solves");
+        expect(r.solution && toPlain(r.solution) == "-s + 1",
+               "transform of f'' for f=t with f(0)=1 is 1 - s");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "transform of derivatives is checked numerically");
+    }
+    // Laplace IVP: y'' + 3y' + 2y = e^t, y(0)=1, y'(0)=0.
+    {
+        TopicRequest req;
+        req.topic = "laplace_ivp";
+        req.nums["a"] = 1;
+        req.nums["b"] = 3;
+        req.nums["c"] = 2;
+        req.strs["g"] = "exp(t)";
+        req.nums["y0"] = 1.0;
+        req.nums["v0"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "Laplace IVP solves");
+        expect(r.solution &&
+                   toPlain(r.solution) ==
+                       "-2/3*exp(-2*t) + 1/6*exp(t) + 3/2*exp(-t)",
+               "Laplace IVP y = e^t/6 - 2e^(-2t)/3 + 3e^(-t)/2");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "Laplace IVP passes the initial-condition and substitution checks");
+    }
+    // Resonance: y'' + y = sin(t) gives the repeated quadratic 1/(s^2+1)^2.
+    {
+        TopicRequest req;
+        req.topic = "laplace_ivp";
+        req.nums["a"] = 1;
+        req.nums["b"] = 0;
+        req.nums["c"] = 1;
+        req.strs["g"] = "sin(t)";
+        req.nums["y0"] = 0.0;
+        req.nums["v0"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "Laplace IVP resonance solves");
+        expect(r.solution && toPlain(r.solution) == "1/2*(sin(t) - t*cos(t))",
+               "resonance y = (sin t - t cos t)/2");
+    }
+    // Step functions and the time-shift theorem.
+    {
+        TopicRequest req;
+        req.topic = "step_functions";
+        req.strs["f"] = "t";
+        req.nums["shift"] = 1.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "step-function transform solves");
+        expect(r.solution && toPlain(r.solution) == "exp(-s)/s^2",
+               "L{u(t-1)(t-1)} = e^(-s)/s^2");
+        expect(r.checks.size() == 1 && r.checks[0].ok,
+               "time-shift transform is checked numerically");
+    }
+    // Discontinuous forcing: the forcing is switched off at t = a.
+    {
+        TopicRequest req;
+        req.topic = "discontinuous_forcing";
+        req.nums["a"] = 1;
+        req.nums["b"] = 2;
+        req.nums["c"] = 1;
+        req.strs["f"] = "1";
+        req.nums["shift"] = 1.0;
+        req.nums["y0"] = 0.0;
+        req.nums["v0"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "discontinuous forcing solves");
+        expect(r.solution &&
+                   toPlain(r.solution) ==
+                       "-t*exp(-t) - exp(-t) - u(t - 1) + "
+                       "t*exp(-(t - 1))*u(t - 1) + 1",
+               "switched-off constant forcing gives the delayed response");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "discontinuous forcing is checked against its transform and by substitution");
+    }
+    // Impulse response: y'' + 4y = delta(t-1).
+    {
+        TopicRequest req;
+        req.topic = "impulse";
+        req.nums["a"] = 1;
+        req.nums["b"] = 0;
+        req.nums["c"] = 4;
+        req.nums["k"] = 1.0;
+        req.nums["shift"] = 1.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "impulse response solves");
+        expect(r.solution &&
+                   toPlain(r.solution) == "1/2*sin(2*(t - 1))*u(t - 1)",
+               "impulse response is sin(2(t-1))/2 after t = 1");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "impulse response is checked against its transform and by substitution");
+    }
+    // Fractional initial data must survive the trip through rational numbers.
+    {
+        TopicRequest req;
+        req.topic = "transform_derivatives";
+        req.strs["f"] = "t";
+        req.nums["y0"] = 0.5;
+        req.nums["v0"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "transform of derivatives with fractional initial data solves");
+        expect(r.solution && toPlain(r.solution) == "-1/2*s + 1",
+               "y(0) = 1/2 is not truncated to zero");
+    }
+    {
+        TopicRequest req;
+        req.topic = "laplace_ivp";
+        req.nums["a"] = 1;
+        req.nums["b"] = 1;
+        req.nums["c"] = 2;
+        req.strs["g"] = "exp(t)";
+        req.nums["y0"] = 0.5;
+        req.nums["v0"] = 2.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "Laplace IVP with fractional initial data solves");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "fractional initial data satisfies y(0), y'(0) and the equation");
+    }
+    {
+        TopicRequest req;
+        req.topic = "laplace_ivp";
+        req.nums["a"] = 1;
+        req.nums["b"] = 0;
+        req.nums["c"] = 1;
+        req.strs["g"] = "exp(t + 1)";
+        req.nums["y0"] = 0.0;
+        req.nums["v0"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "Laplace IVP with a phase-shifted exponential solves");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "e^(t+1) is transformed as e/(s-1) and inverted");
+    }
+    // Fractional shifts must not be truncated either.
+    {
+        TopicRequest req;
+        req.topic = "step_functions";
+        req.strs["f"] = "t";
+        req.nums["shift"] = 0.5;
+        Result r = solveTopic(req);
+        expect(r.ok, "step-function transform with a half-unit shift solves");
+        expect(r.solution && toPlain(r.solution) == "exp(-1/2*s)/s^2",
+               "a = 1/2 gives e^(-s/2)/s^2");
+    }
+    {
+        TopicRequest req;
+        req.topic = "step_functions";
+        req.strs["f"] = "exp(t)";
+        req.nums["shift"] = 0.5;
+        Result r = solveTopic(req);
+        expect(r.ok, "shifted exponential transform solves");
+        expect(r.solution && toPlain(r.solution) == "exp(-1/2*s)/(s - 1)",
+               "a phase-shifted exponential keeps its constant factor");
+    }
+    {
+        TopicRequest req;
+        req.topic = "step_functions";
+        req.strs["f"] = "pi";
+        req.nums["shift"] = 1.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "symbolic constant transform solves");
+        expect(r.solution && toPlain(r.solution) == "pi*exp(-s)/s",
+               "L{pi} = pi/s, so the delayed transform is pi e^(-s)/s");
+    }
+    {
+        TopicRequest req;
+        req.topic = "impulse";
+        req.nums["a"] = 1;
+        req.nums["b"] = 0;
+        req.nums["c"] = 4;
+        req.nums["k"] = 0.5;
+        req.nums["shift"] = 0.5;
+        Result r = solveTopic(req);
+        expect(r.ok, "impulse with fractional strength and shift solves");
+        expect(r.solution &&
+                   toPlain(r.solution) == "1/4*sin(2*t - 1)*u(t - 1/2)",
+               "k = 1/2 and a = 1/2 scale and delay the response");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "fractional impulse keeps both checks green");
+    }
+    // A shifted exponential and a shifted square need the expansion step.
+    {
+        TopicRequest req;
+        req.topic = "discontinuous_forcing";
+        req.nums["a"] = 1;
+        req.nums["b"] = 0;
+        req.nums["c"] = 1;
+        req.strs["f"] = "exp(t)";
+        req.nums["shift"] = 1.0;
+        req.nums["y0"] = 0.0;
+        req.nums["v0"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "discontinuous exponential forcing solves");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "the e^(t+a) shift is split into e^a e^t and checked");
+    }
+    {
+        TopicRequest req;
+        req.topic = "discontinuous_forcing";
+        req.nums["a"] = 1;
+        req.nums["b"] = 0;
+        req.nums["c"] = 1;
+        req.strs["f"] = "exp(t + 1)";
+        req.nums["shift"] = 1.0;
+        req.nums["y0"] = 0.0;
+        req.nums["v0"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "discontinuous shifted exponential forcing solves");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "a symbolic constant e^a stays in the inverse transform");
+    }
+    {
+        TopicRequest req;
+        req.topic = "discontinuous_forcing";
+        req.nums["a"] = 1;
+        req.nums["b"] = 0;
+        req.nums["c"] = 1;
+        req.strs["f"] = "t^2";
+        req.nums["shift"] = 1.5;
+        req.nums["y0"] = 0.0;
+        req.nums["v0"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "discontinuous polynomial forcing solves");
+        expect(r.checks.size() == 2 && r.checks[0].ok && r.checks[1].ok,
+               "the shifted square (t+a)^2 is expanded and checked");
+    }
+    // Inverse Laplace by partial fractions: real, complex and repeated roots.
+    {
+        TopicRequest req;
+        req.topic = "inverse_laplace";
+        req.strs["F"] = "1/((s^2+1)^2)";
+        Result r = solveTopic(req);
+        expect(r.ok, "inverse Laplace with a repeated quadratic solves");
+        expect(r.solution && toPlain(r.solution) == "1/2*(sin(t) - t*cos(t))",
+               "1/(s^2+1)^2 -> (sin t - t cos t)/2");
+    }
+    {
+        TopicRequest req;
+        req.topic = "inverse_laplace";
+        req.strs["F"] = "(3*s+2)/((s-1)*(s^2+4))";
+        Result r = solveTopic(req);
+        expect(r.ok, "inverse Laplace with mixed real and complex roots solves");
+        expect(r.solution && toPlain(r.solution) == "exp(t) + sin(2*t) - cos(2*t)",
+               "partial fractions give e^t + sin 2t - cos 2t");
+    }
+    {
+        TopicRequest req;
+        req.topic = "inverse_laplace";
+        req.strs["F"] = "1/((s-1)^2*(s+2))";
+        Result r = solveTopic(req);
+        expect(r.ok, "inverse Laplace with a repeated real root solves");
+        expect(r.solution &&
+                   toPlain(r.solution) == "1/9*(exp(-2*t) - exp(t) + 3*t*exp(t))",
+               "repeated real root gives (e^(-2t) - e^t + 3t e^t)/9");
+    }
+    // Fourier transform: F(w) = ∫ f(x) e^{-iwx} dx with adaptive windowing.
+    {
+        TopicRequest req;
+        req.topic = "fourier_transform";
+        req.strs["f"] = "exp(-abs(x))";
+        req.nums["w"] = 1.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "Fourier transform of e^-|x| solves");
+        expect(r.hasNumeric && std::fabs(r.numericValue - 1.0) < 5e-3,
+               "Fourier e^-|x| at w=1 has magnitude 2/(1+w^2) = 1");
+    }
+    {
+        TopicRequest req;
+        req.topic = "fourier_transform";
+        req.strs["f"] = "exp(x)";
+        req.nums["w"] = 1.0;
+        Result r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "fourier_not_convergent",
+               "Fourier refuses a non-convergent exponential");
+    }
+    // A linear numerator over a quadratic must keep both the cosine and the
+    // sine entries; it used to be truncated to the value at s = 0.
+    {
+        TopicRequest req;
+        req.topic = "inverse_laplace";
+        req.strs["F"] = "(3*s-2)/(s^2-4*s+13)";
+        Result r = solveTopic(req);
+        expect(r.ok, "inverse Laplace linear numerator over quadratic solves");
+        expect(r.solution &&
+                   toPlain(r.solution) == "1/3*exp(2*t)*(4*sin(3*t) + 9*cos(3*t))",
+               "inverse Laplace keeps 3 e^(2t) cos(3t) + 4/3 e^(2t) sin(3t)");
+    }
+    {
+        TopicRequest req;
+        req.topic = "inverse_laplace";
+        req.strs["F"] = "(2*s+3)/(s^2+4*s+13)";
+        Result r = solveTopic(req);
+        expect(r.ok, "inverse Laplace with shifted damped numerator solves");
+        expect(r.solution &&
+                   toPlain(r.solution) == "-1/3*exp(-2*t)*(sin(3*t) - 6*cos(3*t))",
+               "inverse Laplace e^(-2t)(2 cos(3t) - sin(3t)/3)");
+    }
+    // Trigonometric integrals whose product collapses to a single term.
+    {
+        const std::pair<const char*, const char*> cases[] = {
+            {"sec(x)*tan(x)", "sec(x)"},
+            {"csc(x)*cot(x)", "-csc(x)"},
+            {"sin(x)*sec(x)", "-ln(abs(cos(x)))"},
+            {"cos(x)*sec(x)", "x"},
+            {"sin(x)*tan(x)", "ln(abs(sec(x) + tan(x))) - sin(x)"},
+            {"cos(x)*tan(x)", "-cos(x)"},
+            {"sin(x)*csc(x)", "x"},
+            {"cos(x)*csc(x)", "ln(abs(sin(x)))"},
+            {"sin(x)*cot(x)", "sin(x)"},
+            {"cos(x)*cot(x)", "cos(x) - ln(abs(cot(x) + csc(x)))"},
+            {"sec(2*x)^2", "1/2*tan(2*x)"},
+            {"cot(2*x)*csc(2*x)", "-1/2*csc(2*x)"},
+        };
+        for (const auto& item : cases) {
+            Result r = integrateExpression(item.first, "x", "en");
+            expect(r.ok, std::string("integral ") + item.first + " solved");
+            expect(r.solution && toPlain(r.solution) == item.second,
+                   std::string("integral ") + item.first + " -> " + item.second +
+                       " (got " + (r.solution ? toPlain(r.solution) : "none") + ")");
+        }
+    }
+    // Variation of parameters handles forcing outside the undetermined-
+    // coefficient family, and the closed form must survive verification.
+    {
+        const std::pair<const char*, const char*> cases[] = {
+            {"y'' + y = sec(x)", "ln(abs(cos(x)))"},
+            {"y'' + y = tan(x)", "ln(abs(sec(x) + tan(x)))"},
+            {"y'' + y = csc(x)", "ln(abs(sin(x)))"},
+            {"y'' + y = cot(x)", "ln(abs(cot(x) + csc(x)))"},
+            {"y'' + 4*y = sec(2*x)", "ln(abs(cos(2*x)))"},
+        };
+        for (const auto& item : cases) {
+            Result r = solve(item.first);
+            expect(r.ok, std::string("variation of parameters: ") + item.first);
+            expect(r.checks.size() == 1 && r.checks[0].ok,
+                   std::string("variation of parameters verified: ") + item.first);
+            expect(r.solution && toPlain(r.solution).find(item.second) != std::string::npos,
+                   std::string("variation of parameters closed form: ") + item.first);
+        }
+    }
+
+    // Adams–Bashforth multistep methods bootstrap with RK4 and then reuse the
+    // last few derivative values.  The fourth-order rule must agree with the
+    // exact solution of y' = y.
+    {
+        TopicRequest req;
+        req.topic = "multistep";
+        req.strs["f"] = "y";
+        req.nums["x0"] = 0;
+        req.nums["y0"] = 1;
+        req.nums["h"] = 0.1;
+        req.nums["n"] = 10;
+        req.nums["order"] = 4;
+        Result r = solveTopic(req);
+        expect(r.ok, "multistep order 4 solves y'=y");
+        expect(r.hasNumeric && std::fabs(r.numericValue - std::exp(1.0)) < 2e-3,
+               "multistep order 4 approximates e");
+        bool agreement = false;
+        for (const auto& c : r.checks) {
+            if (c.nameKey == "check.multistep_matches_rk4" && c.ok) agreement = true;
+        }
+        expect(agreement, "multistep order 4 agrees with RK4");
+    }
+    {
+        TopicRequest req;
+        req.topic = "multistep";
+        req.strs["f"] = "y";
+        req.nums["x0"] = 0;
+        req.nums["y0"] = 1;
+        req.nums["h"] = 0.1;
+        req.nums["n"] = 10;
+        req.nums["order"] = 2;
+        Result r = solveTopic(req);
+        expect(r.ok, "multistep order 2 solves y'=y");
+        expect(r.hasNumeric && std::fabs(r.numericValue - std::exp(1.0)) < 3e-2,
+               "multistep order 2 is within its second-order accuracy");
+    }
+    {
+        TopicRequest req;
+        req.topic = "multistep";
+        req.strs["f"] = "x + y";
+        req.nums["x0"] = 0;
+        req.nums["y0"] = 1;
+        req.nums["h"] = 0.1;
+        req.nums["n"] = 4;
+        req.nums["order"] = 4;
+        Result r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "too_few_steps",
+               "multistep refuses fewer steps than the order");
+    }
+    // Error and convergence: halving the step must reduce the error by 2^p.
+    {
+        const int orders[] = {1, 2, 4};
+        for (int method : orders) {
+            TopicRequest req;
+            req.topic = "error_convergence";
+            req.strs["f"] = "y";
+            req.strs["exact"] = "e^x";
+            req.nums["x0"] = 0;
+            req.nums["y0"] = 1;
+            req.nums["h"] = 0.1;
+            req.nums["n"] = 10;
+            req.nums["method"] = method;
+            Result r = solveTopic(req);
+            expect(r.ok, std::string("error/convergence method ") +
+                              std::to_string(method) + " solves");
+            bool shrinks = false;
+            bool orderOk = false;
+            for (const auto& c : r.checks) {
+                if (c.nameKey == "check.error_shrinks" && c.ok) shrinks = true;
+                if (c.nameKey == "check.convergence_order" && c.ok) orderOk = true;
+            }
+            expect(shrinks, std::string("error shrinks for method ") +
+                                std::to_string(method));
+            expect(orderOk, std::string("observed order matches for method ") +
+                                std::to_string(method));
+        }
+    }
+    {
+        // Without an exact solution the reference is a much finer RK4 run.
+        TopicRequest req;
+        req.topic = "error_convergence";
+        req.strs["f"] = "x + y";
+        req.nums["x0"] = 0;
+        req.nums["y0"] = 1;
+        req.nums["h"] = 0.1;
+        req.nums["n"] = 10;
+        req.nums["method"] = 3;
+        Result r = solveTopic(req);
+        expect(r.ok, "error/convergence works with a numeric reference");
+        bool orderOk = false;
+        for (const auto& c : r.checks) {
+            if (c.nameKey == "check.convergence_order" && c.ok) orderOk = true;
+        }
+        expect(orderOk, "numeric reference still measures fourth order");
+    }
+
+    // The drawer's "damped oscillation" page reuses the spring–mass solver, so
+    // its page id must work directly through the topic API too.
+    {
+        TopicRequest req;
+        req.topic = "damped_oscillation";
+        req.nums["m"] = 1;
+        req.nums["c"] = 0.5;
+        req.nums["k"] = 4;
+        req.nums["f0"] = 0;
+        req.nums["w"] = 1;
+        req.nums["y0"] = 1;
+        req.nums["v0"] = 0;
+        Result r = solveTopic(req);
+        expect(r.ok, "damped_oscillation page id solves through the topic API");
+        TopicRequest alias;
+        alias.topic = "spring_mass";
+        alias.nums = req.nums;
+        Result r2 = solveTopic(alias);
+        expect(r2.ok && toPlain(r.solution) == toPlain(r2.solution),
+               "damped_oscillation matches the spring-mass answer");
+    }
+
+    // Matrix and eigenvalue workbench: determinant, characteristic polynomial,
+    // eigenvalues, eigenvectors, inverse and diagonalizability.
+    {
+        TopicRequest req;
+        req.topic = "matrix_eigen";
+        req.strs["matrix"] = "4, 1; 2, 3";
+        Result r = solveTopic(req);
+        expect(r.ok, "matrix workbench solves a 2x2 matrix");
+        const std::string answer = r.solution ? toPretty(r.solution) : "";
+        expect(answer.find("λ1 = 2") != std::string::npos &&
+                   answer.find("λ2 = 5") != std::string::npos,
+               "2x2 eigenvalues are exact");
+        expect(r.checks.size() >= 3, "matrix workbench reports its checks");
+        for (const auto& c : r.checks) expect(c.ok, "matrix check passes: " + c.nameKey);
+        bool inverse = false;
+        for (const auto& s : r.steps)
+            if (s.titleKey == "step.title.invert_the_matrix") inverse = true;
+        expect(inverse, "matrix workbench inverts an invertible matrix");
+    }
+    {
+        TopicRequest req;
+        req.topic = "matrix_eigen";
+        req.strs["matrix"] = "2, 0, 0; 1, 3, 0; 4, 5, 6";
+        Result r = solveTopic(req);
+        expect(r.ok, "matrix workbench solves a 3x3 matrix");
+        const std::string answer = r.solution ? toPretty(r.solution) : "";
+        expect(answer.find("λ3 = 6") != std::string::npos, "3x3 eigenvalues are exact");
+        for (const auto& c : r.checks) expect(c.ok, "3x3 matrix check passes");
+    }
+    {
+        TopicRequest req;
+        req.topic = "matrix_eigen";
+        req.strs["matrix"] = "2, 1; 0, 2";
+        Result r = solveTopic(req);
+        expect(r.ok, "repeated eigenvalue matrix solves");
+        const std::string answer = r.solution ? toPretty(r.solution) : "";
+        expect(answer.find("λ2 = 2") != std::string::npos,
+               "repeated eigenvalue is listed with its multiplicity");
+        bool notDiagonal = false;
+        for (const auto& s : r.steps)
+            if (s.noteKey ==
+                "step.note.the_matrix_is_not_diagonalizable_because_an_eigenvalue_lacks_enough_eigenvectors")
+                notDiagonal = true;
+        expect(notDiagonal, "deficient repeated eigenvalue is reported as not diagonalizable");
+    }
+    {
+        TopicRequest req;
+        req.topic = "matrix_eigen";
+        req.strs["matrix"] = "0, -1; 1, 0";
+        Result r = solveTopic(req);
+        expect(r.ok, "rotation matrix solves");
+        const std::string answer = r.solution ? toPretty(r.solution) : "";
+        expect(answer.find("i") != std::string::npos, "rotation matrix has complex eigenvalues");
+        bool complexNote = false, complexDiagonal = false;
+        for (const auto& s : r.steps) {
+            if (s.noteKey == "step.note.non_real_eigenvalues_come_in_conjugate_pairs")
+                complexNote = true;
+            if (s.noteKey ==
+                "step.note.the_matrix_is_diagonalizable_over_the_complex_numbers_but_not_the_reals")
+                complexDiagonal = true;
+        }
+        expect(complexNote && complexDiagonal,
+               "rotation matrix is diagonalizable over C only");
+    }
+    {
+        TopicRequest req;
+        req.topic = "matrix_eigen";
+        req.strs["matrix"] = "1, 2, 3; 4, 5, 6; 7, 8, 9";
+        Result r = solveTopic(req);
+        expect(r.ok, "singular matrix still has eigenvalues");
+        bool singular = false, zeroDet = false;
+        for (const auto& s : r.steps)
+            if (s.noteKey == "step.note.a_singular_matrix_has_no_inverse") singular = true;
+        for (const auto& c : r.checks)
+            if (c.nameKey == "check.the_determinant_is_zero" && c.ok) zeroDet = true;
+        expect(singular && zeroDet, "singular matrix reports no inverse");
+    }
+    {
+        TopicRequest req;
+        req.topic = "matrix_eigen";
+        req.strs["matrix"] = "0, 0, 2; 1, 0, 0; 0, 1, 0";
+        Result r = solveTopic(req);
+        expect(r.ok, "irreducible cubic falls back to numeric roots");
+        bool numeric = false;
+        for (const auto& s : r.steps)
+            if (s.noteKey == "step.note.some_eigenvalues_are_reported_numerically")
+                numeric = true;
+        expect(numeric, "numeric roots are labelled as approximate");
+        for (const auto& c : r.checks) expect(c.ok, "numeric matrix checks pass");
+    }
+    {
+        TopicRequest req;
+        req.topic = "matrix_eigen";
+        req.strs["matrix"] = "1, 2; 3";
+        Result r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "bad_matrix", "non-square matrix is refused");
+        req.strs["matrix"] = "1, x; 2, 3";
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "matrix_entry_invalid",
+               "non-rational entry is refused");
+        req.strs["matrix"] = "1, 2, 3, 4; 5, 6, 7, 8; 9, 10, 11, 12; 13, 14, 15, 16";
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "matrix_too_large", "4x4 matrix is refused");
+    }
+
+    // Systems and stability: phase portraits, critical points and
+    // predator-prey equilibria.
+    {
+        TopicRequest req;
+        req.topic = "phase_portrait";
+        req.nums["a"] = 0.0;
+        req.nums["b"] = 1.0;
+        req.nums["c"] = -1.0;
+        req.nums["d"] = 0.0;
+        Result r = solveTopic(req);
+        expect(r.ok, "phase portrait solves a linear centre");
+        expect(r.typeId == "center", "centre is classified as a centre");
+        expect(r.solution && toPretty(r.solution) == "centre", "centre is named");
+        expect(r.steps.size() >= 5, "phase portrait lists its working");
+        for (const auto& c : r.checks) expect(c.ok, "centre check passes: " + c.nameKey);
+    }
+    {
+        TopicRequest req;
+        req.topic = "phase_portrait";
+        req.nums["a"] = 1.0;
+        req.nums["b"] = 0.0;
+        req.nums["c"] = 0.0;
+        req.nums["d"] = -1.0;
+        Result r = solveTopic(req);
+        expect(r.ok && r.typeId == "saddle", "opposite real eigenvalues give a saddle");
+        req.nums["a"] = -1.0;
+        req.nums["b"] = 1.0;
+        req.nums["c"] = -1.0;
+        req.nums["d"] = -1.0;
+        r = solveTopic(req);
+        expect(r.ok && r.typeId == "stable_spiral", "damped rotation gives a stable spiral");
+        req.nums["a"] = 0.0;
+        req.nums["b"] = 0.0;
+        req.nums["c"] = 0.0;
+        req.nums["d"] = 0.0;
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "degenerate_system",
+               "the zero matrix has no phase portrait");
+        req.nums["a"] = 1e300;
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "coefficient_not_evaluable",
+               "unrepresentable coefficients are refused");
+    }
+    {
+        TopicRequest req;
+        req.topic = "critical_points";
+        Result r = solveTopic(req);
+        expect(r.ok, "critical points solve the default system");
+        int located = 0;
+        for (const auto& s : r.steps)
+            if (s.titleKey == "step.title.critical_point_at") ++located;
+        expect(located == 3, "the default system has three critical points");
+        for (const auto& c : r.checks) expect(c.ok, "critical point check passes: " + c.nameKey);
+        req.strs["f"] = "1";
+        req.strs["g"] = "1";
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "no_critical_points",
+               "a constant field has no critical point");
+        req.strs["f"] = "x";
+        req.strs["g"] = "y";
+        req.nums["xmin"] = 2.0;
+        req.nums["xmax"] = -2.0;
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "bad_bounds", "reversed bounds are refused");
+    }
+    {
+        TopicRequest req;
+        req.topic = "predator_prey";
+        Result r = solveTopic(req);
+        expect(r.ok, "predator-prey integrates the default model");
+        expect(r.typeId == "predator_prey", "predator-prey reports its own type");
+        expect(r.solution != nullptr, "predator-prey reports the final populations");
+        bool conserved = false;
+        for (const auto& s : r.steps)
+            if (s.titleKey == "step.title.check_the_conserved_quantity") conserved = true;
+        expect(conserved, "predator-prey checks the conserved quantity");
+        for (const auto& c : r.checks) expect(c.ok, "predator-prey check passes: " + c.nameKey);
+        req.nums["a"] = -1.0;
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "bad_predator_prey_rates",
+               "negative prey growth is refused");
+        req.nums.clear();
+        req.nums["x0"] = 0.0;
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "bad_initial_population",
+               "zero initial prey is refused");
+        req.nums.clear();
+        req.nums["t"] = 0.0;
+        r = solveTopic(req);
+        expect(!r.ok && r.errorCode == "bad_time_interval",
+               "a zero end time is refused");
     }
 
     if (failures == 0) {

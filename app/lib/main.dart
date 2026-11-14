@@ -6,12 +6,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
 import 'src/app_state.dart';
+import 'src/curriculum_articles.dart';
 import 'src/i18n/catalog.dart';
 import 'src/l10n.dart';
 import 'src/native_engine.dart';
 import 'src/pages/behaviour_page.dart';
 import 'src/pages/coming_soon_page.dart';
 import 'src/pages/continuity_page.dart';
+import 'src/pages/curriculum_article_page.dart';
 import 'src/pages/educational_page.dart';
 import 'src/pages/optimize_page.dart';
 import 'src/pages/related_rates_page.dart';
@@ -37,17 +39,37 @@ import 'src/widgets.dart';
 
 /// Highest index in the navigation tree. Indices 27–60 are the
 /// differential-equations curriculum slots, 61–64 are the four study
-/// articles and 65 is the Heun workbench.
-const int _lastPageIndex = 65;
+/// articles, 65 is the Heun workbench and 66–115 are the curriculum
+/// placeholders added by the textbook traceability pass.
+const int _lastPageIndex = 115;
+
+/// Curriculum slots that still render the shared coming-soon page.
+///
+/// The set is explicit instead of a numeric range so that removing a menu
+/// entry never changes routing for a persisted `start_page` value.
+const Set<int> kComingSoonIndices = <int>{};
 
 /// Curriculum slots that are backed by the shared topic workbench.
 const Map<int, String> _topicPages = <int, String>{
   27: 'linear_system',
+  28: 'matrix_eigen',
+  29: 'phase_portrait',
+  30: 'critical_points',
+  31: 'predator_prey',
   37: 'laplace',
   38: 'inverse_laplace',
+  39: 'convolution',
+  72: 'step_functions',
+  73: 'discontinuous_forcing',
+  74: 'impulse',
+  114: 'transform_derivatives',
+  115: 'laplace_ivp',
   40: 'fourier_series',
+  41: 'fourier_transform',
   42: 'euler',
   43: 'rk4',
+  44: 'multistep',
+  45: 'error_convergence',
   65: 'heun',
   46: 'growth_decay',
   47: 'cooling',
@@ -57,9 +79,49 @@ const Map<int, String> _topicPages = <int, String>{
   51: 'damped_oscillation',
   52: 'circuit',
   53: 'falling_body',
+  54: 'pde_first_order',
+  55: 'pde_classify',
+  56: 'pde_characteristics',
+  57: 'pde_separation',
   58: 'heat',
   59: 'wave',
   60: 'laplace_pde',
+  32: 'series_power',
+  33: 'series_singular_points',
+  34: 'series_frobenius',
+  35: 'special_legendre',
+  36: 'special_bessel',
+  75: 'system_theory',
+  76: 'system_complex_eigen',
+  77: 'system_fundamental',
+  78: 'system_repeated',
+  79: 'system_nonhomogeneous',
+  80: 'system_rk4',
+  81: 'competing_species',
+  82: 'liapunov',
+  83: 'limit_cycle',
+  84: 'chaos_attractor',
+  85: 'bvp_two_point',
+  86: 'fourier_convergence',
+  87: 'fourier_even_odd',
+  88: 'heat_derivation',
+  89: 'wave_derivation',
+  90: 'bvp_occurrence',
+  91: 'sturm_liouville',
+  92: 'bvp_nonhomogeneous',
+  93: 'sturm_liouville_singular',
+  94: 'bessel_series',
+  95: 'orthogonal_series',
+  96: 'transcendental',
+  97: 'integration_techniques',
+  111: 'euler_equations',
+  112: 'local_linearization',
+  113: 'heat_other_bc',
+};
+
+/// Reading pages for curriculum slots that are explained but not interactive.
+final Map<int, CurriculumArticle> _curriculumArticles = {
+  for (final article in kCurriculumArticles) article.index: article,
 };
 
 Future<void> main() async {
@@ -185,7 +247,18 @@ class _HomeScreenState extends State<HomeScreen> {
         engineError: _engineError,
       );
     }
-    if (_index >= 27 && _index <= 60) {
+    final article = _curriculumArticles[_index];
+    if (article != null) {
+      return CurriculumArticlePage(
+        key: ValueKey('curriculum-${article.index}'),
+        article: article,
+        l10n: l10n,
+        engine: _engine,
+        onSolve: (input) => _open(2, seed: input),
+        onOpen: (page, seed) => _open(page, seed: seed),
+      );
+    }
+    if (kComingSoonIndices.contains(_index)) {
       return ComingSoonPage(key: ValueKey('coming-soon-$_index'), l10n: l10n);
     }
     switch (_index) {
@@ -296,6 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
           engine: _engine,
           engineError: _engineError,
           l10n: l10n,
+          onOpenCauchy: () => _open(17),
         );
       case 16:
         return TheoremsPage(
@@ -322,34 +396,33 @@ class _HomeScreenState extends State<HomeScreen> {
           l10n: l10n,
         );
       case 19:
-        return EducationalPage(
-          key: const ValueKey('educational-derivative'),
-          l10n: l10n,
-          articleId: 'derivative',
-        );
       case 61:
         return EducationalPage(
           key: const ValueKey('educational-derivative'),
           l10n: l10n,
           articleId: 'derivative',
+          onOpen: (page, seed) => _open(page, seed: seed),
         );
       case 62:
         return EducationalPage(
           key: const ValueKey('educational-integral'),
           l10n: l10n,
           articleId: 'integral',
+          onOpen: (page, seed) => _open(page, seed: seed),
         );
       case 63:
         return EducationalPage(
           key: const ValueKey('educational-ode-types'),
           l10n: l10n,
           articleId: 'ode_types',
+          onOpen: (page, seed) => _open(page, seed: seed),
         );
       case 64:
         return EducationalPage(
           key: const ValueKey('educational-ode-applications'),
           l10n: l10n,
           articleId: 'ode_applications',
+          onOpen: (page, seed) => _open(page, seed: seed),
         );
       case 20:
         return EnvelopePage(
@@ -1063,6 +1136,37 @@ List<_DrawerEntry> _flattenNav(List<_DrawerEntry> entries) {
   return result;
 }
 
+/// Page indices reachable from the drawer and the command palette.
+@visibleForTesting
+List<int> navReachableIndices(L10n l10n) => [
+  for (final entry in _flattenNav(_navSections(l10n)))
+    if (entry.index != null) entry.index!,
+];
+
+/// Drawer labels after catalogue lookup, in menu order. An unresolved key
+/// renders verbatim as `nav.66.label`, so the curriculum guard can reject it.
+@visibleForTesting
+List<String> navResolvedLabels(L10n l10n) => [
+  for (final entry in _flattenNav(_navSections(l10n))) entry.label,
+];
+
+/// Labels of groups that still wrap exactly one child. The drawer normalizer
+/// must keep this list empty at every depth.
+@visibleForTesting
+List<String> navSingleChildGroupLabels(L10n l10n) {
+  final violations = <String>[];
+  void walk(List<_DrawerEntry> entries) {
+    for (final entry in entries) {
+      if (!entry.isGroup) continue;
+      if (entry.children.length == 1) violations.add(entry.label);
+      walk(entry.children);
+    }
+  }
+
+  walk(_navSections(l10n));
+  return violations;
+}
+
 class _CommandPalette extends StatefulWidget {
   const _CommandPalette({required this.l10n, required this.entries});
 
@@ -1220,6 +1324,35 @@ class _CommandPaletteState extends State<_CommandPalette> {
   }
 }
 
+/// Collapses groups that only hold a single entry.
+///
+/// A one-child group makes the user open a folder that repeats the destination
+/// underneath. Promoting the child keeps the drawer flat without special-casing
+/// any particular index, so future single-entry groups collapse automatically.
+List<_DrawerEntry> _collapseSingleChildGroups(List<_DrawerEntry> entries) {
+  final result = <_DrawerEntry>[];
+  for (final entry in entries) {
+    if (!entry.isGroup) {
+      result.add(entry);
+      continue;
+    }
+    final children = _collapseSingleChildGroups(entry.children);
+    if (children.length == 1) {
+      result.add(children.single);
+    } else {
+      result.add(
+        _DrawerEntry.group(
+          icon: entry.icon,
+          label: entry.label,
+          hint: entry.hint,
+          children: children,
+        ),
+      );
+    }
+  }
+  return result;
+}
+
 List<_DrawerEntry> _navSections(L10n l10n) {
   _DrawerEntry soon(int index, IconData icon, String labelKey) =>
       _DrawerEntry.link(index: index, icon: icon, label: l10n.t(labelKey));
@@ -1229,17 +1362,14 @@ List<_DrawerEntry> _navSections(L10n l10n) {
   _DrawerEntry topic(int index, IconData icon, String labelKey) =>
       _DrawerEntry.link(index: index, icon: icon, label: l10n.t(labelKey));
 
-  return <_DrawerEntry>[
-    _DrawerEntry.link(
-      index: 0,
-      icon: Icons.home_rounded,
-      label: l10n.t('ui.home'),
-    ),
+  return _collapseSingleChildGroups(<_DrawerEntry>[
     _DrawerEntry.group(
       icon: Icons.functions_rounded,
       label: l10n.t('ui.differential_equations'),
       hint: l10n.t('ui.solve_apply_transform'),
       children: [
+        // The solver is the primary action, so it stays above the curriculum
+        // groups even though it is a single link.
         _DrawerEntry.link(
           index: 2,
           icon: Icons.functions_rounded,
@@ -1247,14 +1377,221 @@ List<_DrawerEntry> _navSections(L10n l10n) {
           hint: l10n.t('ui.forms'),
         ),
         _DrawerEntry.group(
+          icon: Icons.looks_two_rounded,
+          label: l10n.t('nav.group.ch2'),
+          children: [
+            soon(98, Icons.explore_rounded, 'nav.98.label'),
+            soon(66, Icons.compare_arrows_rounded, 'nav.66.label'),
+            soon(99, Icons.linear_scale_rounded, 'nav.99.label'),
+            soon(100, Icons.call_split_rounded, 'nav.100.label'),
+            soon(101, Icons.rule_rounded, 'nav.101.label'),
+            soon(102, Icons.balance_rounded, 'nav.102.label'),
+            soon(103, Icons.functions_rounded, 'nav.103.label'),
+            soon(67, Icons.verified_user_rounded, 'nav.67.label'),
+            soon(68, Icons.format_list_numbered_rounded, 'nav.68.label'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.looks_3_rounded,
+          label: l10n.t('nav.group.ch3'),
+          children: [
+            topic(3, Icons.grid_on_rounded, 'ui.wronskian'),
+            soon(104, Icons.tune_rounded, 'nav.104.label'),
+            soon(105, Icons.blur_on_rounded, 'nav.105.label'),
+            soon(106, Icons.repeat_rounded, 'nav.106.label'),
+            soon(107, Icons.add_circle_outline_rounded, 'nav.107.label'),
+            soon(108, Icons.tune_rounded, 'nav.108.label'),
+            topic(50, Icons.architecture_rounded, 'topic.spring_mass.title'),
+            topic(
+              51,
+              Icons.vibration_rounded,
+              'topic.damped_oscillation.title',
+            ),
+            topic(52, Icons.electrical_services_rounded, 'topic.circuit.title'),
+            soon(69, Icons.graphic_eq_rounded, 'nav.69.label'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.looks_4_rounded,
+          label: l10n.t('nav.group.ch4'),
+          children: [
+            soon(70, Icons.functions_rounded, 'nav.70.label'),
+            soon(109, Icons.tune_rounded, 'nav.109.label'),
+            soon(110, Icons.add_circle_outline_rounded, 'nav.110.label'),
+            soon(71, Icons.tune_rounded, 'nav.71.label'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.auto_graph_rounded,
+          label: l10n.t('ui.series_special_functions'),
+          children: [
+            topic(32, Icons.auto_graph_rounded, 'topic.series_power.title'),
+            topic(
+              33,
+              Icons.adjust_rounded,
+              'topic.series_singular_points.title',
+            ),
+            topic(
+              35,
+              Icons.legend_toggle_rounded,
+              'topic.special_legendre.title',
+            ),
+            topic(111, Icons.functions_rounded, 'topic.euler_equations.title'),
+            topic(
+              34,
+              Icons.account_tree_rounded,
+              'topic.series_frobenius.title',
+            ),
+            topic(36, Icons.cyclone_rounded, 'topic.special_bessel.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.transform_rounded,
+          label: l10n.t('ui.transforms'),
+          children: [
+            topic(37, Icons.transform_rounded, 'topic.laplace.title'),
+            topic(
+              114,
+              Icons.linear_scale_rounded,
+              'topic.transform_derivatives.title',
+            ),
+            topic(115, Icons.rule_rounded, 'topic.laplace_ivp.title'),
+            topic(38, Icons.u_turn_left_rounded, 'topic.inverse_laplace.title'),
+            topic(72, Icons.stairs_rounded, 'topic.step_functions.title'),
+            topic(73, Icons.bolt_rounded, 'topic.discontinuous_forcing.title'),
+            topic(74, Icons.flash_on_rounded, 'topic.impulse.title'),
+            topic(39, Icons.join_full_rounded, 'topic.convolution.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.account_tree_rounded,
+          label: l10n.t('nav.group.ch7'),
+          children: [
+            topic(27, Icons.hub_rounded, 'topic.linear_system.title'),
+            topic(28, Icons.grid_4x4_rounded, 'topic.matrix_eigen.title'),
+            topic(75, Icons.account_tree_rounded, 'topic.system_theory.title'),
+            topic(
+              76,
+              Icons.blur_on_rounded,
+              'topic.system_complex_eigen.title',
+            ),
+            topic(77, Icons.grid_4x4_rounded, 'topic.system_fundamental.title'),
+            topic(78, Icons.repeat_rounded, 'topic.system_repeated.title'),
+            topic(
+              79,
+              Icons.add_circle_outline_rounded,
+              'topic.system_nonhomogeneous.title',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.scatter_plot_rounded,
+          label: l10n.t('nav.group.ch9'),
+          children: [
+            topic(29, Icons.scatter_plot_rounded, 'topic.phase_portrait.title'),
+            topic(30, Icons.place_rounded, 'topic.critical_points.title'),
+            topic(31, Icons.pets_rounded, 'topic.predator_prey.title'),
+            topic(
+              81,
+              Icons.compare_arrows_rounded,
+              'topic.competing_species.title',
+            ),
+            topic(82, Icons.trending_down_rounded, 'topic.liapunov.title'),
+            topic(83, Icons.all_inclusive_rounded, 'topic.limit_cycle.title'),
+            topic(
+              84,
+              Icons.scatter_plot_rounded,
+              'topic.chaos_attractor.title',
+            ),
+            topic(
+              112,
+              Icons.linear_scale_rounded,
+              'topic.local_linearization.title',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.calculate_rounded,
+          label: l10n.t('ui.numerical_methods'),
+          children: [
+            topic(42, Icons.straighten_rounded, 'topic.euler.title'),
+            topic(65, Icons.linear_scale_rounded, 'topic.heun.title'),
+            topic(43, Icons.stacked_line_chart_rounded, 'topic.rk4.title'),
+            topic(
+              44,
+              Icons.format_list_numbered_rounded,
+              'topic.multistep.title',
+            ),
+            topic(
+              45,
+              Icons.error_outline_rounded,
+              'topic.error_convergence.title',
+            ),
+            topic(
+              80,
+              Icons.stacked_line_chart_rounded,
+              'topic.system_rk4.title',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.grid_on_rounded,
+          label: l10n.t('nav.group.ch10'),
+          children: [
+            topic(
+              40,
+              Icons.multiline_chart_rounded,
+              'topic.fourier_series.title',
+            ),
+            topic(86, Icons.rule_rounded, 'topic.fourier_convergence.title'),
+            topic(87, Icons.balance_rounded, 'topic.fourier_even_odd.title'),
+            topic(57, Icons.call_split_rounded, 'topic.pde_separation.title'),
+            topic(58, Icons.local_fire_department_rounded, 'topic.heat.title'),
+            topic(
+              88,
+              Icons.local_fire_department_rounded,
+              'topic.heat_derivation.title',
+            ),
+            topic(
+              113,
+              Icons.local_fire_department_rounded,
+              'topic.heat_other_bc.title',
+            ),
+            topic(59, Icons.waves_rounded, 'topic.wave.title'),
+            topic(89, Icons.waves_rounded, 'topic.wave_derivation.title'),
+            topic(60, Icons.blur_circular_rounded, 'topic.laplace_pde.title'),
+            topic(85, Icons.straighten_rounded, 'topic.bvp_two_point.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.auto_graph_rounded,
+          label: l10n.t('nav.group.ch11'),
+          children: [
+            topic(90, Icons.link_rounded, 'topic.bvp_occurrence.title'),
+            topic(91, Icons.auto_graph_rounded, 'topic.sturm_liouville.title'),
+            topic(
+              92,
+              Icons.add_chart_rounded,
+              'topic.bvp_nonhomogeneous.title',
+            ),
+            topic(
+              93,
+              Icons.adjust_rounded,
+              'topic.sturm_liouville_singular.title',
+            ),
+            topic(94, Icons.cyclone_rounded, 'topic.bessel_series.title'),
+            topic(95, Icons.functions_rounded, 'topic.orthogonal_series.title'),
+          ],
+        ),
+        _DrawerEntry.group(
           icon: Icons.science_rounded,
           label: l10n.t('ui.applications'),
           children: [
-            _DrawerEntry.link(
-              index: 3,
-              icon: Icons.grid_on_rounded,
-              label: l10n.t('ui.wronskian'),
-            ),
+            topic(46, Icons.trending_up_rounded, 'topic.growth_decay.title'),
+            topic(47, Icons.thermostat_rounded, 'topic.cooling.title'),
+            topic(48, Icons.groups_rounded, 'topic.logistic.title'),
+            topic(49, Icons.science_rounded, 'topic.mixing.title'),
+            topic(53, Icons.arrow_downward_rounded, 'topic.falling_body.title'),
             _DrawerEntry.link(
               index: 4,
               icon: Icons.join_inner_rounded,
@@ -1266,85 +1603,6 @@ List<_DrawerEntry> _navSections(L10n l10n) {
               label: l10n.t('ui.orthogonal_trajectories'),
               hint: l10n.t('ui.right_angles'),
             ),
-            _DrawerEntry.link(
-              index: 21,
-              icon: Icons.straighten_rounded,
-              label: l10n.t('ui.oblique_trajectories'),
-              hint: l10n.t('ui.constant_angle'),
-            ),
-            topic(46, Icons.trending_up_rounded, 'topic.growth_decay.title'),
-            topic(47, Icons.thermostat_rounded, 'topic.cooling.title'),
-            topic(48, Icons.groups_rounded, 'topic.logistic.title'),
-            topic(49, Icons.science_rounded, 'topic.mixing.title'),
-            topic(50, Icons.architecture_rounded, 'topic.spring_mass.title'),
-            topic(
-              51,
-              Icons.vibration_rounded,
-              'topic.damped_oscillation.title',
-            ),
-            topic(52, Icons.electrical_services_rounded, 'topic.circuit.title'),
-            topic(53, Icons.arrow_downward_rounded, 'topic.falling_body.title'),
-          ],
-        ),
-        _DrawerEntry.group(
-          icon: Icons.auto_graph_rounded,
-          label: l10n.t('ui.series_special_functions'),
-          children: [
-            soon(32, Icons.auto_graph_rounded, 'nav.32.label'),
-            soon(33, Icons.adjust_rounded, 'nav.33.label'),
-            soon(34, Icons.account_tree_rounded, 'nav.34.label'),
-            soon(35, Icons.stacked_line_chart_rounded, 'nav.35.label'),
-            soon(36, Icons.cyclone_rounded, 'nav.36.label'),
-          ],
-        ),
-        _DrawerEntry.group(
-          icon: Icons.transform_rounded,
-          label: l10n.t('ui.transforms'),
-          children: [
-            topic(37, Icons.transform_rounded, 'topic.laplace.title'),
-            topic(38, Icons.u_turn_left_rounded, 'topic.inverse_laplace.title'),
-            soon(39, Icons.join_full_rounded, 'nav.39.label'),
-            topic(
-              40,
-              Icons.multiline_chart_rounded,
-              'topic.fourier_series.title',
-            ),
-            soon(41, Icons.ssid_chart_rounded, 'nav.41.label'),
-          ],
-        ),
-        _DrawerEntry.group(
-          icon: Icons.calculate_rounded,
-          label: l10n.t('ui.numerical_methods'),
-          children: [
-            topic(42, Icons.straighten_rounded, 'topic.euler.title'),
-            topic(65, Icons.linear_scale_rounded, 'topic.heun.title'),
-            topic(43, Icons.stacked_line_chart_rounded, 'nav.43.label'),
-            soon(44, Icons.format_list_numbered_rounded, 'nav.44.label'),
-            soon(45, Icons.error_outline_rounded, 'nav.45.label'),
-          ],
-        ),
-        _DrawerEntry.group(
-          icon: Icons.grid_on_rounded,
-          label: l10n.t('ui.partial_differential_equations'),
-          children: [
-            soon(54, Icons.looks_one_rounded, 'nav.54.label'),
-            soon(55, Icons.category_rounded, 'nav.55.label'),
-            soon(56, Icons.alt_route_rounded, 'nav.56.label'),
-            soon(57, Icons.call_split_rounded, 'nav.57.label'),
-            topic(58, Icons.local_fire_department_rounded, 'topic.heat.title'),
-            topic(59, Icons.waves_rounded, 'topic.wave.title'),
-            topic(60, Icons.blur_circular_rounded, 'topic.laplace_pde.title'),
-          ],
-        ),
-        _DrawerEntry.group(
-          icon: Icons.hub_rounded,
-          label: l10n.t('ui.systems_stability'),
-          children: [
-            topic(27, Icons.hub_rounded, 'topic.linear_system.title'),
-            soon(28, Icons.grid_4x4_rounded, 'nav.28.label'),
-            soon(29, Icons.scatter_plot_rounded, 'nav.29.label'),
-            soon(30, Icons.place_rounded, 'nav.30.label'),
-            soon(31, Icons.pets_rounded, 'nav.31.label'),
           ],
         ),
       ],
@@ -1354,114 +1612,145 @@ List<_DrawerEntry> _navSections(L10n l10n) {
       label: l10n.t('ui.differential_integral'),
       hint: l10n.t('ui.limits_derivatives_integrals'),
       children: [
-        _DrawerEntry.link(
-          index: 5,
-          icon: Icons.drive_file_rename_outline_rounded,
-          label: l10n.t('ui.derivative'),
-          hint: l10n.t('ui.1st_10th_order'),
-        ),
-        _DrawerEntry.link(
-          index: 6,
-          icon: Icons.integration_instructions_rounded,
-          label: l10n.t('ui.integral'),
-          hint: l10n.t('ui.1d_2d_3d'),
-        ),
-        _DrawerEntry.link(
-          index: 7,
-          icon: Icons.linear_scale_rounded,
-          label: l10n.t('ui.limit'),
-          hint: l10n.t('ui.both_sides'),
-        ),
-        _DrawerEntry.link(
-          index: 8,
-          icon: Icons.timeline_rounded,
-          label: l10n.t('ui.continuity'),
-        ),
-        _DrawerEntry.link(
-          index: 9,
-          icon: Icons.explore_rounded,
-          label: l10n.t('ui.domain_range'),
-          hint: l10n.t('ui.plot'),
-        ),
-        _DrawerEntry.link(
-          index: 23,
-          icon: Icons.polyline_rounded,
-          label: l10n.t('ui.taylor_maclaurin'),
-          hint: l10n.t('ui.polynomial'),
-        ),
-        _DrawerEntry.link(
-          index: 24,
-          icon: Icons.architecture_rounded,
-          label: l10n.t('ui.integral_applications'),
-          hint: l10n.t('ui.area_volume'),
-        ),
-        _DrawerEntry.link(
-          index: 25,
-          icon: Icons.grid_4x4_rounded,
-          label: l10n.t('ui.partial_derivatives'),
-          hint: l10n.t('ui.gradient'),
-        ),
-        _DrawerEntry.link(
-          index: 26,
-          icon: Icons.waves_rounded,
-          label: l10n.t('ui.series_convergence'),
-          hint: l10n.t('ui.tests'),
-        ),
         _DrawerEntry.group(
-          icon: Icons.insights_rounded,
-          label: l10n.t('ui.applications_of_the_derivative'),
+          icon: Icons.category_rounded,
+          label: l10n.t('nav.group.calculus_foundations'),
           children: [
             _DrawerEntry.link(
-              index: 10,
-              icon: Icons.insights_rounded,
-              label: l10n.t('ui.function_behaviour'),
+              index: 7,
+              icon: Icons.linear_scale_rounded,
+              label: l10n.t('ui.limit'),
+              hint: l10n.t('ui.both_sides'),
             ),
             _DrawerEntry.link(
-              index: 11,
-              icon: Icons.show_chart_rounded,
-              label: l10n.t('ui.tangent_normal'),
+              index: 8,
+              icon: Icons.timeline_rounded,
+              label: l10n.t('ui.continuity'),
             ),
             _DrawerEntry.link(
-              index: 12,
-              icon: Icons.vertical_align_bottom_rounded,
-              label: l10n.t('ui.optimisation'),
+              index: 9,
+              icon: Icons.explore_rounded,
+              label: l10n.t('ui.domain_range'),
+              hint: l10n.t('ui.plot'),
             ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.drive_file_rename_outline_rounded,
+          label: l10n.t('nav.group.calculus_differentiation'),
+          children: [
             _DrawerEntry.link(
-              index: 13,
-              icon: Icons.speed_rounded,
-              label: l10n.t('ui.related_rates'),
+              index: 5,
+              icon: Icons.drive_file_rename_outline_rounded,
+              label: l10n.t('ui.derivative'),
+              hint: l10n.t('ui.1st_10th_order'),
             ),
             _DrawerEntry.group(
-              icon: Icons.rule_rounded,
-              label: l10n.t('ui.important_theorems'),
+              icon: Icons.insights_rounded,
+              label: l10n.t('ui.applications_of_the_derivative'),
               children: [
                 _DrawerEntry.link(
-                  index: 14,
-                  icon: Icons.compare_arrows_rounded,
-                  label: l10n.t('ui.l_h_pital_s_rule'),
+                  index: 10,
+                  icon: Icons.insights_rounded,
+                  label: l10n.t('ui.function_behaviour'),
                 ),
                 _DrawerEntry.link(
-                  index: 15,
+                  index: 11,
+                  icon: Icons.show_chart_rounded,
+                  label: l10n.t('ui.tangent_normal'),
+                ),
+                _DrawerEntry.link(
+                  index: 12,
+                  icon: Icons.vertical_align_bottom_rounded,
+                  label: l10n.t('ui.optimisation'),
+                ),
+                _DrawerEntry.link(
+                  index: 13,
+                  icon: Icons.speed_rounded,
+                  label: l10n.t('ui.related_rates'),
+                ),
+                _DrawerEntry.group(
                   icon: Icons.rule_rounded,
-                  label: l10n.t('ui.mean_value_theorem'),
-                ),
-                _DrawerEntry.link(
-                  index: 16,
-                  icon: Icons.horizontal_rule_rounded,
-                  label: l10n.t('ui.rolle_s_theorem'),
-                ),
-                _DrawerEntry.link(
-                  index: 17,
-                  icon: Icons.swap_horiz_rounded,
-                  label: l10n.t('ui.cauchy_s_theorem'),
-                ),
-                _DrawerEntry.link(
-                  index: 18,
-                  icon: Icons.menu_book_rounded,
-                  label: l10n.t('ui.derivative_theorems_complete'),
+                  label: l10n.t('ui.important_theorems'),
+                  children: [
+                    _DrawerEntry.link(
+                      index: 14,
+                      icon: Icons.compare_arrows_rounded,
+                      label: l10n.t('ui.l_h_pital_s_rule'),
+                    ),
+                    _DrawerEntry.link(
+                      index: 15,
+                      icon: Icons.rule_rounded,
+                      label: l10n.t('ui.mean_value_theorem'),
+                    ),
+                    _DrawerEntry.link(
+                      index: 16,
+                      icon: Icons.horizontal_rule_rounded,
+                      label: l10n.t('ui.rolle_s_theorem'),
+                    ),
+                    _DrawerEntry.link(
+                      index: 18,
+                      icon: Icons.menu_book_rounded,
+                      label: l10n.t('ui.derivative_theorems_complete'),
+                    ),
+                  ],
                 ),
               ],
             ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.integration_instructions_rounded,
+          label: l10n.t('nav.group.calculus_integration'),
+          children: [
+            _DrawerEntry.link(
+              index: 6,
+              icon: Icons.integration_instructions_rounded,
+              label: l10n.t('ui.integral'),
+              hint: l10n.t('ui.1d_2d_3d'),
+            ),
+            _DrawerEntry.link(
+              index: 24,
+              icon: Icons.architecture_rounded,
+              label: l10n.t('ui.integral_applications'),
+              hint: l10n.t('ui.area_volume'),
+            ),
+            topic(
+              97,
+              Icons.integration_instructions_rounded,
+              'topic.integration_techniques.title',
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.multiline_chart_rounded,
+          label: l10n.t('nav.group.calculus_series'),
+          children: [
+            _DrawerEntry.link(
+              index: 23,
+              icon: Icons.polyline_rounded,
+              label: l10n.t('ui.taylor_maclaurin'),
+              hint: l10n.t('ui.polynomial'),
+            ),
+            _DrawerEntry.link(
+              index: 26,
+              icon: Icons.waves_rounded,
+              label: l10n.t('ui.series_convergence'),
+              hint: l10n.t('ui.tests'),
+            ),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.auto_awesome_rounded,
+          label: l10n.t('nav.group.calculus_further'),
+          children: [
+            _DrawerEntry.link(
+              index: 25,
+              icon: Icons.grid_4x4_rounded,
+              label: l10n.t('ui.partial_derivatives'),
+              hint: l10n.t('ui.gradient'),
+            ),
+            topic(96, Icons.show_chart_rounded, 'topic.transcendental.title'),
           ],
         ),
       ],
@@ -1499,7 +1788,7 @@ List<_DrawerEntry> _navSections(L10n l10n) {
         ),
       ],
     ),
-  ];
+  ]);
 }
 
 /// Renders either a single drawer row or a collapsible group, at any depth.

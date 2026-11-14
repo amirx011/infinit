@@ -9,10 +9,11 @@ void main() {
     expect(engine.version, isNot('?'));
   });
 
-  test('solves a first-order linear equation', () {
+  test('solves a first-order separable equation', () {
     final result = engine.solveOde("y' = y");
     expect(result.ok, isTrue);
-    expect(result.typeId, 'linear');
+    // Separable is checked before linear, so the shorter method wins.
+    expect(result.typeId, 'separable');
     expect(result.explicitY?.pretty, contains('exp'));
     expect(result.steps, isNotEmpty);
     expect(result.checks.single.ok, isTrue);

@@ -19,7 +19,7 @@ install:
 	./scripts/install_linux.sh
 
 uninstall:
-	./scripts/install_linux.sh --uninstall
+	./scripts/uninstall_linux.sh
 
 clean:
 	rm -rf core/build core/build-android

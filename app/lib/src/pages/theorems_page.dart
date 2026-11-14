@@ -24,12 +24,17 @@ class TheoremsPage extends StatefulWidget {
     required this.engine,
     required this.l10n,
     this.engineError,
+    this.onOpenCauchy,
   });
 
   final TheoremMode mode;
   final NativeEngine? engine;
   final String? engineError;
   final L10n l10n;
+
+  /// Secondary route from the mean value theorem to Cauchy's theorem. The
+  /// drawer keeps only the general theorem, so this is the way in.
+  final VoidCallback? onOpenCauchy;
 
   @override
   State<TheoremsPage> createState() => _TheoremsPageState();
@@ -321,6 +326,20 @@ class _TheoremsPageState extends State<TheoremsPage> {
                   _busy ? l.t('ui.checking') : l.t('ui.check_the_theorem'),
                 ),
               ),
+              if (widget.mode == TheoremMode.mvt &&
+                  widget.onOpenCauchy != null) ...[
+                const SizedBox(height: 6),
+                Align(
+                  alignment: l.isRtl
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: widget.onOpenCauchy,
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                    label: Text(l.t('ui.cauchy_s_theorem')),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

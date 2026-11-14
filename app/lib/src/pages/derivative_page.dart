@@ -96,15 +96,21 @@ class _DerivativePageState extends State<DerivativePage> {
     setState(() {
       _busy = true;
       _error = null;
-      // A new computation invalidates the higher orders below it.
+      // A new computation invalidates the requested order and the higher
+      // orders below it, so no stale answer can survive a failed run.
       if (order == 1) {
+        _first = null;
         _second = null;
         _third = null;
         _higher = null;
       } else if (order == 2) {
+        _second = null;
         _third = null;
         _higher = null;
       } else if (order == 3) {
+        _third = null;
+        _higher = null;
+      } else {
         _higher = null;
       }
     });

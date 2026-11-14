@@ -216,6 +216,7 @@ const char* ode_core_version(void);
   "type_id": "linear",
   "type_fa": "خطی مرتبهٔ اول",
   "type_en": "First-order linear",
+  "also_forms": ["linear", "separable"],
   "method": "",
   "variable": "x",
   "order": 1,
@@ -267,6 +268,7 @@ const char* ode_core_version(void);
 | `type_id` | string | شناسهٔ انگلیسی نوع |
 | `type_fa` | string | نام فارسی نوع |
 | `type_en` | string | نام انگلیسی نوع |
+| `also_forms` | string[] | همهٔ خانواده‌های مرتبهٔ اول که معادله در آن‌ها جا می‌گیرد، به ترتیب کاتالوگ و با احتساب نوع اصلی |
 | `method` | string | روش تشخیص‌داده‌شده (انتگرال) |
 | `variable` | string | متغیر مستقل |
 | `order` | int | مرتبهٔ معادله یا مشتق |

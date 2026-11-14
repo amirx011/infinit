@@ -181,6 +181,7 @@ class SolveResult {
     required this.typeId,
     required this.typeFa,
     required this.typeEn,
+    this.alsoForms = const [],
     required this.error,
     required this.engine,
     required this.method,
@@ -310,6 +311,9 @@ class SolveResult {
   final String typeId;
   final String typeFa;
   final String typeEn;
+
+  /// Every first-order family the equation belongs to, primary included.
+  final List<String> alsoForms;
   final String error;
 
   /// Stable engine error code (`bad_characters`, `singular`,
@@ -500,6 +504,7 @@ class SolveResult {
     typeId: (j['type_id'] ?? '').toString(),
     typeFa: (j['type_fa'] ?? '').toString(),
     typeEn: (j['type_en'] ?? '').toString(),
+    alsoForms: _strList(j['also_forms']),
     error: (j['error'] ?? '').toString(),
     errorCode: (j['error_code'] ?? '').toString(),
     errorDetail: (j['error_detail'] ?? '').toString(),
@@ -666,6 +671,7 @@ class SolveResult {
     if (mode == 'wronskian') return wronskian;
     if (mode == 'envelope') return envelope.isEmpty ? null : envelope.first;
     if (mode == 'oblique') return trajectory ?? solution;
+    if (mode == 'topic') return solution ?? value;
     if (isExplicit && explicitY != null) return explicitY;
     return solution;
   }

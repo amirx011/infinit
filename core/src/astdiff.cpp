@@ -179,6 +179,11 @@ Ex diffAst(const Ex& a, const std::string& v, std::vector<DerivationNote>* notes
             } else if (f == "sqrt") {
                 note(notes, "power", a, depth);
                 outer = Mul(Num(Rational(1, 2)), Pow(u, Num(Rational(-1, 2))));
+            } else if (f == "u") {
+                note(notes, "chain", a, depth);
+                return Mul(Fn("delta", {u}), du);
+            } else if (f == "delta") {
+                return Num(0);
             } else {
                 note(notes, "formal_derivative", a, depth);
                 return Deriv(Fn(f, a->args), v, 1);

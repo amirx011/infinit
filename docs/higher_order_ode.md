@@ -10,7 +10,7 @@ The equation has the form `F(x, y′, y″, …, y⁽ⁿ⁾) = 0` with no bare `
 
 1. Substitute `p = y′`. Then `y″ = p′`, `y‴ = p″`, and in general `y⁽ᵏ⁾ = p⁽ᵏ⁻¹⁾`.
 2. The equation becomes a first-order (or lower-order) equation in `p(x)`.
-3. Solve it with the ordinary first-order pipeline (separable, linear, exact, Bernoulli, …).
+3. Solve it with the ordinary first-order pipeline (separable, exact, linear, Bernoulli, …).
 4. Integrate the resulting `p(x)` once: `y = ∫ p(x) dx + Cₙ`.
 5. Differentiate the answer and substitute it into the original equation as a check.
 

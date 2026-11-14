@@ -497,6 +497,26 @@ Ex Fn(const std::string& name, const std::vector<Ex>& args) {
             if (name == "acos") return Mul(Num(Rational(1, 2)), Sym("pi"));
         }
     }
+    if (name == "erf") {
+        if (args[0]->isZero()) return Num(0);
+        if (args[0]->isSym("inf")) return Num(1);
+        if (args[0]->isMul() && args[0]->args.size() == 2 &&
+            args[0]->args[0]->isNum() && args[0]->args[0]->num == Rational(-1) &&
+            args[0]->args[1]->isSym("inf"))
+            return Num(-1);
+    }
+    if (name == "erfc") {
+        if (args[0]->isZero()) return Num(1);
+        if (args[0]->isSym("inf")) return Num(0);
+    }
+    if (name == "gamma" && args[0]->isNum()) {
+        const Rational& q = args[0]->num;
+        if (q.isInt() && q.n > 0) {
+            long long r = 1;
+            for (long long i = 2; i <= q.n - 1; ++i) r *= i;
+            return Num(r);
+        }
+    }
     auto e = std::make_shared<Expr>();
     e->kind = Kind::Func; e->name = name; e->args = args;
     return e;
@@ -548,8 +568,8 @@ bool isConstWrt(const Ex& a, const std::string& var) { return !dependsOn(a, var)
 static const char* kKnownFunctions[] = {
     "sin", "cos", "tan", "cot", "sec", "csc",
     "asin", "acos", "atan", "asinh", "acosh", "atanh",
-    "sinh", "cosh", "tanh", "exp", "ln", "log", "sqrt", "abs",
-    "erf", "erfc", "fact", "deriv", "integral"
+    "sinh", "cosh", "tanh", "sech", "csch", "exp", "ln", "log", "sqrt", "abs",
+    "erf", "erfc", "fact", "deriv", "integral", "u", "delta"
 };
 
 bool isKnownFunctionName(const std::string& name) {

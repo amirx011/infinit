@@ -50,9 +50,15 @@ Ex numEx(double v) {
 // exact fraction when it really is one, and as a decimal otherwise.
 Ex snap(double v) {
     if (!std::isfinite(v)) return nullptr;
+    // Recover the constants e and pi before falling back to a decimal.  A
+    // double such as 2.718281828... would otherwise be turned into a huge
+    // exact fraction and overflow the rational arithmetic in later steps.
+    const double pi = 3.14159265358979323846;
+    const double e = 2.71828182845904523536;
+    if (std::fabs(v - e) < 1e-12) return Sym("e");
+    if (std::fabs(v + e) < 1e-12) return Mul(Num(-1), Sym("e"));
     // Recover small rational multiples of pi (x = pi, x = -pi/2, ...).  Roots
     // such as tan(x) = 0 at x = pi would otherwise print as a huge fraction.
-    const double pi = 3.14159265358979323846;
     const double ratio = v / pi;
     for (int den = 1; den <= 64; ++den) {
         const double scaled = ratio * den;
@@ -87,7 +93,7 @@ Ex snap(double v) {
             return v < 0 ? Mul(Num(-1), root) : root;
         }
     }
-    return Num(Rational::fromDouble(v));
+    return Fn("decimal", {Num(Rational::fromDouble(v))});
 }
 
 double asDouble(const Ex& e, bool* ok) { return evalConst(e, ok); }

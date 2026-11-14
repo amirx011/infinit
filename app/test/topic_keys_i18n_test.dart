@@ -51,10 +51,7 @@ void main() {
             ? (double.tryParse(field.initial) ?? 0.0)
             : field.initial;
       }
-      final result = await engine.topicAsync(
-        spec.backendId,
-        params: params,
-      );
+      final result = await engine.topicAsync(spec.backendId, params: params);
       expectResult(result, spec.id);
     });
   }

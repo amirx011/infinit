@@ -63,6 +63,21 @@ Ex exactCentre(double v) {
 
 Ex snap(double v) {
     if (!std::isfinite(v)) return nullptr;
+    // Recognise the two constants and small rational multiples of pi; anything
+    // else prints as a decimal instead of an overflow-prone exact fraction.
+    const double pi = 3.14159265358979323846;
+    const double e = 2.71828182845904523536;
+    if (std::fabs(v - e) < 1e-12) return Sym("e");
+    if (std::fabs(v + e) < 1e-12) return Mul(Num(-1), Sym("e"));
+    for (int den = 1; den <= 64; ++den) {
+        const double scaled = v / pi * den;
+        const double rounded = std::round(scaled);
+        if (std::fabs(scaled - rounded) < 1e-10) {
+            const long long num = (long long)std::llround(rounded);
+            if (num != 0 && std::llabs(num) <= 256)
+                return Mul(Num(Rational(num, den)), Sym("pi"));
+        }
+    }
     for (int den = 1; den <= 64; ++den) {
         const double scaled = v * den;
         const double rounded = std::round(scaled);
@@ -71,7 +86,7 @@ Ex snap(double v) {
             if (std::llabs(n) <= 1000000) return Num(Rational(n, den));
         }
     }
-    return Num(Rational::fromDouble(v));
+    return Fn("decimal", {Num(Rational::fromDouble(v))});
 }
 
 double evalAt(const Ex& f, const std::string& x, double xv, bool* ok) {
@@ -95,7 +110,12 @@ double evalMany(const Ex& e, const std::vector<std::string>& vars,
 Ex atPoint(const Ex& e, const std::vector<std::string>& vars,
            const std::vector<double>& values) {
     std::map<std::string, Ex> m;
-    for (size_t i = 0; i < vars.size() && i < values.size(); ++i) m[vars[i]] = numEx(values[i]);
+    // A raw `Num(Rational::fromDouble(pi))` is a fifteen-digit fraction whose
+    // products overflow the checked 64-bit rational arithmetic.  exactCentre
+    // recognises pi, e and small rationals, so points such as (1, pi, 1) stay
+    // exact and no later step throws "integer coefficient too large".
+    for (size_t i = 0; i < vars.size() && i < values.size(); ++i)
+        m[vars[i]] = exactCentre(values[i]);
     return simplify(substituteMany(e, m));
 }
 
@@ -171,7 +191,41 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
         }
         r.order = order;
         r.point = toPlain(center);
-        r.value = simplify(substitute(f, x, center));
+
+        // Value of an expression at the centre.  Direct substitution is used
+        // when it is defined; a removable singularity is resolved by a limit.
+        auto valueAtCentre = [&](const Ex& expr) -> Ex {
+            Ex value;
+            bool needLimit = false;
+            try {
+                value = simplify(substitute(expr, x, center));
+            } catch (...) {
+                needLimit = true;
+            }
+            if (!value) {
+                needLimit = true;
+            } else if (extras.empty()) {
+                bool valueOk = false;
+                const double probe = evalConst(value, &valueOk);
+                if (!valueOk || !std::isfinite(probe)) needLimit = true;
+            }
+            if (needLimit) {
+                try {
+                    std::vector<std::string> laws;
+                    LimitOutcome lim = limitOf(expr, x, center, 0, &laws);
+                    if (lim.kind == LimitOutcome::Finite) {
+                        if (lim.value) value = simplify(lim.value);
+                        else if (lim.numeric) value = snap(lim.number);
+                    }
+                } catch (...) {}
+            }
+            return value;
+        };
+
+        r.value = valueAtCentre(f);
+        if (!r.value) {
+            throw EngineError("singular", "the function has no Taylor series at the centre");
+        }
         addStep(r, a == 0.0 ? "step.title.function_maclaurin_a0" : "step.title.function_taylor_a",
             f, "step.note.expand_about_centre", "{\"n\":" + std::to_string(order) + "}");
 
@@ -179,7 +233,11 @@ Result taylorSeriesImpl(const std::string& input, const std::string& x, double a
         std::vector<Ex> coeffs;
         std::string coeffEn;
         for (int k = 0; k <= order; ++k) {
-            Ex valueAt = simplify(substitute(d, x, center));
+            Ex valueAt = valueAtCentre(d);
+            if (!valueAt) {
+                throw EngineError("singular",
+                                  "the function has no Taylor series at the centre");
+            }
             // Keep the exact value (sin(1), sqrt(2), 1/3, ...) instead of
             // snapping to a rational approximation.  Combining approximations
             // of transcendental values can overflow the 64-bit rational

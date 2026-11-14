@@ -80,6 +80,11 @@ Ex diff(const Ex& a, const std::string& v) {
                             Fn("exp", {Mul(Num(-1), Pow(u, Num(2)))}));
             else if (f == "abs") {
                 return Mul(du, u, Pow(a, Num(-1)));
+            } else if (f == "u") {
+                // distributional derivative of the unit step
+                return Mul(Fn("delta", {u}), du);
+            } else if (f == "delta") {
+                return Num(0);
             } else {
                 // unknown function: formal derivative
                 return Deriv(Fn(f, a->args), v, 1);
@@ -131,6 +136,33 @@ static Ex substituteExpr(const Ex& a, const Ex& target, const Ex& rep) {
     }
 }
 
+// sec, csc, tan and cot are quotients of sin and cos.  A product such as
+// sin(x) sec(x)^3 has no table entry, but after the rewrite it is
+// sin(x)/cos(x)^3, which the substitution rule integrates.  The pass leaves
+// every other node untouched.
+static Ex rewriteQuotients(const Ex& a) {
+    if (!a) return a;
+    if (a->isFunc() && a->args.size() == 1) {
+        Ex u = rewriteQuotients(a->args[0]);
+        const std::string& n = a->name;
+        if (n == "sec") return Pow(Fn("cos", {u}), Num(-1));
+        if (n == "csc") return Pow(Fn("sin", {u}), Num(-1));
+        if (n == "tan") return Mul(Fn("sin", {u}), Pow(Fn("cos", {u}), Num(-1)));
+        if (n == "cot") return Mul(Fn("cos", {u}), Pow(Fn("sin", {u}), Num(-1)));
+        return Fn(n, {u});
+    }
+    if (a->args.empty()) return a;
+    std::vector<Ex> v;
+    for (auto& c : a->args) v.push_back(rewriteQuotients(c));
+    switch (a->kind) {
+        case Kind::Add: return Add(v);
+        case Kind::Mul: return Mul(v);
+        case Kind::Pow: return Pow(v[0], v[1]);
+        case Kind::Func: return Fn(a->name, v);
+        default: return a;
+    }
+}
+
 static void collectSubCandidates(const Ex& a, const Ex& whole, std::vector<Ex>& out) {
     if (!a || a->args.empty()) return;
     if (!equals(a, whole)) {
@@ -156,7 +188,12 @@ struct Integrator {
 
     Ex runInner(const Ex& f) {
         if (!f || f->isZero()) return Num(0);
-        if (++depth > 30) { --depth; return Integral(f, x); }
+        // Substitution and parts recurse through this entry point.  Depth alone
+        // is not enough: each level can expand the expression, so a modest
+        // depth can still produce an astronomical simplify() call.  Bail out
+        // with an unevaluated integral instead of hanging the solver.
+        if (depth >= 12 || sizeOf(f) > 1200) return Integral(f, x);
+        ++depth;
         Ex res = attempt(f);
         --depth;
         return res;
@@ -224,6 +261,28 @@ struct Integrator {
             if (g) { method = "substitution"; return g; }
         }
 
+        // Rationalise sqrt(a + b x): with u = sqrt(a + b x) the differential
+    // becomes 2u/b du, so an integrand that is rational in u is elementary.
+    {
+        Ex g = trySqrtRationalize(f);
+        if (g) { method = "substitution"; return g; }
+    }
+
+    // exponential substitution t = e^x (sech, logistic-type quotients)
+        {
+            Ex g = tryExpSubstitution(f);
+            if (g) { method = "substitution"; return g; }
+        }
+
+        // trigonometric quotients: sec -> 1/cos, tan -> sin/cos, ...
+        {
+            Ex rw = rewriteQuotients(f);
+            if (rw && !equals(rw, f)) {
+                Ex g = run(rw);
+                if (!hasIntegral(g)) { method = "rewrite"; return g; }
+            }
+        }
+
         // trigonometric powers
         {
             Ex g = tryTrigPower(f);
@@ -276,6 +335,69 @@ struct Integrator {
                         return Mul(e, Pow(Num(den), Num(-1)),
                                    Add(Mul(Num(aa), cs), Mul(Num(bb), sn)));
                     }
+                }
+            }
+        }
+
+        // Products of two trigonometric factors that collapse to a single
+        // elementary term, e.g. sin(x) sec(x) = tan(x) and
+        // cos(x) cot(x) = csc(x) - sin(x).
+        if (f->isMul()) {
+            Ex u1, u2, coeff = Num(1);
+            std::string n1, n2;
+            int funcCount = 0;
+            bool mixable = true;
+            for (auto& q : f->args) {
+                const bool trig = q->isFunc() && q->args.size() == 1 &&
+                                  (q->name == "sin" || q->name == "cos" || q->name == "tan" ||
+                                   q->name == "sec" || q->name == "csc" || q->name == "cot");
+                if (trig) {
+                    if (funcCount == 0) { u1 = q->args[0]; n1 = q->name; }
+                    else if (funcCount == 1) { u2 = q->args[0]; n2 = q->name; }
+                    else { mixable = false; break; }
+                    ++funcCount;
+                } else if (!dependsOn(q, x)) {
+                    coeff = Mul(coeff, q);
+                } else {
+                    mixable = false;
+                    break;
+                }
+            }
+            if (mixable && funcCount == 2 && equals(u1, u2)) {
+                Ex a, b;
+                if (linearIn(u1, x, a, b) && a->isNum()) {
+                    const Rational k = a->num;
+                    const Ex u = u1;
+                    const std::string pair = n1 < n2 ? n1 + "*" + n2 : n2 + "*" + n1;
+                    const Ex logCos = Fn("ln", {Fn("abs", {Fn("cos", {u})})});
+                    const Ex logSin = Fn("ln", {Fn("abs", {Fn("sin", {u})})});
+                    const Ex logSec = Fn("ln", {Fn("abs", {Add(Fn("sec", {u}), Fn("tan", {u}))})});
+                    const Ex logCsc = Fn("ln", {Fn("abs", {Add(Fn("csc", {u}), Fn("cot", {u}))})});
+                    Ex antiderivative;
+                    if (pair == "cos*sec" || pair == "csc*sin") {
+                        // The product is exactly 1, so the integral is x and
+                        // must not inherit the 1/k factor used by the other
+                        // entries below.
+                        antiderivative = Mul(Num(k), Sym(x));
+                    } else if (pair == "sec*sin") {
+                        antiderivative = Mul(Num(-1), logCos);
+                    } else if (pair == "cos*csc") {
+                        antiderivative = logSin;
+                    } else if (pair == "sec*tan") {
+                        antiderivative = Fn("sec", {u});
+                    } else if (pair == "cot*csc" || pair == "csc*cot") {
+                        antiderivative = Mul(Num(-1), Fn("csc", {u}));
+                    } else if (pair == "sin*tan") {
+                        antiderivative = Add(logSec, Mul(Num(-1), Fn("sin", {u})));
+                    } else if (pair == "cos*tan") {
+                        antiderivative = Mul(Num(-1), Fn("cos", {u}));
+                    } else if (pair == "cot*sin") {
+                        antiderivative = Fn("sin", {u});
+                    } else if (pair == "cos*cot") {
+                        antiderivative = Add(Mul(Num(-1), logCsc), Fn("cos", {u}));
+                    }
+                    if (antiderivative)
+                        return Mul(coeff, Num(k.inv()), antiderivative);
                 }
             }
         }
@@ -405,6 +527,29 @@ struct Integrator {
                     return Add(Mul(Num(Rational(1, 2)), X), Mul(Pow(Num(4), Num(-1)), Pow(Num(k), Num(-1)), Fn("sin", {Mul(Num(2), u)})));
                 if (base->name == "tan")
                     return Add(Mul(Pow(Num(k), Num(-1)), Fn("tan", {u})), Mul(Num(-1), X));
+                if (base->name == "cot")
+                    return Add(Mul(Num(-k.inv()), Fn("cot", {u})), Mul(Num(-1), X));
+                if (base->name == "sec")
+                    return Mul(Num(k.inv()), Fn("tan", {u}));
+                if (base->name == "csc")
+                    return Mul(Num(-k.inv()), Fn("cot", {u}));
+            }
+        }
+        // ∫ sec³u du and ∫ csc³u du: the standard reduction formulas.
+        if (f->isPow() && f->args[1]->isNum() && f->args[1]->num.n == 3) {
+            const Ex& base = f->args[0];
+            Ex a, b;
+            if (base->isFunc() && linearIn(base->args[0], x, a, b) && a->isNum()) {
+                Ex u = base->args[0];
+                Rational k = a->num;
+                const Ex logSec = Fn("ln", {Fn("abs", {Add(Fn("sec", {u}), Fn("tan", {u}))})});
+                const Ex logCsc = Fn("ln", {Fn("abs", {Add(Fn("csc", {u}), Fn("cot", {u}))})});
+                if (base->name == "sec")
+                    return Mul(Num(Rational(1, 2) * k.inv()),
+                               Add({Mul(Fn("sec", {u}), Fn("tan", {u})), logSec}));
+                if (base->name == "csc")
+                    return Mul(Num(Rational(-1, 2) * k.inv()),
+                               Add({Mul(Fn("csc", {u}), Fn("cot", {u})), logCsc}));
             }
         }
         return nullptr;
@@ -440,8 +585,11 @@ struct Integrator {
         if (disc.isZero()) {
             return Mul(Pow(Sqrt(Num(A)), Num(-1)), Fn("ln", {Fn("abs", {u})}));
         }
-        Ex s = Sqrt(Num(disc));
-        Ex arg = Add(u, s);
+        // ∫ dx/√(Ax²+Bx+C) = (1/√A)·ln|2Ax+B + 2√(A·Q)|.  Using
+        // 2Ax+B + √disc instead is only asymptotically right and was wrong
+        // for finite x.
+        Ex Q = Add({Mul(a, Pow(X, Num(2))), Mul(b, X), c});
+        Ex arg = Add(u, Mul(Num(2), Sqrt(Num(A)), Sqrt(Q)));
         return Mul(Pow(Sqrt(Num(A)), Num(-1)), Fn("ln", {Fn("abs", {arg})}));
     }
 
@@ -585,6 +733,74 @@ struct Integrator {
             return out;
         }
         return nullptr;
+    }
+
+    // ∫ R(e^x) dx.  With t = e^x the differential is dt/t, so the integral
+    // becomes a rational one in t; this covers sech x, 1/(e^x + e^-x) and
+    // similar exponential quotients that no elementary table entry matches.
+    Ex trySqrtRationalize(const Ex& f) {
+        std::vector<Ex> roots;
+        std::function<void(const Ex&)> collect = [&](const Ex& e) {
+            if (!e) return;
+            const bool isSqrt = e->isFunc("sqrt") ||
+                                (e->isPow() && e->args[1]->isNum() &&
+                                 e->args[1]->num == Rational(1, 2));
+            if (isSqrt) roots.push_back(e);
+            for (auto& c : e->args) collect(c);
+        };
+        collect(f);
+        for (auto& root : roots) {
+            Ex radicand = root->isFunc("sqrt") ? root->args[0] : root->args[0];
+            Ex a, b;
+            if (!linearIn(radicand, x, a, b)) continue;
+            if (!a->isNum() || !b->isNum() || b->num.isZero()) continue;
+            if (dependsOn(a, "__u") || dependsOn(b, "__u")) continue;
+            Ex u = Sym("__u");
+            Ex f1 = substituteExpr(f, root, u);
+            Ex xrep = Mul(Add(Pow(u, Num(2)), Mul(Num(-1), a)), Pow(b, Num(-1)));
+            Ex f2 = substituteExpr(f1, Sym(x), xrep);
+            if (dependsOn(f2, x)) continue;
+            Ex q = simplify(Mul(f2, Num(2), u, Pow(b, Num(-1))));
+            if (!q || sizeOf(q) > 1200) continue;
+            Ex F = Integrator{"__u", depth + 1}.run(q);
+            if (hasIntegral(F)) continue;
+            Ex out = substituteExpr(F, u, root);
+            if (hasIntegral(out)) continue;
+            return out;
+        }
+        return nullptr;
+    }
+
+    Ex tryExpSubstitution(const Ex& f) {
+        std::vector<Ex> nodes;
+        std::function<void(const Ex&)> collect = [&](const Ex& e) {
+            if (!e) return;
+            if (e->isFunc("exp") && e->args.size() == 1) {
+                nodes.push_back(e);
+                return;
+            }
+            for (auto& c : e->args) collect(c);
+        };
+        collect(f);
+        if (nodes.empty()) return nullptr;
+        Ex tt = Sym("__e");
+        Ex g = f;
+        for (auto& nd : nodes) {
+            Ex a, b;
+            if (!linearIn(nd->args[0], x, a, b)) return nullptr;
+            if (!a->isNum() || a->num.isZero() || !a->num.isInt()) return nullptr;
+            if (std::llabs(a->num.n) > 20) return nullptr;
+            Ex rep = Mul(Fn("exp", {b}), Pow(tt, Num(a->num)));
+            g = substituteExpr(g, nd, rep);
+        }
+        if (dependsOn(g, x)) return nullptr;
+        Ex q = Mul(g, Pow(tt, Num(-1)));
+        if (sizeOf(q) > 1200) return nullptr;
+        Ex F = Integrator{ "__e", depth + 1 }.run(q);
+        if (hasIntegral(F)) return nullptr;
+        Ex out = substituteExpr(F, tt, Fn("exp", {Sym(x)}));
+        if (hasIntegral(out)) return nullptr;
+        return out;
     }
 
     Ex tryTrigPower(const Ex& f) {

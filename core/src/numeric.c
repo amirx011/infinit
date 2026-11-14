@@ -17,7 +17,7 @@ double ode_eval_rpn(const OdeInstr* code, int n, const double* vars) {
         } else if (op == ODE_NEG) {
             if (sp < 1) return NAN;
             st[sp - 1] = -st[sp - 1];
-        } else if (op >= ODE_SIN && op <= ODE_FACT) {
+        } else if (op >= ODE_SIN && op <= ODE_DELTA) {
             double u;
             if (sp < 1) return NAN;
             u = st[sp - 1];
@@ -47,6 +47,14 @@ double ode_eval_rpn(const OdeInstr* code, int n, const double* vars) {
                     /* factorial for non-negative integers, Gamma(u+1) otherwise */
                     if (u < 0.0 && u == floor(u)) st[sp - 1] = NAN;
                     else st[sp - 1] = tgamma(u + 1.0);
+                    break;
+                case ODE_STEP:
+                    /* right-continuous unit step: u(0) = 1 */
+                    st[sp - 1] = (u >= 0.0) ? 1.0 : 0.0;
+                    break;
+                case ODE_DELTA:
+                    /* sampling is deliberately away from the impulse */
+                    st[sp - 1] = 0.0;
                     break;
                 default: break;
             }

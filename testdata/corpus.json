@@ -14,7 +14,7 @@
   {
     "category": "linear",
     "input": "2*y + x*y' = 0",
-    "type": "linear",
+    "type": ["linear", "separable"],
     "verify": "auto"
   },
   {
@@ -71,7 +71,7 @@
   {
     "category": "separable",
     "input": "y' = x/y",
-    "type": "separable",
+    "type": ["separable", "bernoulli"],
     "verify": "auto"
   },
   {
@@ -96,7 +96,7 @@
   {
     "category": "homogeneous",
     "input": "y' = (x^2+y^2)/(x*y)",
-    "type": "homogeneous",
+    "type": ["homogeneous", "bernoulli"],
     "verify": "auto"
   },
   {
@@ -153,7 +153,7 @@
   {
     "category": "integrating_factor",
     "input": "(x^2+y^2)dx - 2*x*y dy = 0",
-    "type": ["integrating_factor", "homogeneous"],
+    "type": ["integrating_factor", "homogeneous", "bernoulli"],
     "verify": "auto"
   },
   {
@@ -165,7 +165,7 @@
   {
     "category": "integrating_factor",
     "input": "(2*y^2+3*x)dx + 2*x*y dy = 0",
-    "type": "integrating_factor",
+    "type": ["integrating_factor", "bernoulli"],
     "verify": "auto"
   },
   {
@@ -178,13 +178,13 @@
   {
     "category": "integrating_factor",
     "input": "(2*y-3*x)dx + x dy = 0",
-    "type": "integrating_factor",
+    "type": ["integrating_factor", "linear", "homogeneous"],
     "verify": "auto"
   },
   {
     "category": "integrating_factor",
     "input": "(y+x*y^2)dx - x dy = 0",
-    "type": ["integrating_factor", "riccati"],
+    "type": ["integrating_factor", "riccati", "bernoulli"],
     "verify": "auto"
   },
   {
@@ -222,7 +222,7 @@
   {
     "category": "riccati",
     "input": "y' = 1 + x^2 - 2*x*y + y^2",
-    "type": "riccati",
+    "type": ["riccati", "linear_sub"],
     "verify": "auto"
   },
   {
@@ -366,18 +366,16 @@
     "note": "not a homogeneous differential form"
   },
   {
-    "category": "unsupported",
+    "category": "riccati",
     "input": "y' = y^2 - y/x + 1/x^2",
     "verify": "auto",
-    "expect_error": true,
-    "note": "Riccati without an elementary particular solution"
+    "note": "Riccati with the particular solution y = 1/x"
   },
   {
-    "category": "unsupported",
+    "category": "higher_order",
     "input": "x^2*y'' + x*y' - y = 0",
     "verify": "auto",
-    "expect_error": true,
-    "note": "Euler equation: variable coefficients are out of scope"
+    "note": "Cauchy-Euler equation"
   },
   {
     "category": "unsupported",

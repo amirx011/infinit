@@ -63,6 +63,11 @@ struct Result {
     bool ok = false;
     std::string mode;          // ode / envelope / wronskian
     std::string typeId;
+    // Every first-order family the equation belongs to, primary included and
+    // listed in catalogue order.  The UI shows the primary type and reports the
+    // rest as "also ..." so an equation that is both separable and linear is
+    // never presented as if it had a single form.
+    std::vector<std::string> alsoForms;
     std::string typeFa;
     std::string error;
     // Stable machine-readable failure code (singular / bad_characters /

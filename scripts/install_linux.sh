@@ -39,6 +39,9 @@ uninstall() {
 }
 
 if [[ "${1:-}" == "--uninstall" ]]; then
+  if [[ -x "$ROOT/scripts/uninstall_linux.sh" ]]; then
+    exec "$ROOT/scripts/uninstall_linux.sh" "${@:2}"
+  fi
   uninstall
   exit 0
 fi

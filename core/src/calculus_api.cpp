@@ -476,12 +476,21 @@ EdgeValue evalInfiniteBoundary(const Ex& F, const std::string& x, int sign) {
     }
     int nonShrink = 0;
     double prevDiff = 1e18;
+    double lastDiff = 0.0;
     for (int i = 1; i < n; ++i) {
         const double diff = std::fabs(vals[i] - vals[i - 1]);
+        lastDiff = diff;
         if (diff > prevDiff * 0.5) ++nonShrink;
         prevDiff = diff;
     }
     if (nonShrink >= 2 && std::fabs(vals[n - 1]) > std::fabs(vals[0])) {
+        out.divergent = true;
+        return out;
+    }
+    // An antiderivative such as sin(x) that keeps oscillating has no limit at
+    // infinity, so the improper integral diverges.  Only accept the numeric
+    // fallback when the samples actually settle.
+    if (nonShrink >= 2 || lastDiff > 1e-2 * (1.0 + std::fabs(vals[n - 1]))) {
         out.divergent = true;
         return out;
     }
@@ -493,26 +502,30 @@ EdgeValue evalInfiniteBoundary(const Ex& F, const std::string& x, int sign) {
 // Quadrature over an infinite tail.  The integral is sampled on growing
 // truncations; a non-decaying sequence of increments means divergence.
 double numericToInfinity(const Ex& f, const std::string& x, double a, int sign) {
-    double prev = std::nan("");
-    double prevDiff = 1e18;
-    int nonShrink = 0;
-    double last = std::nan("");
+    // The partial integrals must settle.  A merely non-shrinking increment is
+    // not enough: an oscillating integrand such as cos(x) produces random
+    // O(1) jumps that can look small by accident.  Require the increments to
+    // shrink consistently and the last one to be small against the value.
+    double vals[5];
+    int n = 0;
     for (double R : {10.0, 100.0, 1000.0, 1e4, 1e5}) {
         const double lo = sign > 0 ? a : a - R;
         const double hi = sign > 0 ? a + R : a;
         const double v = quadratureAdaptive([&](double t) { return evalAt(f, {{x, t}}); }, lo, hi,
                                             1e-10);
         if (!std::isfinite(v)) return std::nan("");
-        if (std::isfinite(prev)) {
-            const double diff = std::fabs(v - prev);
-            if (diff > prevDiff * 0.5 && diff > 1e-7 * std::max(1.0, std::fabs(v))) ++nonShrink;
-            prevDiff = diff;
-        }
-        prev = v;
-        last = v;
+        vals[n++] = v;
     }
-    if (nonShrink >= 2) return std::nan("");
-    return last;
+    double diffs[4];
+    for (int i = 1; i < n; ++i) diffs[i - 1] = std::fabs(vals[i] - vals[i - 1]);
+    int shrinking = 0;
+    for (int i = 1; i + 1 < n; ++i) {
+        if (diffs[i] <= 0.6 * diffs[i - 1] + 1e-12) ++shrinking;
+    }
+    if (shrinking < n - 2) return std::nan("");
+    const double scale = 1.0 + std::fabs(vals[n - 1]);
+    if (diffs[n - 2] > 2e-2 * scale) return std::nan("");
+    return vals[n - 1];
 }
 
 struct Edge {

@@ -36,11 +36,62 @@ Future<void> _awaitEngine(WidgetTester tester, Finder done) async {
   fail('The native engine did not finish within 5 seconds.');
 }
 
-Future<void> _drawerTap(WidgetTester tester, String label) async {
-  final finder = find.descendant(
+/// Expands collapsed drawer groups until [target] exists in the tree.
+///
+/// The curriculum tree nests most leaves two or three levels deep, so a label
+/// is not built until its parent groups are open. Expanding in tree order and
+/// stopping as soon as the target appears keeps unrelated groups closed.
+Future<void> _expandUntilVisible(WidgetTester tester, Finder target) async {
+  for (var round = 0; round < 16; round++) {
+    if (target.evaluate().isNotEmpty) return;
+    final closed = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.button == true &&
+            widget.properties.expanded == false,
+      ),
+    );
+    if (closed.evaluate().isEmpty) return;
+    final header = closed.first;
+    await tester.ensureVisible(header);
+    await tester.pumpAndSettle();
+    await tester.tap(header);
+    await tester.pumpAndSettle();
+  }
+}
+
+Finder _drawerLabel(String label) {
+  final list = find.descendant(
     of: find.byType(Drawer),
-    matching: find.text(label),
+    matching: find.byType(ListView),
   );
+  return find.descendant(
+    of: list,
+    matching: find.byWidgetPredicate(
+      (widget) => widget is Text && widget.data == label,
+    ),
+  );
+}
+
+Future<void> _drawerTap(WidgetTester tester, String label) async {
+  var finder = _drawerLabel(label);
+  if (finder.evaluate().isEmpty) {
+    await _expandUntilVisible(tester, finder);
+    finder = _drawerLabel(label);
+  }
+  if (finder.evaluate().isEmpty) {
+    // The leaf may still be unbuilt because it is far below the viewport.
+    // The search field flattens the tree, so use it as a reliable fallback.
+    final search = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(search, label);
+    await tester.pumpAndSettle();
+    finder = _drawerLabel(label);
+  }
   final list = find.descendant(
     of: find.byType(Drawer),
     matching: find.byType(ListView),
@@ -51,7 +102,7 @@ Future<void> _drawerTap(WidgetTester tester, String label) async {
     scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
   );
   await tester.pumpAndSettle();
-  await tester.tap(finder);
+  await tester.tap(finder.first);
   await tester.pumpAndSettle();
 }
 
@@ -107,10 +158,7 @@ void main() {
 
     await tester.tap(find.text('Differential & integral'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: find.byType(Drawer), matching: find.text('Integral')),
-    );
-    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Integral');
     expect(find.text('Integrals'), findsOneWidget);
     expect(find.text('STUDY NOTE'), findsOneWidget);
     expect(find.text('Integration is accumulation'), findsOneWidget);
@@ -149,7 +197,9 @@ void main() {
     expect(find.textContaining('direction field'), findsOneWidget);
   });
 
-  testWidgets('opens the dedicated oblique-trajectories page', (tester) async {
+  testWidgets('the drawer no longer lists oblique trajectories', (
+    tester,
+  ) async {
     final settings = await _settings();
     await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
@@ -159,19 +209,21 @@ void main() {
     await tester.tap(find.text('Differential equations'));
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Applications');
-    await _drawerTap(tester, 'Oblique trajectories');
 
-    expect(find.text('Oblique trajectories'), findsOneWidget);
-    expect(find.text('Find oblique trajectories'), findsOneWidget);
-    expect(find.text('Crossing angle α (degrees)'), findsOneWidget);
-    expect(find.byType(SwitchListTile), findsNothing);
-    expect(find.textContaining('constant angle'), findsWidgets);
-
-    await tester.tap(find.text('Find oblique trajectories'));
-    await _awaitEngine(tester, find.text('Oblique family'));
-    expect(find.text('Oblique trajectories'), findsWidgets);
-    await _awaitEngine(tester, find.byKey(const ValueKey('field-ready')));
-    expect(find.textContaining('direction field'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Oblique trajectories'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('Orthogonal trajectories'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('nests applications of the derivative inside the drawer', (
@@ -189,6 +241,9 @@ void main() {
     expect(find.text('Educational explanations'), findsOneWidget);
 
     await _drawerTap(tester, 'Differential & integral');
+    // Applications sit inside the differentiation group, which is collapsed
+    // until the learner opens it.
+    await _drawerTap(tester, 'Differentiation & applications');
     expect(find.text('Applications of the derivative'), findsOneWidget);
     await _drawerTap(tester, 'Applications of the derivative');
     expect(find.text('Function behaviour'), findsOneWidget);
@@ -200,7 +255,8 @@ void main() {
     expect(find.text("L'Hôpital's rule"), findsOneWidget);
     expect(find.text('Mean value theorem'), findsOneWidget);
     expect(find.text("Rolle's theorem"), findsOneWidget);
-    expect(find.text("Cauchy's theorem"), findsOneWidget);
+    // Cauchy's theorem is reached from the MVT page, not from this menu.
+    expect(find.text("Cauchy's theorem"), findsNothing);
     expect(find.text('Derivative theorems, complete'), findsOneWidget);
   });
 
@@ -216,10 +272,11 @@ void main() {
     await _drawerTap(tester, 'Educational explanations');
     await _drawerTap(tester, 'Derivative');
 
-    // The article shows the simplest answer first, then the numbered solution.
+    // The article shows one simplest answer and one numbered solution per
+    // worked example; the derivative article now carries two examples.
     expect(find.text('Short answer'), findsOneWidget);
-    expect(find.text('Simplest answer'), findsOneWidget);
-    expect(find.text('Step by step'), findsOneWidget);
+    expect(find.text('Simplest answer'), findsNWidgets(2));
+    expect(find.text('Step by step'), findsNWidgets(2));
     expect(find.textContaining('lim'), findsWidgets);
   });
 
@@ -281,7 +338,8 @@ void main() {
 
     await tester.tap(result);
     await tester.pumpAndSettle();
-    expect(find.text('Coming soon'), findsOneWidget);
+    expect(find.text('Coming soon'), findsNothing);
+    expect(find.text('Show the answer and steps'), findsOneWidget);
   });
 
   testWidgets('shows the current path in the drawer breadcrumb', (
@@ -295,7 +353,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential equations'));
     await tester.pumpAndSettle();
-    await _drawerTap(tester, 'Applications');
+    await _drawerTap(tester, 'Second-order linear equations');
     await _drawerTap(tester, 'Wronskian');
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
@@ -304,8 +362,9 @@ void main() {
     final trail = find.byWidgetPredicate(
       (widget) =>
           widget is Text &&
-          RegExp(r'Differential equations\s*/\s*Applications\s*/\s*Wronskian')
-              .hasMatch(widget.textSpan?.toPlainText() ?? ''),
+          RegExp(
+            r'Differential equations\s*/\s*Second-order linear equations\s*/\s*Wronskian',
+          ).hasMatch(widget.textSpan?.toPlainText() ?? ''),
     );
     expect(trail, findsOneWidget);
   });
@@ -335,6 +394,10 @@ void main() {
     await _drawerTap(
       tester,
       '\u062d\u0633\u0627\u0628 \u062f\u06cc\u0641\u0631\u0627\u0646\u0633\u06cc\u0644 \u0648 \u0627\u0646\u062a\u06af\u0631\u0627\u0644',
+    );
+    await _drawerTap(
+      tester,
+      '\u0645\u0634\u062a\u0642 \u0648 \u06a9\u0627\u0631\u0628\u0631\u062f\u200c\u0647\u0627',
     );
     await _drawerTap(
       tester,
@@ -386,7 +449,7 @@ void main() {
     );
     expect(
       find.text('\u0642\u0636\u06cc\u0647\u0654 \u06a9\u0648\u0634\u06cc'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.text(
@@ -407,12 +470,147 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential equations').last);
     await tester.pumpAndSettle();
-    await _drawerTap(tester, 'Systems & stability');
+    await _drawerTap(tester, 'Nonlinear systems & stability');
     await _drawerTap(tester, 'Systems of ODEs');
 
     expect(find.text('Systems of ODEs'), findsWidgets);
     expect(find.text('Show the answer and steps'), findsOneWidget);
     expect(find.text('Coming soon'), findsNothing);
+  });
+
+  testWidgets('runs the matrix and eigenvalue workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Nonlinear systems & stability');
+    await _drawerTap(tester, 'Matrix & eigenvalue methods');
+
+    expect(find.text('Matrix & eigenvalue methods'), findsWidgets);
+    expect(find.text('Show the answer and steps'), findsOneWidget);
+    expect(find.text('Coming soon'), findsNothing);
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Find the eigenvalues'));
+    await tester.pumpAndSettle();
+    expect(find.text('Simplest answer'), findsOneWidget);
+    expect(
+      find.text('Characteristic polynomial vanishes at every eigenvalue'),
+      findsOneWidget,
+    );
+    expect(find.text('Eigenvectors satisfy Av = λv'), findsOneWidget);
+  });
+
+  testWidgets('runs the phase portrait workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Nonlinear systems & stability');
+    await _drawerTap(tester, 'Phase portraits');
+
+    expect(find.text('Phase portraits'), findsWidgets);
+    expect(find.text('Show the answer and steps'), findsOneWidget);
+    expect(find.text('Coming soon'), findsNothing);
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Find the eigenvalues'));
+    await tester.pumpAndSettle();
+    expect(find.text('Simplest answer'), findsOneWidget);
+    expect(
+      find.text('Eigenvalues satisfy the characteristic polynomial'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('The portrait type matches the eigenvalues'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('runs the critical points workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Nonlinear systems & stability');
+    await _drawerTap(tester, 'Critical points & stability');
+
+    expect(find.text('Critical points & stability'), findsWidgets);
+    expect(find.text('Coming soon'), findsNothing);
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Find the critical points'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('3 critical point(s) were found in the given box.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('The Jacobian matches finite differences'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Every critical point satisfies the system'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('runs the predator–prey workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Nonlinear systems & stability');
+    await _drawerTap(tester, 'Predator–prey models');
+
+    expect(find.text('Predator–prey models'), findsWidgets);
+    expect(find.text('Coming soon'), findsNothing);
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Integrate the populations'));
+    await tester.pumpAndSettle();
+    expect(find.text('The conserved quantity is constant'), findsOneWidget);
+    expect(find.text('The populations stay positive'), findsOneWidget);
+    expect(
+      find.text('The coexistence eigenvalues are purely imaginary'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('localises the systems of ODEs workbench', (tester) async {
@@ -431,7 +629,7 @@ void main() {
     );
     await _drawerTap(
       tester,
-      '\u062f\u0633\u062a\u06af\u0627\u0647\u200c\u0647\u0627 \u0648 \u067e\u0627\u06cc\u062f\u0627\u0631\u06cc',
+      '\u062f\u0633\u062a\u06af\u0627\u0647\u200c\u0647\u0627\u06cc \u063a\u06cc\u0631\u062e\u0637\u06cc \u0648 \u067e\u0627\u06cc\u062f\u0627\u0631\u06cc',
     );
     await _drawerTap(
       tester,
@@ -460,6 +658,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Differentiation & applications');
     await _drawerTap(tester, 'Applications of the derivative');
     await _drawerTap(tester, 'Function behaviour');
     expect(find.text('Function behaviour'), findsWidgets);
@@ -484,6 +683,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Differentiation & applications');
     await _drawerTap(tester, 'Applications of the derivative');
     await _drawerTap(tester, 'Tangent & normal');
 
@@ -508,6 +708,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Differentiation & applications');
     await _drawerTap(tester, 'Applications of the derivative');
     await _drawerTap(tester, 'Important theorems');
     await _drawerTap(tester, 'Mean value theorem');
@@ -532,6 +733,32 @@ void main() {
     expect(find.text('Promised point c'), findsOneWidget);
   });
 
+  testWidgets('reaches Cauchy\'s theorem from the mean value theorem', (
+    tester,
+  ) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Differentiation & applications');
+    await _drawerTap(tester, 'Applications of the derivative');
+    await _drawerTap(tester, 'Important theorems');
+    await _drawerTap(tester, 'Mean value theorem');
+
+    final link = find.text("Cauchy's theorem");
+    expect(link, findsOneWidget);
+    await tester.ensureVisible(link);
+    await tester.pumpAndSettle();
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+
+    expect(find.text('second function g'), findsOneWidget);
+    expect(find.text("Cauchy's Mean Value Theorem"), findsOneWidget);
+  });
+
   testWidgets('renders the complete theorem catalogue', (tester) async {
     final settings = await _settings();
     await tester.pumpWidget(InfinitApp(settings: settings));
@@ -540,6 +767,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Differential & integral');
+    await _drawerTap(tester, 'Differentiation & applications');
     await _drawerTap(tester, 'Applications of the derivative');
     await _drawerTap(tester, 'Important theorems');
     await _drawerTap(tester, 'Derivative theorems, complete');
@@ -563,10 +791,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential & integral'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(of: find.byType(Drawer), matching: find.text('Integral')),
-    );
-    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Integral');
 
     await tester.enterText(find.byType(TextField).first, '2*x*cos(x^2)');
     await tester.tap(find.text('Compute integral'));
@@ -589,13 +814,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential & integral'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(Drawer),
-        matching: find.text('Derivative'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Derivative');
 
     await tester.tap(find.text('Compute first derivative'));
     await _awaitEngine(tester, find.text('Compute second derivative'));
@@ -625,13 +844,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential & integral'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(Drawer),
-        matching: find.text('Derivative'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Derivative');
 
     await tester.tap(find.text('Compute first derivative'));
     await _awaitEngine(tester, find.text('Compute second derivative'));
@@ -746,6 +959,7 @@ void main() {
     expect(find.byType(Math), findsWidgets);
     expect(find.text('Solution path'), findsOneWidget);
     expect(find.text('Validation'), findsOneWidget);
+    expect(find.text('Also: First-order linear'), findsOneWidget);
   });
 
   testWidgets('copies the ODE answer as plain text, not LaTeX', (tester) async {
@@ -828,13 +1042,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential & integral'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(Drawer),
-        matching: find.text('Derivative'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Derivative');
 
     await tester.enterText(find.byType(TextField).first, 'x^3');
     await tester.tap(find.text('Compute first derivative'));
@@ -901,6 +1109,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Differential & integral'));
     await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Foundations');
     await tester.tap(
       find.descendant(
         of: find.byType(Drawer),
@@ -1155,6 +1364,39 @@ void main() {
     expect(find.textContaining('= C'), findsNothing);
   });
 
+  testWidgets('runs the Laplace chapter workbenches', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final title in [
+      'Transform of derivatives',
+      'Solving IVPs with Laplace',
+      'Step functions',
+      'Discontinuous forcing',
+      'Impulse functions',
+    ]) {
+      final settings = await _settings();
+      await tester.pumpWidget(InfinitApp(settings: settings));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      await tester.tap(find.byIcon(Icons.menu_rounded).first);
+      await tester.pumpAndSettle();
+      await _drawerTap(tester, 'Differential equations');
+      await _drawerTap(tester, 'Transforms');
+      await _drawerTap(tester, title);
+
+      final button = find.text('Show the answer and steps');
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+      await tester.tap(button);
+      await _awaitEngine(tester, find.text('Solution path'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Solution path'), findsOneWidget, reason: title);
+      expect(find.text('Simplest answer'), findsOneWidget, reason: title);
+    }
+  });
+
   testWidgets('opens the integral, types and applications study articles', (
     tester,
   ) async {
@@ -1179,8 +1421,8 @@ void main() {
       }
       await _drawerTap(tester, title);
       expect(find.text('Short answer'), findsOneWidget);
-      expect(find.text('Simplest answer'), findsOneWidget);
-      expect(find.text('Step by step'), findsOneWidget);
+      expect(find.text('Simplest answer'), findsNWidgets(2));
+      expect(find.text('Step by step'), findsNWidgets(2));
     }
   });
 
@@ -1224,5 +1466,56 @@ void main() {
     await _drawerTap(tester, 'Improved Euler (Heun)');
     expect(find.text('Improved Euler (Heun)'), findsWidgets);
     expect(find.text('Show the answer and steps'), findsOneWidget);
+  });
+
+  testWidgets('runs the Adams–Bashforth workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Numerical methods');
+    await _drawerTap(tester, 'Adams–Bashforth multistep');
+    expect(find.text('Adams–Bashforth multistep'), findsWidgets);
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Write the multistep rule'));
+    await tester.pumpAndSettle();
+    expect(find.text('Simplest answer'), findsOneWidget);
+    expect(find.text('Agreement with RK4'), findsOneWidget);
+    expect(find.textContaining('= C'), findsNothing);
+  });
+
+  testWidgets('runs the error and convergence workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Differential equations').last);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Numerical methods');
+    await _drawerTap(tester, 'Error & convergence');
+    expect(find.text('Error & convergence'), findsWidgets);
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Measure the convergence order'));
+    await tester.pumpAndSettle();
+    expect(find.text('Observed convergence order'), findsOneWidget);
+    expect(find.text('Error shrinks when the step is halved'), findsOneWidget);
   });
 }

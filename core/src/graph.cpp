@@ -454,6 +454,21 @@ DomainOutput analyseDomain(const std::string& input, const std::string& x, doubl
             maxY = std::max(maxY, v);
         }
 
+        // A removable hole can carry the extreme value of the range even
+        // though the scan never sees it (sin(x)/x peaks at 1 as x → 0 but the
+        // sample at 0 is undefined). The hole limit is a supremum or infimum,
+        // never an attained value, so it only extends the open end.
+        for (double h : out.rangeHoles) {
+            if (!std::isfinite(h)) continue;
+            if (h < minY) {
+                minY = h;
+                minAttained = false;
+            } else if (h > maxY) {
+                maxY = h;
+                maxAttained = false;
+            }
+        }
+
         bool unboundedBelow = false;
         bool unboundedAbove = false;
 
@@ -491,7 +506,21 @@ DomainOutput analyseDomain(const std::string& input, const std::string& x, doubl
             }
             if (std::fabs(v) <= 1e-9 * scale) hasZero = true;
         }
-        out.splitAtZero = hasNegative && hasPositive && !hasZero &&
+        // A sign change between two neighbouring samples of one continuous
+        // run proves the function attains zero there (cot(x) passes through
+        // zero at every multiple of π even when no grid point lands on it),
+        // so the range is connected and must not be split at zero.
+        bool crossesZero = false;
+        for (const auto& run : runs) {
+            for (int i = run.first; i < run.second; ++i) {
+                if (valid[i] && valid[i + 1] && ys[i] * ys[i + 1] < 0) {
+                    crossesZero = true;
+                    break;
+                }
+            }
+            if (crossesZero) break;
+        }
+        out.splitAtZero = hasNegative && hasPositive && !hasZero && !crossesZero &&
                           out.domain.size() > 1;
 
         // A finite tail can tighten the open end of the range (exp(x) → 0 as
@@ -947,7 +976,13 @@ FieldOutput analyseField(const std::string& input, const std::string& x, const s
         const std::string depVar = dep.empty() ? y : dep;
         Ex slope;
         std::string why;
-        if (extractSlope(F, x, depVar, slope, why) != SlopeResult::Ok) {
+        // A bare expression with no derivative and no '=' is the right-hand
+        // side itself: `y - x^2 + 1` means y' = y - x^2 + 1.  An actual
+        // equation still has to be solved for y'.
+        const bool bareRhs = input.find('=') == std::string::npos && !hasDerivative(F);
+        if (bareRhs) {
+            slope = simplify(F);
+        } else if (extractSlope(F, x, depVar, slope, why) != SlopeResult::Ok) {
             out.error = "plot.unsupported_form";
             return out;
         }
@@ -1197,6 +1232,41 @@ TrajectoryOutput analyseTrajectory(const std::string& input, const std::string& 
     return out;
 }
 
+// A point that falls exactly on a removable singularity (sin(r)/r at the
+// origin, for example) evaluates to NaN, which would leave a hole in an
+// otherwise smooth surface.  Probe a shrinking neighbourhood in several
+// directions and adopt the common limit when all probes agree.
+bool removableLimit(const Ex& f, const std::string& x, const std::string& y,
+                    double xv, double yv, double scale, double& value) {
+    static const double dirs[8][2] = {
+        {1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
+    double delta = scale > 0 ? scale : 1.0;
+    for (int level = 0; level < 5; ++level) {
+        double lo = std::numeric_limits<double>::infinity();
+        double hi = -lo;
+        double sum = 0.0;
+        int good = 0;
+        for (const auto& d : dirs) {
+            bool ok = false;
+            const double v = at2(f, x, xv + d[0] * delta, y, yv + d[1] * delta, &ok);
+            if (!ok || !std::isfinite(v)) continue;
+            lo = std::min(lo, v);
+            hi = std::max(hi, v);
+            sum += v;
+            ++good;
+        }
+        if (good >= 6) {
+            const double mean = sum / good;
+            if (hi - lo <= 1e-3 * (1.0 + std::fabs(mean))) {
+                value = mean;
+                return true;
+            }
+        }
+        delta *= 0.1;
+    }
+    return false;
+}
+
 SurfaceOutput sampleSurface(const std::string& input, const std::string& x,
                             const std::string& y, double xmin, double xmax, double ymin,
                             double ymax, int nx, int ny) {
@@ -1216,12 +1286,21 @@ SurfaceOutput sampleSurface(const std::string& input, const std::string& x,
         out.nx = nx;
         out.ny = ny;
         out.zs.reserve((size_t)nx * ny);
+        const double step = std::max((xmax - xmin) / std::max(1, nx - 1),
+                                     (ymax - ymin) / std::max(1, ny - 1));
         for (int r = 0; r < ny; ++r) {
             const double yv = ymin + (ymax - ymin) * (double)r / (double)(ny - 1);
             for (int c = 0; c < nx; ++c) {
                 const double xv = xmin + (xmax - xmin) * (double)c / (double)(nx - 1);
                 bool ok = false;
-                const double zv = at2(f, x, xv, y, yv, &ok);
+                double zv = at2(f, x, xv, y, yv, &ok);
+                if (!ok || !std::isfinite(zv)) {
+                    double limit = 0.0;
+                    if (removableLimit(f, x, y, xv, yv, step * 1e-2, limit)) {
+                        zv = limit;
+                        ok = true;
+                    }
+                }
                 out.zs.push_back(ok && std::isfinite(zv) ? zv : kNaN);
             }
         }

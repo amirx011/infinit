@@ -203,6 +203,32 @@ bool factorPolynomial(const Poly& p, std::vector<Factor>& out) {
     return factorMonic(p.monic(), out);
 }
 
+static bool samePoly(const Poly& a, const Poly& b) {
+    if (a.c.size() != b.c.size()) return false;
+    for (size_t i = 0; i < a.c.size(); ++i)
+        if (!(a.c[i] == b.c[i])) return false;
+    return true;
+}
+
+// The recursive splitter can return the same irreducible factor twice (for
+// example (s^2+1)^2 splits into two copies of s^2+1).  Partial fractions need
+// one entry with the combined multiplicity.
+static void mergeFactors(std::vector<Factor>& facs) {
+    std::vector<Factor> out;
+    for (const auto& f : facs) {
+        bool merged = false;
+        for (auto& g : out) {
+            if (samePoly(f.p, g.p)) {
+                g.mult += f.mult;
+                merged = true;
+                break;
+            }
+        }
+        if (!merged) out.push_back(f);
+    }
+    facs = out;
+}
+
 // ---------------------------------------------------------------- linear solve over Q
 static bool solveRationalSystem(std::vector<std::vector<Rational>> A, std::vector<Rational> b,
                                 std::vector<Rational>& x) {
@@ -295,8 +321,7 @@ static Ex integrateQuadraticPower(Rational A, Rational B, Rational p, Rational q
     return out;
 }
 
-Ex integrateRational(const Ex& numE, const Ex& denE, const std::string& x) {
-    Poly N, D;
+Ex integrateRational(const Ex& numE, const Ex& denE, const std::string& x) {    Poly N, D;
     if (!toPoly(numE, x, N) || !toPoly(denE, x, D)) return nullptr;
     if (D.isZero()) return nullptr;
     if (D.deg() == 0) {
@@ -314,6 +339,7 @@ Ex integrateRational(const Ex& numE, const Ex& denE, const std::string& x) {
     Poly Dm = D.monic();
     std::vector<Factor> facs;
     if (!factorMonic(Dm, facs)) return nullptr;
+    mergeFactors(facs);
     // verify product
     Poly prod;
     prod.c = {Rational(1)};
@@ -371,6 +397,126 @@ Ex integrateRational(const Ex& numE, const Ex& denE, const std::string& x) {
             Rational b = sol[tm.off];
             Rational a = (tm.off + 1 < (int)sol.size()) ? sol[tm.off + 1] : Rational(0);
             out = Add(out, integrateQuadraticPower(a, b, f.p.c[1], f.p.c[0], tm.k, x));
+        }
+    }
+    return simplify(out);
+}
+
+// Inverse Laplace of a proper rational function by partial fractions.
+//
+// The denominator is factored exactly over Q with the same machinery used by
+// integrateRational.  A linear factor (s - r)^k contributes
+//     A t^(k-1)/(k-1)! e^(r t),
+// and an irreducible quadratic (s-a)^2 + b^2 contributes
+//     e^(a t) (A cos(bt) + (B + A a) sin(bt)/b).
+// Repeated quadratic factors need convolution, so they are reported as
+// unsupported rather than guessed.
+Ex inverseLaplaceRational(const Ex& numE, const Ex& denE, const std::string& s,
+                          const std::string& t) {
+    Poly N, D;
+    if (!toPoly(numE, s, N) || !toPoly(denE, s, D)) return nullptr;
+    if (D.isZero() || D.deg() <= 0) return nullptr;
+    Poly Q, R;
+    polyDivMod(N, D, Q, R);
+    if (!Q.isZero()) return nullptr;  // polynomial part means impulses at t = 0
+    if (R.isZero()) return Num(0);
+
+    const Rational K = D.lead();
+    Poly Dm = D.monic();
+    std::vector<Factor> facs;
+    if (!factorMonic(Dm, facs)) return nullptr;
+    mergeFactors(facs);
+    Poly prod;
+    prod.c = {Rational(1)};
+    for (auto& f : facs) prod = polyMul(prod, polyPow(f.p, f.mult));
+    if (polyGcd(prod, Dm).deg() != Dm.deg()) return nullptr;
+
+    struct Term { int fi; int k; int off; };
+    std::vector<Term> terms;
+    int nUnknown = 0;
+    for (int i = 0; i < (int)facs.size(); ++i)
+        for (int k = 1; k <= facs[i].mult; ++k) {
+            terms.push_back({i, k, nUnknown});
+            nUnknown += facs[i].p.deg();
+        }
+    const int rows = Dm.deg();
+    std::vector<std::vector<Rational>> A(rows, std::vector<Rational>(nUnknown, Rational(0)));
+    std::vector<Rational> rhs(rows, Rational(0));
+    for (int i = 0; i <= R.deg() && i < rows; ++i)
+        if (i < (int)R.c.size()) rhs[i] = R.c[i] / K;
+    for (auto& tm : terms) {
+        const Poly& F = facs[tm.fi].p;
+        Poly M = polyPow(F, facs[tm.fi].mult - tm.k);
+        for (int j = 0; j < (int)facs.size(); ++j) {
+            if (j == tm.fi) continue;
+            M = polyMul(M, polyPow(facs[j].p, facs[j].mult));
+        }
+        for (int p = 0; p < F.deg(); ++p) {
+            Poly shift = M;
+            for (int k = 0; k < p; ++k) shift.c.insert(shift.c.begin(), Rational(0));
+            for (int d = 0; d <= shift.deg() && d < rows; ++d)
+                A[d][tm.off + p] = A[d][tm.off + p] + shift.c[d];
+        }
+    }
+    std::vector<Rational> sol;
+    if (!solveRationalSystem(A, rhs, sol)) return nullptr;
+
+    Ex out = Num(0);
+    Ex T = Sym(t);
+    for (auto& tm : terms) {
+        const Factor& f = facs[tm.fi];
+        if (f.p.deg() == 1) {
+            const Rational a = sol[tm.off];
+            if (a.isZero()) continue;
+            const Rational r = -f.p.c[0] / f.p.c[1];
+            long long fact = 1;
+            for (int i = 2; i < tm.k; ++i) fact *= i;
+            Ex tPow = tm.k == 1 ? Num(1)
+                                : Mul(Pow(T, Num(tm.k - 1)), Num(Rational(1, fact)));
+            out = Add(out, Mul(Num(a), tPow,
+                               Fn("exp", {Mul(Num(r), T)})));
+        } else if (f.p.deg() == 2) {
+            const Rational Acoef = sol[tm.off + 1];
+            const Rational Bcoef = sol[tm.off];
+            const Rational B = f.p.c[1];
+            const Rational C = f.p.c[0];
+            const Rational alphaR = Rational(-B.n, B.d) / Rational(2);
+            const Rational beta2R = C - alphaR * alphaR;
+            if (beta2R.n == 0) return nullptr;
+            const Ex alpha = Num(alphaR);
+            const Ex env = Fn("exp", {Mul(alpha, T)});
+            Ex I, J;
+            if (beta2R.n * beta2R.d > 0) {
+                const Ex beta = Sqrt(Num(beta2R));
+                I = Mul(env, Fn("sin", {Mul(beta, T)}), Pow(beta, Num(-1)));
+                J = Mul(env, Fn("cos", {Mul(beta, T)}));
+            } else {
+                // Real irrational roots: (s-a)^2 - g^2.  The same recurrence
+                // holds by analytic continuation, with sinh/cosh in place of
+                // sin/cos.
+                const Rational gamma2R = -beta2R;
+                const Ex gamma = Sqrt(Num(gamma2R));
+                I = Mul(env, Fn("sinh", {Mul(gamma, T)}), Pow(gamma, Num(-1)));
+                J = Mul(env, Fn("cosh", {Mul(gamma, T)}));
+            }
+            // I_1 = e^(at) sin(bt)/b and J_1 = e^(at) cos(bt), where
+            // J_k = L^-1{(s-a)/Q^k}.  The recurrences follow from the
+            // derivative rule L{t f(t)} = -F'(s):
+            //   J_k = t I_(k-1)/(2(k-1))
+            //   I_k = (-t J_(k-1) + (2k-3) I_(k-1))/(2(k-1)b^2).
+            for (int k = 2; k <= tm.k; ++k) {
+                Ex Jnext = Mul(T, I, Num(Rational(1, 2 * (k - 1))));
+                const Rational scale = Rational(1, 2 * (k - 1)) / beta2R;
+                Ex Inext = Mul(Add(Mul(Num(-1), T, J), Mul(Num(2 * k - 3), I)),
+                               Num(scale));
+                I = Inext;
+                J = Jnext;
+            }
+            const Rational numUR = Acoef;
+            const Rational numCR = Bcoef + Acoef * alphaR;
+            out = Add(out, simplify(Add(Mul(Num(numUR), J), Mul(Num(numCR), I))));
+        } else {
+            return nullptr;
         }
     }
     return simplify(out);

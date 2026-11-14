@@ -124,16 +124,30 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
       if (!mounted) return;
       setState(() {
         _error = l.t('ui.engine_error');
+        _result = null;
         _busy = false;
       });
     }
   }
 
+  static const Set<String> _wideKeys = <String>{
+    'coeffs',
+    'ics',
+    'matrix',
+    'f',
+    'F',
+    'g',
+    'bc',
+    'technique',
+    'family',
+    'domain',
+    'system',
+    'case',
+    'method',
+  };
+
   bool _wideField(TopicField field) =>
-      field.key == 'coeffs' ||
-      field.key == 'ics' ||
-      field.key == 'f' ||
-      field.key == 'F';
+      !field.numeric && _wideKeys.contains(field.key);
 
   @override
   Widget build(BuildContext context) {
@@ -162,14 +176,23 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
                   for (final field in spec.fields)
                     if (_wideField(field))
                       SizedBox(
-                        width: field.key == 'f' || field.key == 'F' ? 360 : 300,
+                        width:
+                            const {'f', 'F', 'g', 'matrix'}.contains(field.key)
+                            ? 360
+                            : 300,
                         child: LabelledField(
                           controller: _controllers[field.key]!,
                           label: l.t(field.labelKey),
                           hint: field.hintKey.isEmpty
                               ? null
                               : l.t(field.hintKey),
-                          width: field.key == 'f' || field.key == 'F'
+                          width:
+                              const {
+                                'f',
+                                'F',
+                                'g',
+                                'matrix',
+                              }.contains(field.key)
                               ? 360
                               : 300,
                           onSubmitted: _run,

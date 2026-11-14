@@ -69,13 +69,20 @@ struct Compiler {
             case Kind::Func: {
                 const std::string& n = a->name;
                 if (n == "Deriv" || n == "Integral") { ok = false; return; }
+                // "decimal" is a display wrapper produced by smartNum; for
+                // numeric work it is just its argument.
+                if (n == "decimal" && a->args.size() == 1) {
+                    compile(a->args[0]);
+                    return;
+                }
                 static const std::map<std::string, int> ops = {
                     {"sin", ODE_SIN}, {"cos", ODE_COS}, {"tan", ODE_TAN}, {"cot", ODE_COT},
                     {"sec", ODE_SEC}, {"csc", ODE_CSC}, {"asin", ODE_ASIN}, {"acos", ODE_ACOS},
                     {"atan", ODE_ATAN}, {"exp", ODE_EXP}, {"ln", ODE_LN}, {"log", ODE_LN},
                     {"sqrt", ODE_SQRT}, {"abs", ODE_ABS}, {"sinh", ODE_SINH}, {"cosh", ODE_COSH},
                     {"tanh", ODE_TANH}, {"asinh", ODE_ASINH}, {"acosh", ODE_ACOSH}, {"atanh", ODE_ATANH},
-                    {"erf", ODE_ERF}, {"erfc", ODE_ERFC}, {"fact", ODE_FACT}
+                    {"erf", ODE_ERF}, {"erfc", ODE_ERFC}, {"fact", ODE_FACT},
+                    {"u", ODE_STEP}, {"delta", ODE_DELTA}
                 };
                 auto it = ops.find(n);
                 if (it == ops.end()) { ok = false; return; }
@@ -237,6 +244,10 @@ std::vector<double> denominatorZeros(const Ex& g, const std::string& var,
                     const double mid = 0.5 * (a + b);
                     double fm = 0;
                     if (!evalPoint(g, var, mid, fixed, &fm)) break;
+                    // A midpoint that lands exactly on the zero (common for a
+                    // denominator x on a symmetric interval) would otherwise
+                    // pin `fa` to zero and walk the bracket away from it.
+                    if (fm == 0.0) { a = b = mid; break; }
                     if (fa * fm < 0) b = mid;
                     else { a = mid; fa = fm; }
                 }
@@ -284,7 +295,7 @@ bool checkDomain(const Ex& f, const std::string& var,
     // 2. Denominator zeros, which may fall between the samples.
     std::vector<Ex> denominators;
     collectDenominators(f, denominators);
-    const double eps = std::max(1e-7, (hi - lo) * 1e-7);
+    const double eps = std::max(1e-10, (hi - lo) * 1e-10);
     for (const Ex& g : denominators) {
         for (double p : denominatorZeros(g, var, fixed, lo, hi, n)) {
             double left = 0, right = 0;
