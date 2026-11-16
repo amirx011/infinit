@@ -15,9 +15,11 @@
 AppId={{5B1E4C2A-9D77-4A31-9C0E-7F3D2B6A8E14}
 AppName=Infinit Lab
 AppVersion={#AppVersion}
+AppVerName=Infinit Lab {#AppVersion}
 AppPublisher=Infinit Lab
-AppPublisherURL=https://github.com/
-AppSupportURL=https://github.com/
+AppPublisherURL=https://github.com/amirx011/infinit
+AppSupportURL=https://github.com/amirx011/infinit/issues
+AppUpdatesURL=https://github.com/amirx011/infinit/releases
 DefaultDirName={autopf}\Infinit Lab
 DefaultGroupName=Infinit Lab
 DisableProgramGroupPage=yes
@@ -32,13 +34,20 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
+CloseApplications=yes
+RestartApplications=no
 MinVersion=10.0
+VersionInfoVersion={#AppVersion}
+VersionInfoCompany=Infinit Lab
+VersionInfoDescription=Infinit Lab installer
+VersionInfoProductName=Infinit Lab
+VersionInfoProductVersion={#AppVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional icons:"
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
