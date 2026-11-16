@@ -1,7 +1,8 @@
 name: Release builds
 
 # Builds every shipping file on GitHub-hosted runners and publishes a release:
-# the Linux bundle, the universal Android APK and the Windows installer.
+# the Linux tarball, RPM and AppImage, the universal Android APK plus one APK
+# per phone architecture, and the Windows installer with its portable zip.
 #
 # Run it from the Actions tab and it moves app/pubspec.yaml to the next version
 # (1.0.1, 1.0.2, ... 1.0.9, 1.1.0, ... 1.9.9, 2.0.0), commits that, tags it and
@@ -100,7 +101,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev rpm
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -115,10 +116,16 @@ jobs:
       - name: Package the tarball
         run: ./scripts/package_linux.sh
 
+      - name: Build the RPM
+        run: ./scripts/package_rpm.sh
+
+      - name: Build the AppImage
+        run: ./scripts/package_appimage.sh
+
       - name: Write the checksums
         run: |
           cd release
-          sha256sum ./*.tar.gz > SHA256SUMS-linux
+          sha256sum ./*.tar.gz ./*.rpm ./*.AppImage > SHA256SUMS-linux
           cat SHA256SUMS-linux
 
       - name: Upload the bundle
@@ -127,6 +134,8 @@ jobs:
           name: infinit-lab-linux-${{ needs.prepare.outputs.version }}
           path: |
             release/*.tar.gz
+            release/*.rpm
+            release/*.AppImage
             release/SHA256SUMS-linux
           if-no-files-found: error
           retention-days: 30
@@ -188,10 +197,13 @@ jobs:
       - name: Build the universal APK
         run: ./scripts/build_android.sh
 
+      - name: Build one APK per phone architecture
+        run: ./scripts/build_android_apks.sh
+
       - name: Write the checksums
         run: |
           cd release
-          sha256sum ./*-android.apk > SHA256SUMS-android
+          sha256sum ./*-android*.apk > SHA256SUMS-android
           cat SHA256SUMS-android
 
       - name: Upload the APK
@@ -199,7 +211,7 @@ jobs:
         with:
           name: infinit-lab-android-${{ needs.prepare.outputs.version }}
           path: |
-            release/infinit-lab-*-android.apk
+            release/*-android*.apk
             release/SHA256SUMS-android
           if-no-files-found: error
           retention-days: 30
@@ -295,8 +307,10 @@ jobs:
           generate_release_notes: true
           files: |
             dist/*.tar.gz
+            dist/*.rpm
+            dist/*.AppImage
             dist/InfinitLab-*-Setup.exe
             dist/InfinitLab-windows-portable.zip
-            dist/*-android.apk
+            dist/*-android*.apk
             dist/SHA256SUMS
           fail_on_unmatched_files: true

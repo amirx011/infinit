@@ -37,16 +37,19 @@ Download the files for your platform from the [latest release](https://github.co
 
 ### Linux
 
-The tarball is self-contained apart from the GTK 3 runtime.
+Three packages are published, all with the same build.
 
 ```bash
-tar xzf infinit-lab-<version>-linux-x64.tar.gz
-./infinit
+tar xzf infinit-lab-<version>-linux-x64.tar.gz   # portable folder
+sudo dnf install infinit-lab-<version>-1.x86_64.rpm   # Fedora, RHEL, openSUSE
+chmod +x infinit-lab-<version>-x86_64.AppImage && ./infinit-lab-<version>-x86_64.AppImage
 ```
+
+The tarball is self-contained apart from the GTK 3 runtime. The RPM adds `/usr/bin/infinit`, a menu entry and a desktop icon, so it can be started from the application menu. The AppImage is a single file that needs no installation.
 
 Install the runtime once if it is missing: `sudo apt install libgtk-3-0` on Debian or Ubuntu, `sudo dnf install gtk3` on Fedora.
 
-To put the app on your `PATH` with a menu entry, without root:
+To put the tarball on your `PATH` with a menu entry, without root:
 
 ```bash
 ./scripts/install_linux.sh infinit-lab-<version>-linux-x64.tar.gz
@@ -67,6 +70,14 @@ Open `infinit-lab-<version>-android.apk` on the phone and allow the installation
 ```bash
 adb install -r infinit-lab-<version>-android.apk
 ```
+
+There is also one file per phone architecture, for a smaller download:
+
+| File | Device |
+|---|---|
+| `infinit-lab-<version>-android-arm64-v8a.apk` | Current phones and tablets |
+| `infinit-lab-<version>-android-armeabi-v7a.apk` | Older 32-bit phones |
+| `infinit-lab-<version>-android-x86_64.apk` | Emulators and Chromebooks |
 
 Android 7.0 or newer.
 
