@@ -1,0 +1,300 @@
+name: Release builds
+
+# Builds every shipping file on GitHub-hosted runners and publishes a release:
+# the Linux bundle, the universal Android APK and the Windows installer.
+#
+# Run it from the Actions tab and it moves app/pubspec.yaml to the next version
+# (1.0.1, 1.0.2, ... 1.0.9, 1.1.0, ... 1.9.9, 2.0.0), commits that, tags it and
+# builds the tagged commit.  Pushing a v* tag instead builds the version that is
+# already in pubspec.yaml.
+#
+# The Persian-default APK for Myket is not built here; it is a local build.
+#
+# Android signing reads four repository secrets:
+#   ANDROID_KEYSTORE_BASE64     base64 of app/android/infinit-release.jks
+#   ANDROID_KEYSTORE_PASSWORD   the storePassword from key.properties
+#   ANDROID_KEY_ALIAS           the keyAlias from key.properties
+#   ANDROID_KEY_PASSWORD        the keyPassword from key.properties
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  # Pinned to the toolchain the widget tests run against; the stable channel
+  # moves, and a newer Flutter has to pass `flutter test` first.
+  FLUTTER_VERSION: "3.47.8"
+
+jobs:
+  prepare:
+    name: Version and tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pick the version
+        id: version
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            tag="$GITHUB_REF_NAME"
+            version="${tag#v}"
+            if [[ "$(python3 scripts/bump_version.py --show)" != "$version" ]]; then
+              echo "::error title=Version mismatch::The tag $tag does not match app/pubspec.yaml."
+              exit 1
+            fi
+            sha="$GITHUB_SHA"
+            echo "Building the tagged version $version."
+          else
+            version="$(python3 scripts/bump_version.py)"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add app/pubspec.yaml
+            git commit -m "Release $version"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+            tag="v$version"
+            sha="$(git rev-parse HEAD)"
+            if git ls-remote --exit-code --tags origin "$tag" > /dev/null 2>&1; then
+              echo "::error title=Tag exists::The tag $tag already exists; bump the version by hand."
+              exit 1
+            fi
+            git tag -a "$tag" -m "Infinit Lab $version"
+            git push origin "$tag"
+            echo "Tagged $tag on $sha."
+          fi
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "sha=$sha"
+          } >> "$GITHUB_OUTPUT"
+
+  linux:
+    name: Linux bundle
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Install the GTK toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Build the bundle
+        run: ./scripts/build_linux.sh
+
+      - name: Package the tarball
+        run: ./scripts/package_linux.sh
+
+      - name: Write the checksums
+        run: |
+          cd release
+          sha256sum ./*.tar.gz > SHA256SUMS-linux
+          cat SHA256SUMS-linux
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinit-lab-linux-${{ needs.prepare.outputs.version }}
+          path: |
+            release/*.tar.gz
+            release/SHA256SUMS-linux
+          if-no-files-found: error
+          retention-days: 30
+
+  android:
+    name: Android APKs
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # The runner image usually carries an NDK; install one when it does not,
+      # because scripts/build_android.sh cross-compiles libodecore.so with it.
+      - name: Make sure an NDK is installed
+        run: |
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          if ! ls -d "$sdk"/ndk/* > /dev/null 2>&1; then
+            yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
+          fi
+          echo "NDKs: $(ls "$sdk"/ndk)"
+
+      - name: Prepare the release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$KEYSTORE_BASE64" ]]; then
+            echo "::error title=Release key missing::Add ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD to the repository secrets."
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > app/android/infinit-release.jks
+          {
+            echo "storeFile=infinit-release.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > app/android/key.properties
+          echo "The release key is in place."
+
+      - name: Build the universal APK
+        run: ./scripts/build_android.sh
+
+      - name: Write the checksums
+        run: |
+          cd release
+          sha256sum ./*-android.apk > SHA256SUMS-android
+          cat SHA256SUMS-android
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinit-lab-android-${{ needs.prepare.outputs.version }}
+          path: |
+            release/infinit-lab-*-android.apk
+            release/SHA256SUMS-android
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    name: Windows installer
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Show the toolchain
+        shell: pwsh
+        run: |
+          flutter --version
+          cmake --version
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      # -NoBootstrap keeps the script from installing tools the image already
+      # has (Visual Studio C++, CMake).  Flutter comes from the action above.
+      - name: Build the app and the installer
+        shell: pwsh
+        run: ./scripts/build_windows.ps1 -NoBootstrap
+
+      - name: Check the installer
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem release/InfinitLab-*-Setup.exe -ErrorAction SilentlyContinue
+          if (-not $setup) { throw 'The installer was not produced.' }
+          "installer: $($setup.Name)  $([math]::Round($setup.Length / 1MB, 1)) MB"
+          $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $($setup.Name)" | Out-File -Encoding ascii release/SHA256SUMS-windows
+          Get-Content release/SHA256SUMS-windows
+
+      - name: Zip the portable bundle
+        shell: pwsh
+        run: |
+          $bundle = 'app/build/windows/x64/runner/Release'
+          if (-not (Test-Path "$bundle/infinit.exe")) {
+            throw 'The portable bundle is missing infinit.exe.'
+          }
+          # The bundle loads odecore.dll from its own folder, so the whole
+          # folder travels together.
+          Compress-Archive -Path "$bundle/*" -DestinationPath release/InfinitLab-windows-portable.zip
+          Get-Item release/InfinitLab-windows-portable.zip |
+            Select-Object Name, @{n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } }
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinit-lab-windows-${{ needs.prepare.outputs.version }}
+          path: |
+            release/InfinitLab-*-Setup.exe
+            release/InfinitLab-windows-portable.zip
+            release/SHA256SUMS-windows
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish the release
+    needs: [prepare, linux, android, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Merge the checksums
+        run: |
+          cd dist
+          cat SHA256SUMS-* > SHA256SUMS
+          ls -l
+
+      # The Persian-default Myket build is made locally, so it is not here.
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: Infinit Lab ${{ needs.prepare.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/InfinitLab-*-Setup.exe
+            dist/InfinitLab-windows-portable.zip
+            dist/*-android.apk
+            dist/SHA256SUMS
+          fail_on_unmatched_files: true
