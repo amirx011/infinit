@@ -23,8 +23,10 @@ on:
       - "v*"
 
 concurrency:
+  # A release run has already committed and tagged before the builds start, so
+  # a second click waits its turn instead of cancelling a half-finished one.
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
