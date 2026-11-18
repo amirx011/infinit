@@ -1866,6 +1866,26 @@ int main() {
     }
 
     {
+        // L{t cos t} needs the derivative rule, not a table lookup.
+        TopicRequest req;
+        req.topic = "laplace";
+        req.strs["f"] = "t*cos(t)";
+        Result r = solveTopic(req);
+        expect(r.ok && r.solution &&
+                   toPlain(r.solution) == "(s^2 - 1)/(s^2 + 1)^2",
+               "L{t cos t} uses the derivative rule");
+    }
+    {
+        // A polynomial times an exponential is a sum of shifted entries.
+        TopicRequest req;
+        req.topic = "laplace";
+        req.strs["f"] = "exp(-t)*(t^2+1)";
+        Result r = solveTopic(req);
+        expect(r.ok && r.solution &&
+                   toPlain(r.solution) == "((s + 1)^2 + 2)/(s + 1)^3",
+               "L{e^(-t)(t^2+1)} sums the shifted entries");
+    }
+    {
         // Both Airy signs are solved, and the check is a real finite-difference
         // residual rather than the defining relation of the series.
         Result r = solve("y'' + x*y = 0");

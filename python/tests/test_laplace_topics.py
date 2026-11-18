@@ -93,6 +93,34 @@ def test_transform_of_derivatives_matches_sympy(
     assert sp.simplify(difference) == 0, (answer, expected, difference)
 
 
+# ---------------------------------------------------------------- direct transforms
+@pytest.mark.parametrize(
+    "f_text",
+    [
+        "t*cos(t)",
+        "t*sin(t)",
+        "t*exp(-t)*sin(3*t)",
+        "t^2*cos(2*t)",
+        "exp(-t)*(t^2+1)",
+        "t^2*exp(-t)",
+        "exp(2*t)*(t+1)",
+        "2*t^2 - 3*t + 1",
+    ],
+)
+def test_direct_laplace_matches_sympy(engine: Engine, f_text: str) -> None:
+    response = topic(engine, "laplace", f=f_text)
+    assert response["ok"], response
+    got = parse(response["solution"]["plain"])
+    expected = sp.laplace_transform(parse(f_text), t, s, noconds=True)
+    assert sp.simplify(got - expected) == 0, (f_text, got, expected)
+
+
+def test_laplace_refuses_a_non_elementary_transform(engine: Engine) -> None:
+    response = topic(engine, "laplace", f="sin(t)/t")
+    assert not response["ok"]
+    assert response["error_code"] == "unsupported_form"
+
+
 # ---------------------------------------------------------------- Laplace IVP
 def check_ivp(response: dict, a: float, b: float, c: float, forcing: sp.Expr,
               y0: float, v0: float) -> None:

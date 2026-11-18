@@ -2985,6 +2985,45 @@ Ex laplaceOf(const Ex& f, const std::string& t, std::string& rule, bool& ok) {
             }
             return rest->isSym(t) && rate != nullptr;
         };
+        // A polynomial in t, already multiplied out: maps each power t^n to its
+        // coefficient.  Anything else (a sin, a fraction, t^-1) is rejected so
+        // the caller can fall through to the generic rules.
+        auto polynomialMonomials = [&](const Ex& p,
+                                       std::map<long long, Rational>& out) -> bool {
+            Ex e;
+            try {
+                e = expand(p);
+            } catch (...) {
+                return false;
+            }
+            if (!e) return false;
+            std::vector<Ex> parts;
+            if (e->isAdd()) parts = e->args;
+            else parts.push_back(e);
+            for (const auto& part : parts) {
+                Rational c(1);
+                long long n = 0;
+                std::vector<Ex> factors;
+                if (part->isMul()) factors = part->args;
+                else factors.push_back(part);
+                for (const auto& fac : factors) {
+                    if (fac->isNum()) { c = c * fac->num; continue; }
+                    if (fac->isSym(t)) { ++n; continue; }
+                    if (fac->isPow() && fac->args[0]->isSym(t) && fac->args[1]->isNum() &&
+                        fac->args[1]->num.isInt() && fac->args[1]->num.n >= 0) {
+                        n += fac->args[1]->num.n;
+                        continue;
+                    }
+                    return false;
+                }
+                if (!c.isZero()) {
+                    auto it = out.find(n);
+                    if (it == out.end()) out[n] = c;
+                    else it->second = it->second + c;
+                }
+            }
+            return true;
+        };
         Ex expFactor, trigFactor, polyFactor, coef = Num(1);
         for (const auto& factor : f->args) {
             if (factor->isFunc("exp") && factor->args.size() == 1) expFactor = factor;
@@ -3020,6 +3059,48 @@ Ex laplaceOf(const Ex& f, const std::string& t, std::string& rule, bool& ok) {
             rule = "L{t^n e^(at)} = n!/(s-a)^(n+1)";
             return Mul(coef, Mul(Num(fact),
                    Pow(Add(Sym("s"), Mul(Num(-1), rate)), Num(-(n + 1)))));
+        }
+        // L{e^(at) p(t)} with a polynomial that is not just t^n: multiply it
+        // out and add the shifted entry for each power, so exp(-t)*(t^2+1)
+        // becomes 2/(s+1)^3 + 1/(s+1).
+        if (expFactor && linearRate(expFactor->args[0], rate)) {
+            Ex others = Num(1);
+            for (const auto& factor : f->args)
+                if (factor != expFactor) others = Mul(others, factor);
+            std::map<long long, Rational> poly;
+            if (polynomialMonomials(others, poly) && !poly.empty()) {
+                const Ex shift = Add(Sym("s"), Mul(Num(-1), rate));
+                Ex total = Num(0);
+                for (const auto& entry : poly) {
+                    const long long n = entry.first;
+                    long long fact = 1;
+                    for (long long i = 2; i <= n; ++i) fact *= i;
+                    total = Add(total, Mul(Num(entry.second),
+                                           Mul(Num(fact), Pow(shift, Num(-(n + 1))))));
+                }
+                rule = "L{e^(at) p(t)} = sum c_n n!/(s-a)^(n+1)";
+                return total;
+            }
+        }
+        // L{t^n f(t)} = (-1)^n d^n/ds^n F(s).  This is what turns t cos t and
+        // t e^(-t) sin(3t) into table entries once the rest is transformed.
+        if (polyFactor) {
+            Ex g = Num(1);
+            for (const auto& factor : f->args)
+                if (factor != polyFactor) g = Mul(g, factor);
+            long long n = 1;
+            if (polyFactor->isPow() && polyFactor->args[1]->isNum())
+                n = polyFactor->args[1]->num.n;
+            std::string sub;
+            bool subOk = true;
+            Ex G = laplaceOf(g, t, sub, subOk);
+            if (subOk && G) {
+                Ex deriv = G;
+                for (long long k = 0; k < n; ++k) deriv = simplify(diff(deriv, "s"));
+                if (n % 2) deriv = Mul(Num(-1), deriv);
+                rule = "L{t^n f(t)} = (-1)^n F^(n)(s)";
+                return simplify(deriv);
+            }
         }
         Ex constant = Num(1);
         Ex rest = Num(1);
@@ -3170,6 +3251,10 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
         return r;
     }
     r.solution = simplify(F);
+    try {
+        r.solution = simplifyStrong(r.solution);
+    } catch (...) {
+    }
     addStep(r, "step.title.start_from_the_definition", Sym("F(s) = integral_0^inf e^(-s t) f(t) dt"), "step.note.the_transform_turns_differentiation_into_multiplication_by_s");
     addStepRaw(r, "step.title.match_a_table_entry", f, rule);
     addStep(r, "step.title.write_the_transform", r.solution, "step.note.the_result_is_a_function_of_s");
