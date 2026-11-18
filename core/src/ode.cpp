@@ -596,8 +596,90 @@ static bool extractMN(const Ex& F, const std::string& x, const std::string& y, E
 }
 
 // ---------------------------------------------------------------- particular solution (Riccati)
+// Does c satisfy y' − Pc·y² − Q·y − R = 0?  A cheap numeric screen rejects
+// almost every candidate before the symbolic check pays for itself.
+static bool satisfiesRiccati(const Ex& c, const Ex& Pc, const Ex& Q, const Ex& R,
+                             const std::string& x, const std::string& y) {
+    if (!c || dependsOn(c, y)) return false;
+    try {
+        Ex res = Add(diff(c, x), Mul(Num(-1), Add({Mul(Pc, Pow(c, Num(2))), Mul(Q, c), R})));
+        static const double pts[] = {0.37, 1.71, 2.53, 3.17};
+        for (double p : pts) {
+            bool ok = false;
+            double v = evalReal(res, {{x, p}}, &ok);
+            if (ok && std::fabs(v) > 1e-6) return false;
+        }
+        Ex s = simplify(res);
+        if (dependsOn(s, y)) return false;
+        return s->isZero() || numericallyZero(s, {x}, 6, 1e-7);
+    } catch (...) {
+        return false;
+    }
+}
+
+// Candidate particular solutions for a Riccati equation.  Textbook examples
+// rarely stop at x or 1/x, so besides the monomials we try small shifts,
+// simple fractions and quotients of two such atoms; the list is walked in
+// order of increasing size, so the simplest solution wins.
+static std::vector<Ex> particularCandidates(const std::string& x) {
+    Ex X = Sym(x);
+    // Small atoms: constants, powers and shifted linear factors, which cover
+    // the shapes textbook Riccati examples actually use.  Keeping the pool
+    // small matters: growing it quadratically only costs time, not answers.
+    std::vector<Ex> simple = {Num(1), X, Pow(X, Num(2)), Pow(X, Num(-1)), Pow(X, Num(-2))};
+    for (long long k = -3; k <= 3; ++k) {
+        if (k == 0) continue;
+        simple.push_back(Add(X, Num(k)));
+        simple.push_back(Pow(Add(X, Num(k)), Num(-1)));
+    }
+    std::vector<Ex> special = {expOf(X), expOf(Mul(Num(-1), X)), Fn("sin", {X}),
+                               Fn("cos", {X}), Fn("tan", {X}), Fn("ln", {X}),
+                               Fn("cot", {X}), Fn("sec", {X}), Sqrt(X)};
+
+    std::vector<Ex> out;
+    std::set<std::string> seen;
+    auto push = [&](const Ex& e) {
+        std::string key = toPlain(e);
+        if (!seen.insert(key).second) return;
+        out.push_back(e);
+    };
+    for (auto& a : simple) {
+        push(a);
+        push(Mul(Num(-1), a));
+    }
+    for (auto& a : special) {
+        push(a);
+        push(Mul(Num(-1), a));
+    }
+    // y = ±c ± a, where c is a constant, x or 1/x: shifted lines, shifted
+    // reciprocals, and mixtures such as 1 + 1/(x+1).
+    std::vector<Ex> seeds = {Num(1), Num(-1), X, Mul(Num(-1), X), Pow(X, Num(-1))};
+    for (auto& c : seeds) {
+        for (auto& a : simple) {
+            push(Add(c, a));
+            push(Add(c, Mul(Num(-1), a)));
+        }
+    }
+    // y = a/b fills in rational shapes such as (x+1)/x and 1/(x−1) + x.
+    for (auto& a : simple) {
+        for (auto& b : simple) {
+            if (b->isOne()) continue;
+            push(Mul(a, Pow(b, Num(-1))));
+        }
+    }
+    auto size = [](const Ex& e, auto&& self) -> int {
+        int n = 1;
+        for (auto& c : e->args) n += self(c, self);
+        return n;
+    };
+    std::stable_sort(out.begin(), out.end(),
+                     [&](const Ex& a, const Ex& b) { return size(a, size) < size(b, size); });
+    return out;
+}
+
 static Ex findParticular(const Ex& Pc, const Ex& Q, const Ex& R, const std::string& x,
                          const std::string& y, const Ex& yp) {
+    (void)yp;
     Ex X = Sym(x);
     if (R->isZero()) return Num(0);
     // constant coefficients -> real equilibrium roots
@@ -607,42 +689,18 @@ static Ex findParticular(const Ex& Pc, const Ex& Q, const Ex& R, const std::stri
     }
     std::vector<Ex> cands = {
         Num(0), Num(1), Num(-1), Num(2), Num(-2),
-        X, Mul(Num(-1), X), Add(X, Num(1)), Add(X, Num(-1)),
+        X, Add(X, Num(1)), Add(X, Num(-1)),
         Add(X, Num(2)), Add(X, Num(-2)),
-        Pow(X, Num(2)), Pow(X, Num(-1)),
-        Mul(Num(-1), Pow(X, Num(-1))), Mul(Num(2), Pow(X, Num(-1))),
-        Mul(Num(-2), Pow(X, Num(-1))), Mul(Num(3), Pow(X, Num(-1))),
-        Mul(Num(-3), Pow(X, Num(-1))), Pow(X, Num(-2)),
-        Mul(Num(-1), Pow(X, Num(-2))),
-        expOf(X), expOf(Mul(Num(-1), X)),
-        Fn("sin", {X}), Fn("cos", {X}), Fn("tan", {X}), Fn("ln", {X}),
-        Mul(Num(-1), Fn("tan", {X})), Fn("cot", {X}), Fn("sec", {X}),
-        Sqrt(X), Mul(Num(2), X), Add(Mul(Num(2), X), Num(1)),
-        Add(Mul(Num(2), X), Num(-1))
+        Pow(X, Num(2)),
+        Mul(Num(2), X), Add(Mul(Num(2), X), Num(1)), Add(Mul(Num(2), X), Num(-1))
     };
     for (auto& c : cands) {
-        try {
-            Ex rhs = Add(Mul(Pc, Pow(c, Num(2))), Mul(Q, c), R);
-            // A particular solution must satisfy the ODE itself, so its
-            // derivative (not a formal substitution of y′) is the left side.
-            Ex lhs = simplify(diff(c, x));
-            Ex res = simplify(Add(lhs, Mul(Num(-1), rhs)));
-            if (!dependsOn(res, y) && (res->isZero() || numericallyZero(res, {x}, 6, 1e-7))) return c;
-        } catch (...) {}
+        if (satisfiesRiccati(c, Pc, Q, R, x, y)) return c;
     }
-    // linear ansatz y = a x + b, constants a,b (search small rationals)
-    for (int a = -3; a <= 3; ++a) {
-        for (int b = -3; b <= 3; ++b) {
-            Ex c = Add(Mul(Num(a), X), Num(b));
-            try {
-                Ex rhs = Add(Mul(Pc, Pow(c, Num(2))), Mul(Q, c), R);
-                Ex lhs = simplify(diff(c, x));
-                Ex res = simplify(Add(lhs, Mul(Num(-1), rhs)));
-                if (!dependsOn(res, y) && (res->isZero() || numericallyZero(res, {x}, 6, 1e-7))) return c;
-            } catch (...) {}
-        }
+    // Only reach for the wide search when the obvious answers miss.
+    for (auto& c : particularCandidates(x)) {
+        if (satisfiesRiccati(c, Pc, Q, R, x, y)) return c;
     }
-    (void)y;
     return nullptr;
 }
 
@@ -4072,7 +4130,22 @@ Result solveODE(const std::string& input, const OdeOptions& opt) {
             }
         }
         r.ok = false;
-        b.fail("ode.f16");
+        // A Riccati equation is recognisable but not always solvable: without
+        // a particular solution the reduction cannot continue, so say that
+        // instead of the generic "no supported form" message.
+        bool riccatiShape = false;
+        if (!ts.empty()) {
+            bool shape = true;
+            for (auto& t : ts) {
+                if (!t.exp->isNum() || !t.exp->num.isInt() || t.exp->num.n < 0 ||
+                    t.exp->num.n > 2) {
+                    shape = false;
+                    break;
+                }
+            }
+            riccatiShape = shape && !coeffOf(ts, 2)->isZero();
+        }
+        b.fail(riccatiShape ? "ode.f19" : "ode.f16");
         r.normalized = F;
     } catch (const OverflowError& e) {
         b.fail("ode.f17", pjson({{"p0", e.what()}}));

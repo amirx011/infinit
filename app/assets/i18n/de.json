@@ -362,6 +362,7 @@
  "error.ode.f16": "After simplification, the equation did not match any supported form (separable, homogeneous, exact, integrating factor, linear, Bernoulli, Clairaut, Lagrange, Riccati).",
  "error.ode.f17": "Numeric coefficients grew too large: {p0}",
  "error.ode.f18": "Equation analysis error: {p0}",
+ "error.ode.f19": "Dies ist eine Riccati-Gleichung, aber es wurde keine elementare partikuläre Lösung gefunden. Geben Sie eine unter „partikuläre Lösung“ ein, um fortzufahren.",
  "error.ode.f2": "The reduced equation in {p0} could not be solved: {p1}",
  "error.ode.f3": "The missing-x reduction is implemented for second-order equations.",
  "error.ode.f4": "This equation has derivatives above the second order and is not covered by the substitution y′ = p(y).",

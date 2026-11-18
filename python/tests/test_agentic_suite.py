@@ -68,6 +68,9 @@ SYMBOLIC_CASES = [
     "x^2 * y' = x^2 * y^2 + x*y + 1",
     "y' + y^2 = 2 / x^2",
     "y' = y^2 - (2/x)*y - 1/x^2",
+    # A particular solution that is not a monomial: the search must find the
+    # shifted reciprocal 1/(x+1) on its own.
+    "y' + y^2 - 2*y/(x+1) + 2/(x+1)^2 = 0",
     # A5 general integrating factor
     "(y*(1 + x*y)) + x*(1 - x*y)*y' = 0",
     # A7/A8 higher order and Cauchy-Euler
@@ -202,13 +205,22 @@ def test_unsupported_without_ic_stays_symbolic(engine: Engine) -> None:
         "y' = cos(x)*y^2 - sin(x)*y - cos(x)",
         "y' - 2*y*tan(x) = y^2 * tan(x)^2 - 1",
         "x^2 * y'' + x*y' + (x^2 - 4)*y = x^3",
+        # Riccati with no elementary particular solution (Bessel-type):
+        # the engine must name the obstacle instead of guessing.
+        "y' + (1/x)*y^2 - (2 + 1/x)*y + x + 2 = 0",
     ],
 )
 def test_non_elementary_cases_fail_honestly(engine: Engine, text: str) -> None:
     """SymPy cannot solve these either; the engine must not invent an answer."""
     result = solve(engine, text)
     assert result["ok"] is False
-    assert result["error_code"] in {"ode.f7", "ode.f16"}
+    assert result["error_code"] in {"ode.f7", "ode.f16", "ode.f19"}
+
+
+def test_riccati_reports_the_missing_particular_solution(engine: Engine) -> None:
+    result = solve(engine, "y' + (1/x)*y^2 - (2 + 1/x)*y + x + 2 = 0")
+    assert result["ok"] is False
+    assert result["error_code"] == "ode.f19"
 
 
 # ------------------------------------------------------ y^(n) parser detail
