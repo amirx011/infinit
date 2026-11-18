@@ -73,6 +73,11 @@ int main() {
     // A series with fractional powers runs from the lowest power up.
     expect("x^(5/2) + x^(1/2) - x^(3/2)", "sqrt(x) - x^(3/2) + x^(5/2)");
 
+    // A negated sum in a numerator is flipped, not left as `-(-a+b)/(...)`.
+    expect("-(-s^2 + 1)/(s^2 + 1)^2", "(s^2 - 1)/(s^2 + 1)^2");
+    expect("-(-(s - 2)^2 + 1)/((s - 2)^2 + 1)^2",
+           "((s - 2)^2 - 1)/((s - 2)^2 + 1)^2");
+
     // A negative denominator leading coefficient becomes a leading minus.
     expect("(x+1)/(-x+1)", "-(x + 1)/(x - 1)");
 

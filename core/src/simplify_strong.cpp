@@ -675,6 +675,18 @@ Ex presentPolynomial(const Ex& a) {
     return node;
 }
 
+// -(a + b) reads badly inside a fraction numerator; flipping the sign of each
+// term keeps a square factored where a full expansion would multiply it out.
+static Ex distributeNegatedSum(const Ex& a) {
+    if (!a || !a->isMul() || a->args.size() != 2) return a;
+    const Ex& c = a->args[0];
+    const Ex& s = a->args[1];
+    if (!c->isNum() || c->num.n != -1 || !s->isAdd()) return a;
+    std::vector<Ex> terms;
+    for (const auto& t : s->args) terms.push_back(Mul(Num(-1), t));
+    return Add(terms);
+}
+
 // One normalisation round.  Anything that comes out harder to read than it
 // went in is discarded, so this can only ever improve the expression.
 Ex normalRound(const Ex& a) {
@@ -687,6 +699,11 @@ Ex normalRound(const Ex& a) {
         if (readability(grouped) < readability(best)) best = grouped;
     };
     try {
+        // Look at the expanded shape of the round's input before any later
+        // transformation can move `best` past it.  Without this, cancelling a
+        // polynomial factor can expand a perfect-square denominator and hide
+        // the compact form exp(x)/(exp(x)+1)^2 behind exp(x)/(exp(2x)+2exp(x)+1).
+        consider(expand(a));
         Ex t = together(best);
         consider(t);
         Ex flat = flattenQuotientPowers(t);
@@ -694,6 +711,21 @@ Ex normalRound(const Ex& a) {
         consider(ft);
         Ex num, den;
         if (splitFraction(ft, num, den)) {
+            // A negated sum in the numerator reads as `-(-s^2+1)/(s^2+1)^2`;
+            // flipping the signs gives the tidier `(s^2-1)/(s^2+1)^2`.  The
+            // denominator stays factored, and `consider` drops the candidate
+            // when the result would not actually be shorter.
+            Ex flipped = distributeNegatedSum(num);
+            if (!equals(flipped, num)) {
+                Ex rebuilt = den->isOne() ? flipped : Mul(flipped, Pow(den, Num(-1)));
+                consider(simplify(rebuilt));
+            }
+            Ex expandedNum = expand(num);
+            if (!equals(expandedNum, num)) {
+                Ex rebuilt = den->isOne() ? expandedNum
+                                          : Mul(expandedNum, Pow(den, Num(-1)));
+                consider(simplify(rebuilt));
+            }
             Ex n2, d2;
             if (cancelPolynomialFactor(num, den, n2, d2)) {
                 Ex nn = factorCommonTerm(simplify(n2));
