@@ -1,7 +1,7 @@
 name: infinit
 description: "Infinit Lab — exact symbolic calculus and differential equations"
 publish_to: 'none'
-version: 1.0.2+102
+version: 1.0.3+103
 environment:
   sdk: ^3.13.7
 
