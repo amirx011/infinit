@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 #include "expr.hpp"
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <sstream>
@@ -31,6 +32,49 @@ static int precedence(const Ex& a) {
 static std::string sgn(bool neg) { return neg ? "−" : " + "; }
 
 // numeric coefficient split of a product
+// A decimal shown by smartNum is a number wrapped in a function node so it can
+// carry a value no rational can.  Printing has to treat it as one: pull it out
+// of a term so its sign lands on the term and it heads the product, exactly as
+// an ordinary numeric coefficient would.
+static bool stripDecimal(const Ex& t, double* value, Ex* rest) {
+    auto asDecimal = [&](const Ex& f, double* v) {
+        if (f && f->isFunc("decimal") && f->args.size() == 1 && f->args[0]->isNum()) {
+            *v = f->args[0]->num.toDouble();
+            return true;
+        }
+        return false;
+    };
+    double v = 0;
+    if (asDecimal(t, &v)) {
+        *value = v;
+        *rest = Num(1);
+        return true;
+    }
+    if (!t->isMul()) return false;
+    for (size_t i = 0; i < t->args.size(); ++i) {
+        if (!asDecimal(t->args[i], &v)) continue;
+        *value = v;
+        std::vector<Ex> others(t->args.begin(), t->args.end());
+        others.erase(others.begin() + i);
+        if (others.empty()) *rest = Num(1);
+        else if (others.size() == 1) *rest = others[0];
+        else *rest = Mul(others);
+        return true;
+    }
+    return false;
+}
+
+static std::string decimalText(double v) {
+    char buf[64];
+    std::snprintf(buf, sizeof buf, "%.6g", v);
+    std::string out(buf);
+    if (out.find('.') != std::string::npos && out.find('e') == std::string::npos) {
+        while (!out.empty() && out.back() == '0') out.pop_back();
+        if (!out.empty() && out.back() == '.') out.pop_back();
+    }
+    return out;
+}
+
 static void splitCoeff(const Ex& t, Rational& coeff, Ex& rest) {
     if (t->isNum()) { coeff = t->num; rest = Num(1); return; }
     if (t->isMul() && !t->args.empty() && t->args[0]->isNum()) {
@@ -700,6 +744,30 @@ struct Printer {
                 std::string s;
                 bool first = true;
                 for (auto& t : a->args) {
+                    double dv = 0;
+                    Ex decRest;
+                    if (stripDecimal(t, &dv, &decRest)) {
+                        const bool decNeg = dv < 0;
+                        if (first) {
+                            if (decNeg) s += (latex ? "-" : (pretty ? "−" : "-"));
+                            first = false;
+                        } else {
+                            s += decNeg ? (latex ? " - " : (pretty ? " − " : " - "))
+                                        : (latex ? " + " : " + ");
+                        }
+                        const double mag = std::fabs(dv);
+                        const bool showMag = decRest->isOne() || std::fabs(mag - 1.0) > 1e-12;
+                        if (showMag) {
+                            s += decimalText(mag);
+                            if (!decRest->isOne()) {
+                                if (!latex) s += mulSign();
+                                s += wrap(decRest, 2);
+                            }
+                        } else {
+                            s += wrap(decRest, 2);
+                        }
+                        continue;
+                    }
                     Rational c; Ex rest;
                     splitCoeff(t, c, rest);
                     bool neg = c.isNeg();
@@ -739,6 +807,21 @@ struct Printer {
                     }
                     num.push_back(f);
                 }
+                // A decimal coefficient heads the product and owns its sign.
+                bool hasDec = false;
+                double decVal = 1.0;
+                Ex decNode;
+                for (size_t i = 0; i < num.size(); ++i) {
+                    double dv = 0;
+                    Ex rest;
+                    if (!stripDecimal(num[i], &dv, &rest)) continue;
+                    hasDec = true;
+                    decVal = dv;
+                    decNode = num[i];
+                    num.erase(num.begin() + i);
+                    if (!rest->isOne()) num.insert(num.begin() + i, rest);
+                    break;
+                }
                 auto render = [&](const std::vector<Ex>& v) {
                     std::string r;
                     for (size_t i = 0; i < v.size(); ++i) {
@@ -759,6 +842,7 @@ struct Printer {
                     return s;
                 };
                 if (!den.empty()) {
+                    if (hasDec) num.insert(num.begin(), decNode);
                     std::vector<Ex> dparts = den;
                     Rational an = ac;
                     // Fold a rational coefficient's denominator into the
@@ -780,6 +864,15 @@ struct Printer {
                     return sign + nd + "/" + dd;
                 }
                 std::string s = head();
+                if (hasDec) {
+                    const double v = decVal * coef.toDouble();
+                    const double mag = std::fabs(v);
+                    s = v < 0 ? (latex ? "-" : (pretty ? "−" : "-")) : "";
+                    if (num.empty() || std::fabs(mag - 1.0) > 1e-12) {
+                        s += decimalText(mag);
+                        if (!num.empty() && !latex) s += mulSign();
+                    }
+                }
                 s += render(num);
                 return s;
             }
@@ -847,14 +940,7 @@ struct Printer {
                     return (paren ? "(" + pr(u) + ")" : pr(u)) + "!";
                 }
                 if (a->name == "decimal" && a->args.size() == 1 && a->args[0]->isNum()) {
-                    char buf[64];
-                    std::snprintf(buf, sizeof buf, "%.6g", a->args[0]->num.toDouble());
-                    std::string out(buf);
-                    if (out.find('.') != std::string::npos && out.find('e') == std::string::npos) {
-                        while (!out.empty() && out.back() == '0') out.pop_back();
-                        if (!out.empty() && out.back() == '.') out.pop_back();
-                    }
-                    return out;
+                    return decimalText(a->args[0]->num.toDouble());
                 }
                 if (a->name == "exp") {
                     if (latex) return "e^{" + pr(a->args[0]) + "}";

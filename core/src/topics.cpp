@@ -95,6 +95,36 @@ Ex smartNum(double v) {
     return Fn("decimal", {Num(Rational::fromDouble(v))});
 }
 
+// Fourier coefficients of textbook functions are exact multiples of pi, pi^2 or
+// their reciprocals, but Simpson integration only returns the decimal.  Recover
+// the exact form so x^2 on [-pi, pi] ends with pi^2/3 instead of a fraction with
+// a seven-digit denominator.
+Ex exactCoeff(double v) {
+    if (!std::isfinite(v)) return nullptr;
+    if (std::fabs(v) < 1e-12) return Num(0);
+    auto small = [](double r, long long* num, long long* den) {
+        for (long long d = 1; d <= 1000; ++d) {
+            const double scaled = r * (double)d;
+            const double rounded = std::round(scaled);
+            if (std::fabs(scaled - rounded) <= 5e-9 && std::fabs(rounded) <= 100000.0) {
+                *num = (long long)std::llround(rounded);
+                *den = d;
+                return true;
+            }
+        }
+        return false;
+    };
+    long long n = 0, d = 1;
+    const double pi2 = kPi * kPi;
+    if (small(v / pi2, &n, &d)) return Mul(Num(Rational(n, d)), Pow(Sym("pi"), Num(2)));
+    if (small(v / kPi, &n, &d)) return Mul(Num(Rational(n, d)), Sym("pi"));
+    if (small(v * pi2, &n, &d)) return Mul(Num(Rational(n, d)), Pow(Sym("pi"), Num(-2)));
+    if (small(v * kPi, &n, &d)) return Mul(Num(Rational(n, d)), Pow(Sym("pi"), Num(-1)));
+    if (small(v, &n, &d)) return Num(Rational(n, d));
+    return smartNum(v);
+}
+
+
 Ex expEx(const Ex& a) { return Fn("exp", {a}); }
 Ex sinEx(const Ex& a) { return Fn("sin", {a}); }
 Ex cosEx(const Ex& a) { return Fn("cos", {a}); }
@@ -2623,7 +2653,7 @@ Result fourierSeries(const TopicRequest& req, bool en) {
     }
     std::vector<Ex> parts;
     std::vector<double> anVals, bnVals;
-    if (std::fabs(a0) > 1e-10) parts.push_back(numEx(a0 / 2.0));
+    if (std::fabs(a0) > 1e-10) parts.push_back(exactCoeff(a0 / 2.0));
     std::ostringstream coeffs;
     coeffs << "n\ta_n\tb_n\n";
     for (int n = 1; n <= terms; ++n) {
@@ -2644,8 +2674,8 @@ Result fourierSeries(const TopicRequest& req, bool en) {
             return r;
         }
         coeffs << n << "\t" << numStr(an, 10) << "\t" << numStr(bn, 10) << "\n";
-        if (std::fabs(an) > 1e-10) parts.push_back(Mul(smartNum(an), cosEx(arg)));
-        if (std::fabs(bn) > 1e-10) parts.push_back(Mul(smartNum(bn), sinEx(arg)));
+        if (std::fabs(an) > 1e-10) parts.push_back(Mul(exactCoeff(an), cosEx(arg)));
+        if (std::fabs(bn) > 1e-10) parts.push_back(Mul(exactCoeff(bn), sinEx(arg)));
     }
     r.solution = parts.empty() ? Num(0) : Add(parts);
     addStep(r, "step.title.state_the_series", Sym("f(x) ~ a_0/2 + sum(a_n cos(n pi x/L) + b_n sin(n pi x/L))"), "step.note.the_coefficients_are_integrals_over_one_period");

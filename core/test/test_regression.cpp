@@ -1823,6 +1823,29 @@ int main() {
                "a zero end time is refused");
     }
 
+    {
+        // A decimal coefficient owns its sign and leads the product; without
+        // that a subtraction prints as "+ -1.5*...".
+        Ex dec = Fn("decimal", {Num(Rational::fromDouble(-1.5))});
+        Ex sum = Add({Mul(dec, Sym("x")), Mul(Num(2), Sym("y"))});
+        const std::string printed = toPlain(sum);
+        expect(printed.find("+ -") == std::string::npos &&
+                   printed.find("- 1.5*x") != std::string::npos,
+               "a decimal coefficient prints with its sign");
+    }
+    {
+        // x^2 on [-pi, pi] has a0/2 = pi^2/3.  Simpson returns the decimal, so
+        // the coefficient has to be recognised and shown exactly.
+        TopicRequest req;
+        req.topic = "fourier_series";
+        req.strs["f"] = "x^2";
+        req.nums["n"] = 3;
+        Result r = solveTopic(req);
+        const std::string sol = r.solution ? toPlain(r.solution) : "";
+        expect(r.ok && sol.find("pi^2") != std::string::npos,
+               "a Fourier coefficient keeps pi^2 exact");
+    }
+
     if (failures == 0) {
         std::cout << "All ODE regression tests passed.\n";
         return 0;
