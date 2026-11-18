@@ -978,8 +978,16 @@ Result systemRepeated(const TopicRequest& req) {
 
     addStepRaw(r, "step.title.compare_the_multiplicities", nullptr, basisText);
     addStepRaw(r, "step.title.build_the_jordan_chain", nullptr, solText);
-    addStep(r, "step.title.write_the_general_solution",
-            Sym(defective ? "x(t) = sum c_i e^{lambda t}(...)" : "x(t) = sum c_i e^{lambda t} v_i"));
+    // The basis vectors are already printed above, so name them instead of
+    // leaving a placeholder sum.
+    std::string general = "x(t) = ";
+    for (size_t i = 0; i < solutions.size(); ++i) {
+        if (i) general += " + ";
+        general += "c_" + std::to_string(i + 1) + "*x" +
+                   std::to_string(i + 1) + "(t)";
+    }
+    if (solutions.empty()) general = "x(t) = Phi(t) c";
+    addStep(r, "step.title.write_the_general_solution", Sym(general));
 
     addCheck(r, "check.every_solution_satisfies_the_system", true,
              defective ? "step.note.a_defective_matrix_needs_generalized_eigenvectors"

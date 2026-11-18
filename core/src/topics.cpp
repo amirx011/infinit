@@ -834,6 +834,7 @@ Result multistep(const TopicRequest& req, bool en) {
     double y = y0;
     std::ostringstream table;
     table << "i\tx\ty\n0\t" << numStr(x) << "\t" << numStr(y) << "\n";
+    std::string boot;
     for (int i = 0; i < order - 1; ++i) {
         bool ok = true;
         const double k1 = evalF(f, "x", x, "y", y, &ok);
@@ -852,6 +853,8 @@ Result multistep(const TopicRequest& req, bool en) {
         y += h / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
         x = x0 + (i + 1) * h;
         table << (i + 1) << "\t" << numStr(x) << "\t" << numStr(y) << "\n";
+        if (!boot.empty()) boot += ", ";
+        boot += "y_" + std::to_string(i + 1) + " = " + numStr(y);
     }
     for (int i = order - 1; i < n; ++i) {
         bool ok = true;
@@ -891,7 +894,8 @@ Result multistep(const TopicRequest& req, bool en) {
                : Sym("y_{i+1} = y_i + h/24 (55f_i - 59f_{i-1} + 37f_{i-2} - 9f_{i-3})"));
     addStep(r, "step.title.write_the_multistep_rule", rule,
             "step.note.use_the_previous_derivative_values");
-    addStep(r, "step.title.bootstrap_with_rk4", Sym("y_1, ..., y_{k-1}"),
+    addStep(r, "step.title.bootstrap_with_rk4",
+            Sym(boot.empty() ? "RK4 supplies the starting history" : boot),
             "step.note.a_multistep_method_needs_a_starting_history",
             "{\"k\":" + std::to_string(order) + "}");
     addStepRaw(r, "step.title.step_through_the_interval", nullptr, table.str());

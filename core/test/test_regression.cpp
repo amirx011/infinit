@@ -1528,6 +1528,15 @@ int main() {
             if (c.nameKey == "check.multistep_matches_rk4" && c.ok) agreement = true;
         }
         expect(agreement, "multistep order 4 agrees with RK4");
+        // The bootstrap step names the three values it computed, not a range.
+        std::string boot;
+        for (const auto& st : r.steps)
+            if (st.titleKey == "step.title.bootstrap_with_rk4" && st.math)
+                boot = toPlain(st.math);
+        expect(boot.find("y_1 = ") == 0 && boot.find("y_2 = ") != std::string::npos &&
+                   boot.find("y_3 = ") != std::string::npos &&
+                   boot.find("...") == std::string::npos,
+               "the bootstrap step lists the starting values");
     }
     {
         TopicRequest req;

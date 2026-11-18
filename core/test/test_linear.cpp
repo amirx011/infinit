@@ -142,6 +142,9 @@ static void testRepeated() {
                "no vector is prefixed with a stray x =");
         expect(allFunctions(r).find("x1(t) = [1, 0]*exp(3*t)") != std::string::npos,
                "the eigenvector line reads x1(t) = [1, 0]*exp(3*t)");
+        expect(allStepMath(r).find("c_1*x1(t)") != std::string::npos &&
+                   allStepMath(r).find("...") == std::string::npos,
+               "the general solution names the basis instead of a placeholder");
     }
     {
         Result r = solve("system_repeated", {{"matrix", "3, 0; 0, 3"}});
