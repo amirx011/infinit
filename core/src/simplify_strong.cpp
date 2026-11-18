@@ -691,9 +691,17 @@ static Ex distributeNegatedSum(const Ex& a) {
 // went in is discarded, so this can only ever improve the expression.
 Ex normalRound(const Ex& a) {
     Ex best = simplify(a);
+    // `-(x^2 - 2 ln y)` and `-x^2 + 2 ln y` cost the same to read, but the
+    // second has no wrapper to mentally distribute.
+    auto leadingNegation = [](const Ex& e) {
+        return e && e->isMul() && e->args.size() == 2 && e->args[0]->isNum() &&
+               e->args[0]->num.n == -1;
+    };
     auto consider = [&](const Ex& cand) {
         if (!cand) return;
-        if (readability(cand) < readability(best)) best = cand;
+        const int rc = readability(cand), rb = readability(best);
+        if (rc < rb || (rc == rb && leadingNegation(best) && !leadingNegation(cand)))
+            best = cand;
         // A cancelled sum often hides one factor repeated in every term.
         Ex grouped = factorCommonTerm(best);
         if (readability(grouped) < readability(best)) best = grouped;
