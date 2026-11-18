@@ -38,6 +38,22 @@ static Result definite(const std::string& f, const std::string& lo, const std::s
 }
 
 int main() {
+    {
+        // Repeated integration by parts for a log power.
+        Result r = integrateExpression("ln(x)^2", "x", "en");
+        expect(r.ok && r.closedForm, "ln(x)^2 integrates in closed form");
+        if (r.ok && r.solution) {
+            Ex back = diff(r.solution, "x");
+            expect(numericallyZero(
+                       Add(back, Mul(Num(-1), parseExpr("ln(x)^2"))), {"x"}, 8, 1e-7),
+                   "the ln(x)^2 antiderivative differentiates back to ln(x)^2");
+        }
+    }
+    {
+        // u = ln(x)^2, dv = x dx: the parts heuristic must not pick u = x.
+        Result r = integrateExpression("x*ln(x)^2", "x", "en");
+        expect(r.ok && r.closedForm, "x*ln(x)^2 integrates in closed form");
+    }
     // ---------------------------------------------------------- derivatives
     {
         Result r = derivativeExpression("x^6", "x", 5, "en");

@@ -513,6 +513,32 @@ struct Integrator {
             }
         }
 
+        // An integer power of a logarithm: repeated integration by parts gives
+        //   ∫ ln(u)^n dx = (u/a)[v^n - n v^(n-1) + n(n-1) v^(n-2) - ... ],
+        // with v = ln(u) and u = a x + b, ending on (-1)^n n!.
+        if (f->isPow() && f->args.size() == 2 && f->args[1]->isNum() &&
+            f->args[1]->num.isInt() && f->args[1]->num.n >= 1) {
+            const Ex& base = f->args[0];
+            Ex a, b;
+            if (base->isFunc() && (base->name == "ln" || base->name == "log") &&
+                linearIn(base->args[0], x, a, b) && a->isNum()) {
+                const long long n = f->args[1]->num.n;
+                if (n <= 12) {
+                    const Ex u = base->args[0];
+                    const Ex v = Fn("ln", {u});
+                    Ex poly = Pow(v, Num(n));
+                    long long fact = 1;
+                    for (long long k = 1; k <= n; ++k) {
+                        fact *= (n - k + 1);
+                        Ex term = Mul(Num(fact), Pow(v, Num(n - k)));
+                        if (k % 2) term = Mul(Num(-1), term);
+                        poly = Add(poly, term);
+                    }
+                    return Mul(Num(a->num.inv()), Mul(u, poly));
+                }
+            }
+        }
+
         // quadratic denominator with linear numerator handled by rational
         // sin^2 / cos^2 / tan^2
         if (f->isPow() && f->args[1]->isNum() && f->args[1]->num.n == 2) {
@@ -972,6 +998,9 @@ struct Integrator {
         std::vector<Ex> facs = f->args;
         auto score = [](const Ex& e) -> int {
             if (e->isFunc() && (e->name == "ln" || e->name == "log" || e->name == "atan" || e->name == "asin" || e->name == "acos")) return 5;
+            // A power of a function is differentiated down, not integrated, so
+            // x*ln(x)^2 must take u = ln(x)^2 and dv = x dx.
+            if (e->isPow() && e->args[0]->isFunc()) return 4;
             if (e->isPow() && e->args[0]->isSym() && e->args[1]->isNum()) return 3;
             if (e->isSym()) return 3;
             if (e->isFunc()) return 2;
