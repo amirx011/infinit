@@ -87,6 +87,10 @@ int main() {
     // left as 1/(C/x^2 - x/3).
     expect("1/(-1/3*x + C/x^2)", "-3*x^2/(x^3 - 3*C)");
     expect("1/x + 1/(-1/3*x + C/x^2)", "1/x - 3*x^2/(x^3 - 3*C)");
+    // A coefficient does not need a visible multiplication sign in front of a
+    // fraction: 2·1/(x²+16) belongs in one numerator.
+    expect("1/(x^2+4) + 2/(x^2+16)", "1/(x^2 + 4) + 2/(x^2 + 16)");
+    expect("1/2*s/(s^2+4)", "s/(2*(s^2 + 4))");
     // Odd and even functions pull the sign out of their argument.
     expect("asin(-1/2*x)", "-asin(1/2*x)");
     expect("abs(-x)", "abs(x)");

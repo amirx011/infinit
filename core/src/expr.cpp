@@ -707,6 +707,13 @@ static void fmtNum(const Ex& a, std::string& out, bool pretty, bool latex) {
     out += sign + "\\frac{" + std::to_string(std::llabs(r.n)) + "}{" + std::to_string(r.d) + "}";
 }
 
+static bool hasDenominator(const Ex& a) {
+    if (!a) return false;
+    if (a->isPow() && a->args[1]->isNum() && a->args[1]->num.isNeg()) return true;
+    for (auto& c : a->args) if (hasDenominator(c)) return true;
+    return false;
+}
+
 struct Printer {
     bool pretty = false, latex = false;
 
@@ -800,6 +807,10 @@ struct Printer {
                         std::string ns; Ex nn = Num(ac); fmtNum(nn, ns, pretty, latex); s += ns;
                     } else if (ac.isOne()) {
                         s += wrap(rest, 2);
+                    } else if (hasDenominator(rest)) {
+                        // 2 · 1/(s²+16) belongs in one fraction, exactly like
+                        // 1/2 · s/(s²+4); printing the unit numerator is noise.
+                        s += pr(Mul(Num(ac), rest));
                     } else {
                         std::string ns; Ex nn = Num(ac); fmtNum(nn, ns, pretty, latex);
                         s += ns;
