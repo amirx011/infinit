@@ -909,10 +909,14 @@ struct Printer {
                     if (latex) return "\\frac{1}{\\sqrt{" + pr(b) + "}}";
                     return (pretty ? "1/√" : "1/sqrt(") + wrap(b, 4, b->isAdd() || b->isMul()) + (pretty ? "" : ")");
                 }
-                if (e->isNum() && e->num.isInt() && e->num.n == -1) {
-                    if (latex) return "\\frac{1}{" + pr(b) + "}";
-                    if (pretty) return "1/" + wrap(b, 3, b->isAdd());
-                    return "1/" + wrap(b, 4, b->isAdd() || b->isMul());
+                if (e->isNum() && e->num.isInt() && e->num.n < 0 && !b->isNum()) {
+                    // A lone s^-2 reads as a power, while the same factor in a
+                    // product is already printed as a fraction.  Keep the two
+                    // shapes consistent.
+                    const Rational n(-e->num.n, 1);
+                    Ex pos = (n == Rational(1)) ? b : Pow(b, Num(n));
+                    if (latex) return "\\frac{1}{" + pr(pos) + "}";
+                    return "1/" + (pos->isAdd() ? "(" + pr(pos) + ")" : pr(pos));
                 }
                 if (pretty && isSuperscriptableInt(e)) {
                     static const char* sup[] = {"⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹"};

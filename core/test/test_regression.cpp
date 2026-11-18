@@ -728,8 +728,8 @@ int main() {
         std::string response(raw);
         expect(response.find("\"ok\":true") != std::string::npos,
                "Laplace t*exp(2t) is solved");
-        expect(response.find("(s - 2)^-2") != std::string::npos,
-               "Laplace t*exp(2t) = (s-2)^-2");
+        expect(response.find("1/(s - 2)^2") != std::string::npos,
+               "Laplace t*exp(2t) = 1/(s-2)^2");
         ode_free(raw);
     }
 
@@ -1110,8 +1110,8 @@ int main() {
         req.topic = "laplace";
         req.strs["f"] = "t*exp(2*t)";
         Result r = solveTopic(req);
-        expect(r.ok && toPlain(r.solution) == "(s - 2)^-2",
-               "Laplace t*e^(2t) = (s-2)^-2");
+        expect(r.ok && toPlain(r.solution) == "1/(s - 2)^2",
+               "Laplace t*e^(2t) = 1/(s-2)^2");
         expect(r.checks.size() == 1 && r.checks[0].ok &&
                    r.checks[0].detailMath.find("integral") != std::string::npos,
                "Laplace check compares the answer with the integral");
