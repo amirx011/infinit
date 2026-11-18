@@ -545,6 +545,19 @@ Ex Fn(const std::string& name, const std::vector<Ex>& args) {
             if (name == "acos") return Mul(Num(Rational(1, 2)), Sym("pi"));
         }
     }
+    // The remaining odd and even functions, so that -2 asin(-x/2) reads as
+    // 2 asin(x/2) instead of keeping a hidden double sign.
+    if (name == "tan" || name == "cot" || name == "csc" || name == "sinh" ||
+        name == "tanh" || name == "asin" || name == "atan") {
+        Rational c; Ex rest;
+        splitCoeff(args[0], c, rest);
+        if (c.isNeg()) return Mul(Num(-1), Fn(name, {Mul(Num(-c), rest)}));
+    }
+    if (name == "abs" || name == "sec" || name == "cosh") {
+        Rational c; Ex rest;
+        splitCoeff(args[0], c, rest);
+        if (c.isNeg()) return Fn(name, {Mul(Num(-c), rest)});
+    }
     if (name == "erf") {
         if (args[0]->isZero()) return Num(0);
         if (args[0]->isSym("inf")) return Num(1);

@@ -83,6 +83,9 @@ int main() {
     // denominators must meet on sqrt(4 - x^2) instead of a complex split.
     expect("1/sqrt(4-x^2) + 3/sqrt(1-x^2/4)", "7/sqrt((-x^2 + 4))");
     expect("1/sqrt(1-x^2/4) + 1/sqrt(4-x^2)", "3/sqrt((-x^2 + 4))");
+    // Odd and even functions pull the sign out of their argument.
+    expect("asin(-1/2*x)", "-asin(1/2*x)");
+    expect("abs(-x)", "abs(x)");
 
     // A negative denominator leading coefficient becomes a leading minus.
     expect("(x+1)/(-x+1)", "-(x + 1)/(x - 1)");
