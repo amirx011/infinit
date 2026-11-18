@@ -108,6 +108,27 @@ def legacy_icon(foreground: Image.Image, size: int, round_icon: bool) -> Image.I
     return base
 
 
+# Android masks the adaptive icon itself, so its foreground already sits inside
+# a safe zone.  Desktop launchers draw the tile as-is, which left the mark at a
+# little over half the width of the icon; desktop builds use a larger one.
+DESKTOP_MARK_SCALE = 1.55
+
+DESKTOP_SIZES = (16, 24, 32, 48, 64, 96, 128, 192, 256, 512, 1024)
+
+ICO_SIZES = ((16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256))
+
+
+def desktop_icon(foreground: Image.Image, size: int) -> Image.Image:
+    base = background(size, False)
+    inner = round(size * DESKTOP_MARK_SCALE)
+    mark = foreground.resize((inner, inner), Image.LANCZOS)
+    pad = (inner - size) // 2
+    if pad > 0:
+        mark = mark.crop((pad, pad, pad + size, pad + size))
+    base.alpha_composite(mark)
+    return base
+
+
 def main() -> None:
     source_foreground = Image.open(RES / "drawable-xxxhdpi" / "ic_launcher_foreground.png").convert("RGBA")
     monochrome = Image.open(RES / "drawable-xxxhdpi" / "ic_launcher_monochrome.png").convert("RGBA")
@@ -155,15 +176,16 @@ def main() -> None:
 
     # The splash logo and the Linux/window icon follow the default palette.
     legacy_icon(rose_fg, 512, False).save(RES / "drawable-nodpi" / "launch_logo.png")
-    for size in (16, 24, 32, 48, 64, 96, 128, 192, 256, 512, 1024):
-        legacy_icon(rose_fg, size, False).save(BRANDING / f"infinit-icon-{size}.png")
-
-    source_logo = Image.open(BRANDING / "infinit-logo-1024.png").convert("RGBA")
-    rose_logo = recolor(source_logo, *PALETTES[DEFAULT])
-    for size in (16, 24, 32, 48, 64, 96, 128, 192, 256, 512, 1024):
-        rose_logo.resize((size, size), Image.LANCZOS).save(
-            BRANDING / f"infinit-logo-{size}.png"
-        )
+    for size in DESKTOP_SIZES:
+        icon = desktop_icon(rose_fg, size)
+        icon.save(BRANDING / f"infinit-icon-{size}.png")
+        if size == 1024:
+            icon.save(
+                APP / "windows" / "runner" / "resources" / "app_icon.ico",
+                format="ICO",
+                sizes=ICO_SIZES,
+            )
+            icon.save(BRANDING / "infinit-icon.ico", format="ICO", sizes=ICO_SIZES)
 
     # The in-app mark is used as an alpha mask (ShaderMask srcIn), so keep its
     # shape and only refresh the colour for non-masked uses.
