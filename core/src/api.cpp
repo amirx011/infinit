@@ -909,9 +909,39 @@ ode::Result handleRaw(const JVal& req) {
     return ode::solveODE(req.str("input"), opt);
 }
 
+// Answers leave the engine in their shortest readable form, so the UI never
+// shows (x^2-1)/(x-1) where x+1 is meant.
+void polish(ode::Result& r) {
+    auto fix = [](ode::Ex& e) {
+        if (!e) return;
+        try {
+            ode::Ex s = ode::simplifyStrong(e);
+            if (s) e = s;
+        } catch (...) {
+        }
+    };
+    fix(r.solution);
+    fix(r.explicitY);
+    fix(r.paramX);
+    fix(r.paramY);
+    fix(r.orthogonal);
+    fix(r.trajectory);
+    for (auto& e : r.singular) fix(e);
+    for (auto& e : r.familyBranches) fix(e);
+}
+
 ode::Result handle(const JVal& req) {
     ode::Result r = handleRaw(req);
     const std::string mode = req.str("mode", "ode");
+    if (mode != "parse") {
+        const ode::Ex before = r.solution;
+        polish(r);
+        // The final displayed step is the answer; keep them in step when the
+        // polish improved it.
+        if (before && r.solution && !r.steps.empty() && r.steps.back().math &&
+            ode::toPlain(r.steps.back().math) == ode::toPlain(before))
+            r.steps.back().math = r.solution;
+    }
     if (mode == "parse") return r;
     std::string text;
     std::string indep = req.str("x", "x");

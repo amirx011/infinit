@@ -212,6 +212,9 @@ Ex substituteSubexpr(const Ex& a, const Ex& target, const Ex& rep);
 Ex substituteMany(const Ex& a, const std::map<std::string, Ex>& m);
 Ex diff(const Ex& a, const std::string& var);
 Ex simplify(const Ex& a);   // canonical + light cleanup, idempotent
+// Multi-step simplification: adds quotient laws, polynomial expansion and a
+// real polynomial GCD on top of simplify(), and keeps the shortest form.
+Ex simplifyStrong(const Ex& a);
 Ex expand(const Ex& a);
 Ex together(const Ex& a);   // combine sums of fractions over one denominator
 Ex cancelCommon(const Ex& a);

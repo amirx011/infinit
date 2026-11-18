@@ -11,6 +11,7 @@ set(ODE_SOURCES
     src/latex_text.cpp
     src/parse.cpp
     src/algebra.cpp
+    src/simplify_strong.cpp
     src/poly.cpp
     src/calculus.cpp
     src/astdiff.cpp
@@ -84,6 +85,9 @@ if(ODE_BUILD_TESTS)
   add_executable(odetest_regression test/test_regression.cpp)
   target_link_libraries(odetest_regression PRIVATE odecore)
 
+  add_executable(odetest_simplify test/test_simplify.cpp)
+  target_link_libraries(odetest_simplify PRIVATE odecore)
+
   add_executable(odetest_calculus test/test_calculus.cpp)
   target_link_libraries(odetest_calculus PRIVATE odecore)
 
@@ -124,6 +128,7 @@ if(ODE_BUILD_TESTS)
   add_test(NAME algebra COMMAND odetest)
   add_test(NAME ode COMMAND odetest_ode)
   add_test(NAME regression COMMAND odetest_regression)
+  add_test(NAME simplify COMMAND odetest_simplify)
   add_test(NAME calculus COMMAND odetest_calculus)
   add_test(NAME limits COMMAND odetest_limits)
   add_test(NAME calculus_apps COMMAND odetest_calculus_apps)
