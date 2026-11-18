@@ -3363,26 +3363,39 @@ static bool solveSpecialCanonical(Builder& b, const Ex& F, const std::vector<Ex>
         }
     }
 
-    // Airy: y'' - x y = 0  (P = 0, Q = -x).
-    if (zero(P) && zero(Add(Q, X))) {
-        Ex y1 = Fn("airyai", {X});
-        Ex y2 = Fn("airybi", {X});
+    // Airy: y'' - x y = 0 (P = 0, Q = -x) or y'' + x y = 0 (Q = +x).
+    // Both signs have Airy solutions; the second only differs by x -> -x.
+    Ex airyArg;
+    if (zero(P) && zero(Add(Q, X))) airyArg = X;
+    else if (zero(P) && zero(Add(Q, Mul(Num(-1), X)))) airyArg = Mul(Num(-1), X);
+    if (airyArg) {
+        const bool negArg = !airyArg->isSym();
+        Ex y1 = Fn("airyai", {airyArg});
+        Ex y2 = Fn("airybi", {airyArg});
         Ex sol = simplify(Add(Mul(Cst(1), y1), Mul(Cst(2), y2)));
         if (part) sol = simplify(Add(sol, part));
         setSolution(b.r, "linear_higher", sol, true, sol);
         bool ok = true;
         int good = 0;
         for (double xv : {-1.7, -0.9, -0.3, 0.2, 0.6, 1.1, 1.6}) {
-            const double ai = airySeries(xv, false, 0);
-            const double aip = airySeries(xv, false, 2) - xv * ai;
-            const double bi = airySeries(xv, true, 0);
-            const double bip = airySeries(xv, true, 2) - xv * bi;
-            if (!std::isfinite(ai) || !std::isfinite(bi) || !std::isfinite(aip) ||
-                !std::isfinite(bip))
+            auto evalY = [&](double t, bool bi) {
+                return airySeries(negArg ? -t : t, bi, 0);
+            };
+            const double h = 1e-3;
+            const double ai = evalY(xv, false);
+            const double biv = evalY(xv, true);
+            const double aipp = (evalY(xv + h, false) - 2.0 * ai + evalY(xv - h, false)) / (h * h);
+            const double bipp = (evalY(xv + h, true) - 2.0 * biv + evalY(xv - h, true)) / (h * h);
+            if (!std::isfinite(ai) || !std::isfinite(biv) || !std::isfinite(aipp) ||
+                !std::isfinite(bipp))
                 continue;
             ++good;
-            if (std::fabs(aip) > 1e-6 * (1.0 + std::fabs(ai)) ||
-                std::fabs(bip) > 1e-6 * (1.0 + std::fabs(bi)))
+            // The equation is y'' + Q y = 0 with Q = -x for Ai(x) and Q = x
+            // for Ai(-x); measure the residual with a finite difference.
+            const double qAi = (negArg ? xv : -xv) * ai;
+            const double qBi = (negArg ? xv : -xv) * biv;
+            if (std::fabs(aipp + qAi) > 5e-2 * (1.0 + std::fabs(aipp) + std::fabs(qAi)) ||
+                std::fabs(bipp + qBi) > 5e-2 * (1.0 + std::fabs(bipp) + std::fabs(qBi)))
                 ok = false;
         }
         b.check("check.the_solution_satisfies_the_ode", ok && good >= 3, "", "");

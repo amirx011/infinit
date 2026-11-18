@@ -1865,6 +1865,20 @@ int main() {
                "a Frobenius series starts at its lowest power");
     }
 
+    {
+        // Both Airy signs are solved, and the check is a real finite-difference
+        // residual rather than the defining relation of the series.
+        Result r = solve("y'' + x*y = 0");
+        expect(r.ok && r.solution && toPlain(r.solution).find("airyai(-x)") != std::string::npos,
+               "y'' + x y = 0 is solved with Airy functions");
+        expect(r.ok && r.checks.size() == 1 && r.checks[0].ok,
+               "the Airy solution passes the residual check");
+    }
+    {
+        Result r = solve("y' = x + y^2");
+        expect(r.ok && r.typeId == "riccati", "y' = x + y^2 is recognised as Riccati");
+    }
+
     if (failures == 0) {
         std::cout << "All ODE regression tests passed.\n";
         return 0;
