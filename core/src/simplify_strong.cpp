@@ -765,6 +765,17 @@ Ex normalRound(const Ex& a) {
                                           : Mul(expandedNum, Pow(den, Num(-1)));
                 consider(simplify(rebuilt));
             }
+            // A numerator can hide one repeated composite factor even when no
+            // polynomial factor cancels, e.g. the two cosine terms of an
+            // oscillatory solution.
+            Ex groupedNum = factorCommonTerm(simplify(num));
+            Ex groupedDen = den->isOne() ? den : factorCommonTerm(simplify(den));
+            if (!equals(groupedNum, num) || !equals(groupedDen, den)) {
+                Ex rebuilt = groupedDen->isOne()
+                                 ? groupedNum
+                                 : Mul(groupedNum, Pow(groupedDen, Num(-1)));
+                consider(simplify(rebuilt));
+            }
             Ex n2, d2;
             if (cancelPolynomialFactor(num, den, n2, d2)) {
                 Ex nn = factorCommonTerm(simplify(n2));

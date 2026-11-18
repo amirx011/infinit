@@ -91,6 +91,15 @@ int main() {
     // fraction: 2·1/(x²+16) belongs in one numerator.
     expect("1/(x^2+4) + 2/(x^2+16)", "1/(x^2 + 4) + 2/(x^2 + 16)");
     expect("1/2*s/(s^2+4)", "s/(2*(s^2 + 4))");
+    // A repeated composite factor inside a numerator is pulled out even when
+    // no polynomial factor cancels; this is the oscillatory Riccati solution.
+    expect(
+        "(-C*cos(1/2*sqrt(3)*ln(x)) - sqrt(3)*cos(1/2*sqrt(3)*ln(x)) + "
+        "sin(1/2*sqrt(3)*ln(x))*(C*sqrt(3) - 1))/"
+        "(2*x*(sin(1/2*sqrt(3)*ln(x)) + C*cos(1/2*sqrt(3)*ln(x))))",
+        "(cos(1/2*sqrt(3)*ln(x))*(-C - sqrt(3)) + "
+        "sin(1/2*sqrt(3)*ln(x))*(C*sqrt(3) - 1))/"
+        "(2*x*(sin(1/2*sqrt(3)*ln(x)) + C*cos(1/2*sqrt(3)*ln(x))))");
     // Odd and even functions pull the sign out of their argument.
     expect("asin(-1/2*x)", "-asin(1/2*x)");
     expect("abs(-x)", "abs(x)");
