@@ -210,6 +210,10 @@ Ex buildSeries(const std::vector<Rational>& a, Rational x0, Rational r) {
 std::string seriesText(const std::vector<Rational>& a, Rational x0, Rational r,
                        int maxTerms = 5) {
     Ex e = buildSeries(a, x0, r);
+    try {
+        e = simplifyStrong(e);
+    } catch (...) {
+    }
     std::string s = toPlain(e);
     if ((int)a.size() > maxTerms) s += " + ...";
     return s;
@@ -287,9 +291,17 @@ Result seriesPower(const TopicRequest& req) {
                Sym("a_{k+2} = -[sum_{j=0..k} ((j+1)a_{j+1}P_{k-j} + a_j Q_{k-j})] / ((k+2)(k+1))"),
                "P(t) = " + toPlain(polyIn(Ps, "t")) + ";  Q(t) = " +
                    toPlain(polyIn(Qs, "t")));
-    addStep(r, "step.title.first_solution", buildSeries(y1, x0, Rational(0)),
+    auto presented = [&](const std::vector<Rational>& a, Rational r) {
+        Ex e = buildSeries(a, x0, r);
+        try {
+            return simplifyStrong(e);
+        } catch (...) {
+            return e;
+        }
+    };
+    addStep(r, "step.title.first_solution", presented(y1, Rational(0)),
             "step.note.the_first_basis_has_a0_1_and_a1_0");
-    addStep(r, "step.title.second_solution", buildSeries(y2, x0, Rational(0)),
+    addStep(r, "step.title.second_solution", presented(y2, Rational(0)),
             "step.note.the_second_basis_has_a0_0_and_a1_1");
 
     // Residual: the truncated series satisfies the ODE through degree terms-3.
@@ -619,11 +631,18 @@ Result seriesFrobenius(const TopicRequest& req) {
                Sym("r1 = " + rat(r1) + ",  r2 = " + rat(r2)),
                diff.isInt() ? "the roots differ by an integer; a logarithm may be needed"
                             : "the roots differ by a non-integer; two Frobenius series exist");
-    addStep(r, "step.title.first_frobenius_series",
-            buildSeries(s1.coeffs, x0, r1));
+    auto presentedSeries = [&](const std::vector<Rational>& a, Rational r) {
+        Ex e = buildSeries(a, x0, r);
+        try {
+            return simplifyStrong(e);
+        } catch (...) {
+            return e;
+        }
+    };
+    addStep(r, "step.title.first_frobenius_series", presentedSeries(s1.coeffs, r1));
     if (secondAvailable) {
         addStep(r, "step.title.second_frobenius_series",
-                buildSeries(s2.coeffs, x0, r2));
+                presentedSeries(s2.coeffs, r2));
     } else {
         addStep(r, "step.title.second_solution_by_reduction_of_order",
                 Sym("y2 = y1 * integral(exp(-integral(p dx)) / y1^2 dx)"));
@@ -718,11 +737,13 @@ Result eulerEquation(const TopicRequest& req) {
                     // beta^2 = -disc / (2a2)^2
                     const Rational beta2 = Rational(-disc.n, disc.d) /
                                            (Rational(4) * a2 * a2);
-                    const double beta = std::sqrt(beta2.toDouble());
+                    // Keep an algebraic beta exact: sqrt(3/4) should print as
+                    // sqrt(3)/2, not as a seven-digit fraction from a double.
+                    const Ex beta = simplify(Sqrt(Num(beta2)));
                     const Ex logx = Fn("ln", {Fn("abs", {Sym("x")})});
                     const Ex xa = Pow(Sym("x"), Num(alpha));
-                    const Ex co = Fn("cos", {Mul(numEx(beta), logx)});
-                    const Ex si = Fn("sin", {Mul(numEx(beta), logx)});
+                    const Ex co = Fn("cos", {Mul(beta, logx)});
+                    const Ex si = Fn("sin", {Mul(beta, logx)});
                     for (int m = 0; m < f.mult; ++m) {
                         if (m == 0) {
                             basis.push_back(Mul(xa, co));

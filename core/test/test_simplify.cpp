@@ -70,6 +70,9 @@ int main() {
     expect("x*(x^2 - 3*x + 2)", "x^3 - 3*x^2 + 2*x");
     expect("3*x^2*y + 6*x*y^2", "3*y*x^2 + 6*x*y^2");
 
+    // A series with fractional powers runs from the lowest power up.
+    expect("x^(5/2) + x^(1/2) - x^(3/2)", "sqrt(x) - x^(3/2) + x^(5/2)");
+
     // A negative denominator leading coefficient becomes a leading minus.
     expect("(x+1)/(-x+1)", "-(x + 1)/(x - 1)");
 

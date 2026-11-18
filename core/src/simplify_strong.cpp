@@ -597,12 +597,13 @@ Ex factorCommonTerm(const Ex& a) {
 // ---------------------------------------------------------------- presentation
 
 // A plain monomial: a number, a symbol, or a product of those and of symbols
-// raised to positive whole powers.
-bool monomialForm(const Ex& t, std::map<std::string, long long>& exps) {
+// raised to a positive rational power.  Fractional powers appear in series
+// solutions (sqrt(x), x^(3/2)) and deserve the same tidy presentation.
+bool monomialForm(const Ex& t, std::map<std::string, Rational>& exps) {
     if (!t) return false;
     if (t->isNum()) return true;
     if (t->isSym()) {
-        ++exps[t->name];
+        exps[t->name] = exps[t->name] + Rational(1);
         return true;
     }
     if (t->isMul()) {
@@ -610,9 +611,10 @@ bool monomialForm(const Ex& t, std::map<std::string, long long>& exps) {
             if (!monomialForm(f, exps)) return false;
         return true;
     }
-    if (t->isPow() && t->args.size() == 2 && t->args[0]->isSym() && t->args[1]->isNum() &&
-        t->args[1]->num.isInt() && t->args[1]->num.n >= 1) {
-        exps[t->args[0]->name] += t->args[1]->num.n;
+    if (t->isPow() && t->args.size() == 2 && t->args[0]->isSym() && t->args[1]->isNum()) {
+        const Rational e = t->args[1]->num;
+        if (e.isNeg() || e.isZero()) return false;
+        exps[t->args[0]->name] = exps[t->args[0]->name] + e;
         return true;
     }
     return false;
@@ -620,8 +622,10 @@ bool monomialForm(const Ex& t, std::map<std::string, long long>& exps) {
 
 // A polynomial reads best multiplied out with its terms in descending degree:
 // 1/3*x^3 - 3/2*x^2 + 2*x, not the canonical 3/2*x*(-x + 2/9*x^2 + 4/3).
-// Fractions and exponential answers are left alone, since there the factored
-// shape carries real meaning (a denominator or an exponent).
+// A series with fractional powers reads in the other direction, from the
+// lowest power up: sqrt(x) - x^(3/2) + 1/6*x^(5/2).  Fractions and exponential
+// answers are left alone, since there the factored shape carries real meaning
+// (a denominator or an exponent).
 Ex presentPolynomial(const Ex& a) {
     if (!a) return a;
     // Expanding a large product just to inspect it is not worth it.
@@ -633,31 +637,35 @@ Ex presentPolynomial(const Ex& a) {
         return a;
     }
     if (!e || !e->isAdd()) return a;
-    std::vector<std::pair<std::map<std::string, long long>, Ex>> terms;
+    std::vector<std::pair<std::map<std::string, Rational>, Ex>> terms;
     std::vector<std::string> names;
     for (auto& t : e->args) {
-        std::map<std::string, long long> exps;
+        std::map<std::string, Rational> exps;
         if (!monomialForm(t, exps)) return a;
         for (auto& kv : exps) names.push_back(kv.first);
         terms.emplace_back(std::move(exps), t);
     }
     std::sort(names.begin(), names.end());
     names.erase(std::unique(names.begin(), names.end()), names.end());
-    auto degree = [](const std::map<std::string, long long>& m) {
-        long long d = 0;
-        for (auto& kv : m) d += kv.second;
+    bool allInteger = true;
+    for (auto& p : terms)
+        for (auto& kv : p.first)
+            if (!kv.second.isInt()) allInteger = false;
+    auto degree = [](const std::map<std::string, Rational>& m) {
+        Rational d(0);
+        for (auto& kv : m) d = d + kv.second;
         return d;
     };
-    auto exponentOf = [](const std::map<std::string, long long>& m, const std::string& n) {
+    auto exponentOf = [](const std::map<std::string, Rational>& m, const std::string& n) {
         auto it = m.find(n);
-        return it == m.end() ? 0LL : it->second;
+        return it == m.end() ? Rational(0) : it->second;
     };
     std::stable_sort(terms.begin(), terms.end(), [&](const auto& x, const auto& y) {
-        const long long dx = degree(x.first), dy = degree(y.first);
-        if (dx != dy) return dx > dy;
+        const Rational dx = degree(x.first), dy = degree(y.first);
+        if (!(dx == dy)) return allInteger ? (dy < dx) : (dx < dy);
         for (auto& n : names) {
-            const long long ex = exponentOf(x.first, n), ey = exponentOf(y.first, n);
-            if (ex != ey) return ex > ey;
+            const Rational ex = exponentOf(x.first, n), ey = exponentOf(y.first, n);
+            if (!(ex == ey)) return allInteger ? (ey < ex) : (ex < ey);
         }
         return false;
     });

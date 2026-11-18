@@ -1845,6 +1845,25 @@ int main() {
         expect(r.ok && sol.find("pi^2") != std::string::npos,
                "a Fourier coefficient keeps pi^2 exact");
     }
+    {
+        // r^2 - r + 1 has complex roots, and sqrt(3)/2 must not collapse into a
+        // seven-digit rational recovered from a double.
+        TopicRequest req;
+        req.topic = "euler_equations";
+        Result r = solveTopic(req);
+        const std::string sol = r.solution ? toPlain(r.solution) : "";
+        expect(r.ok && sol.find("1/2*sqrt(3)") != std::string::npos,
+               "an Euler equation keeps sqrt(3)/2 exact");
+    }
+    {
+        // A Frobenius series reads from its lowest power upward.
+        TopicRequest req;
+        req.topic = "series_frobenius";
+        Result r = solveTopic(req);
+        const std::string sol = r.solution ? toPlain(r.solution) : "";
+        expect(r.ok && sol.rfind("sqrt(x)", 0) == 0,
+               "a Frobenius series starts at its lowest power");
+    }
 
     if (failures == 0) {
         std::cout << "All ODE regression tests passed.\n";
