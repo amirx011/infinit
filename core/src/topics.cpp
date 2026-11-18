@@ -2956,6 +2956,177 @@ Result laplacePde(const TopicRequest& req, bool en) {
 // ---------------------------------------------------------------- transforms
 bool splitRationalParts(const Ex& e, Ex& num, Ex& den);
 
+// A product or power of sines and cosines is a sum of first harmonics, and
+// Laplace is linear, so rewriting first turns sin^2 t into 1/2 - cos(2t)/2
+// before the table is consulted.  Only pure multiples a·t are accepted; a
+// shifted argument would need the time-shift theorem.
+struct TrigMonomial {
+    Ex coef = Num(1);
+    std::vector<std::pair<std::string, Rational>> factors;
+};
+
+bool trigRate(const Ex& arg, const std::string& t, Rational& rate) {
+    if (arg->isSym(t)) { rate = Rational(1); return true; }
+    if (!arg->isMul()) return false;
+    Ex other = Num(1);
+    for (const auto& f : arg->args) {
+        if (f->isSym(t)) continue;
+        if (!f->isNum()) return false;
+        other = Mul(other, f);
+    }
+    // Every factor must be numeric except t itself.
+    int tCount = 0;
+    for (const auto& f : arg->args) if (f->isSym(t)) ++tCount;
+    if (tCount != 1 || !other->isNum()) return false;
+    rate = other->num;
+    return true;
+}
+
+bool collectTrigMonomials(const Ex& f, const std::string& t,
+                          std::vector<TrigMonomial>& out) {
+    if (f->isAdd()) {
+        for (const auto& term : f->args)
+            if (!collectTrigMonomials(term, t, out)) return false;
+        return true;
+    }
+    TrigMonomial m;
+    std::vector<Ex> facs = f->isMul() ? f->args : std::vector<Ex>{f};
+    for (const auto& fac : facs) {
+        if (!dependsOn(fac, t)) { m.coef = Mul(m.coef, fac); continue; }
+        std::string name;
+        Rational count(1);
+        Ex arg;
+        if (fac->isFunc("sin") || fac->isFunc("cos")) {
+            name = fac->name;
+            arg = fac->args[0];
+        } else if (fac->isPow() && fac->args[0]->isFunc() &&
+                   (fac->args[0]->name == "sin" || fac->args[0]->name == "cos") &&
+                   fac->args[1]->isNum() && fac->args[1]->num.isInt() &&
+                   fac->args[1]->num.n > 0 && fac->args[1]->num.n <= 12) {
+            name = fac->args[0]->name;
+            arg = fac->args[0]->args[0];
+            count = fac->args[1]->num;
+        } else {
+            return false;
+        }
+        Rational rate;
+        if (!trigRate(arg, t, rate)) return false;
+        for (long long k = 0; k < count.n; ++k) m.factors.emplace_back(name, rate);
+    }
+    out.push_back(m);
+    return true;
+}
+
+Ex trigFactorExpr(const std::string& name, const Rational& rate, const std::string& t) {
+    Ex arg = rate.isOne() ? Ex(Sym(t)) : Mul(Num(rate), Sym(t));
+    return Fn(name, {arg});
+}
+
+// Split a product into its trigonometric part and everything else, so
+// e^(-t) sin^2 t can be rewritten as e^(-t)(1/2 - cos(2t)/2) and then shifted.
+bool splitTrigProduct(const Ex& f, const std::string& t, Ex& other, Ex& trig,
+                      size_t& trigCount) {
+    if (!f->isMul()) return false;
+    std::vector<Ex> rest, tfs;
+    for (const auto& fac : f->args) {
+        if (fac->isFunc("sin") || fac->isFunc("cos")) {
+            Rational rate;
+            if (!trigRate(fac->args[0], t, rate)) return false;
+            tfs.push_back(fac);
+            continue;
+        }
+        if (fac->isPow() && fac->args[0]->isFunc() &&
+            (fac->args[0]->name == "sin" || fac->args[0]->name == "cos") &&
+            fac->args[1]->isNum() && fac->args[1]->num.isInt() &&
+            fac->args[1]->num.n > 0 && fac->args[1]->num.n <= 12) {
+            Rational rate;
+            if (!trigRate(fac->args[0]->args[0], t, rate)) return false;
+            tfs.push_back(fac);
+            continue;
+        }
+        rest.push_back(fac);
+    }
+    trigCount = 0;
+    for (const auto& p : tfs)
+        trigCount += (p->isPow() ? (size_t)p->args[1]->num.n : 1);
+    if (rest.empty() || tfs.empty() || trigCount < 2) return false;
+    other = rest.size() == 1 ? rest[0] : Mul(rest);
+    trig = tfs.size() == 1 ? tfs[0] : Mul(tfs);
+    return true;
+}
+
+// true when the rewrite changed the expression into a first-harmonic sum.
+bool expandTrigPowers(const Ex& f, const std::string& t, Ex& out) {
+    std::vector<TrigMonomial> work;
+    if (!collectTrigMonomials(f, t, work)) {
+        Ex other, trig;
+        size_t trigCount = 0;
+        if (!splitTrigProduct(f, t, other, trig, trigCount)) return false;
+        Ex inner;
+        if (!expandTrigPowers(trig, t, inner)) return false;
+        out = expand(Mul(other, inner));
+        return true;
+    }
+    size_t trigCount = 0;
+    for (const auto& m : work) trigCount += m.factors.size();
+    if (trigCount < 2) return false;
+    if (work.size() * 16 > 4096) return false;
+    int guard = 0;
+    while (true) {
+        size_t idx = work.size();
+        for (size_t i = 0; i < work.size(); ++i)
+            if (work[i].factors.size() >= 2) { idx = i; break; }
+        if (idx == work.size()) break;
+        if (++guard > 512) return false;
+        TrigMonomial m = work[idx];
+        work.erase(work.begin() + idx);
+        auto f1 = m.factors.back();
+        m.factors.pop_back();
+        auto f2 = m.factors.back();
+        m.factors.pop_back();
+        const Ex half = Num(Rational(1, 2));
+        const Rational sum = f1.second + f2.second;
+        const Rational diff = f1.second - f2.second;
+        auto push = [&](const std::string& name, const Rational& rate, bool negative) {
+            // A zero rate is sin(0) = 0 or cos(0) = 1.  Dropping the sine term
+            // is not cosmetic: keeping the coefficient alone would add a
+            // spurious constant to the transform.
+            if (name == "sin" && rate.isZero()) return;
+            TrigMonomial n = m;
+            n.coef = Mul(n.coef, half);
+            if (negative) n.coef = Mul(n.coef, Num(-1));
+            if (!rate.isZero()) n.factors.emplace_back(name, rate);
+            work.push_back(n);
+        };
+        // sin A sin B = [cos(A-B) - cos(A+B)]/2, cos A cos B = [cos(A-B) + cos(A+B)]/2,
+        // sin A cos B = [sin(A+B) + sin(A-B)]/2.
+        if (f1.first == "sin" && f2.first == "sin") {
+            push("cos", diff, false);
+            push("cos", sum, true);
+        } else if (f1.first == "cos" && f2.first == "cos") {
+            push("cos", diff, false);
+            push("cos", sum, false);
+        } else {
+            // sin(A-B) is not symmetric: the difference is (sine rate) -
+            // (cosine rate), and the factors can arrive in either order.
+            const Rational sinRate = f1.first == "sin" ? f1.second : f2.second;
+            const Rational cosRate = f1.first == "sin" ? f2.second : f1.second;
+            const Rational d = sinRate - cosRate;
+            push("sin", sum, false);
+            push("sin", d.abs(), d.isNeg());
+        }
+    }
+    std::vector<Ex> terms;
+    for (const auto& m : work) {
+        Ex term = m.coef;
+        for (const auto& f : m.factors)
+            term = Mul(term, trigFactorExpr(f.first, f.second, t));
+        terms.push_back(term);
+    }
+    out = terms.empty() ? Num(0) : Add(terms);
+    return true;
+}
+
 Ex laplaceOf(const Ex& f, const std::string& t, std::string& rule, bool& ok) {
     ok = true;
     if (!f) { ok = false; return nullptr; }
@@ -2971,6 +3142,21 @@ Ex laplaceOf(const Ex& f, const std::string& t, std::string& rule, bool& ok) {
     if (f->isSym(t)) {
         rule = "L{t} = 1/s^2";
         return Pow(Sym("s"), Num(-2));
+    }
+    // Powers and products of sines and cosines: rewrite to first harmonics and
+    // transform the sum term by term.  Placed before the product rules, which
+    // can only carry one trigonometric factor.
+    {
+        Ex rewritten;
+        if (expandTrigPowers(f, t, rewritten) && !equals(rewritten, f)) {
+            std::string sub;
+            bool subOk = true;
+            Ex G = laplaceOf(rewritten, t, sub, subOk);
+            if (subOk && G) {
+                rule = "linearity";
+                return G;
+            }
+        }
     }
     if (f->isAdd()) {
         std::vector<Ex> out;
@@ -3255,6 +3441,11 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
         r.errorDetail = "unknown function: " + unknown;
         return r;
     }
+    // Show the first-harmonic rewrite as its own step; the transform itself is
+    // then a plain application of linearity to table entries.
+    Ex harmonics;
+    const bool rewrote =
+        expandTrigPowers(f, "t", harmonics) && !equals(harmonics, f);
     std::string rule;
     bool ok = true;
     Ex F = laplaceOf(f, "t", rule, ok);
@@ -3268,6 +3459,9 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
     } catch (...) {
     }
     addStep(r, "step.title.start_from_the_definition", Sym("F(s) = integral_0^inf e^(-s t) f(t) dt"), "step.note.the_transform_turns_differentiation_into_multiplication_by_s");
+    if (rewrote)
+        addStep(r, "step.title.rewrite_the_product_as_first_harmonics", harmonics,
+                "step.note.powers_and_products_of_sine_and_cosine_expand_into_first_harmonics");
     addStepRaw(r, "step.title.match_a_table_entry", f, rule);
     addStep(r, "step.title.write_the_transform", r.solution, "step.note.the_result_is_a_function_of_s");
     double probeS = 0.0, probeGot = 0.0, probeWant = 0.0;
@@ -3276,8 +3470,11 @@ Result laplaceTransform(const TopicRequest& req, bool en) {
                  "s = " + numStr(probeS) + ": F(s) = " + numStr(probeWant) +
                      ", integral = " + numStr(probeGot));
     } else {
-        // The numeric probe is only a sanity check; unsupported growth rates
-        // leave the analytic domain statement standing on its own.
+        // The numeric probe is the only independent check here, so when it
+        // cannot confirm the value the transform is not verified.  The answer
+        // is still returned: the probe also fails for transforms that grow
+        // faster than the sampling window can absorb.
+        r.verified = false;
         addCheck(r, "check.domain", true, "check.transform_domain");
     }
     return r;

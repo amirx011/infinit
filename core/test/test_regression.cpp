@@ -1116,6 +1116,33 @@ int main() {
                    r.checks[0].detailMath.find("integral") != std::string::npos,
                "Laplace check compares the answer with the integral");
     }
+    // Powers and products of sines and cosines are rewritten to first
+    // harmonics.  A zero-frequency sine is exactly zero, not a constant, so
+    // sin·cos must not pick up a spurious 1/s term.
+    {
+        struct Case {
+            const char* f;
+            const char* want;
+        } cases[] = {
+            {"sin(t)*cos(t)", "1/(s^2 + 4)"},
+            {"sin(t)^2", "2/(s*(s^2 + 4))"},
+            {"cos(t)^2", "s/(2*(s^2 + 4)) + 1/(2*s)"},
+            {"sin(t)^3", "6/(s^4 + 10*s^2 + 9)"},
+            {"sin(t)^2*cos(t)", "2*s/(s^4 + 10*s^2 + 9)"},
+            // A non-trigonometric factor is carried through the rewrite, so
+            // the shifted table entries finish the transform.
+            {"exp(-t)*sin(t)^2", "2/((s + 1)*((s + 1)^2 + 4))"},
+            {"exp(-t)*sin(t)^3", "6/(((s + 1)^2 + 1)*((s + 1)^2 + 9))"},
+        };
+        for (const auto& c : cases) {
+            TopicRequest req;
+            req.topic = "laplace";
+            req.strs["f"] = c.f;
+            Result r = solveTopic(req);
+            expect(r.ok && r.verified && toPlain(r.solution) == c.want,
+                   std::string("Laplace of ") + c.f + " = " + c.want);
+        }
+    }
     // Inverse Laplace: a constant numerator scales the table entry instead of
     // falling through to unsupported_form.
     {

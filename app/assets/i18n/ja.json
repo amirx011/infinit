@@ -1152,6 +1152,8 @@
  "step.title.list_the_eigenvalues": "固有値をリストする",
  "step.title.maclaurin_polynomial": "マクローリン多項式",
  "step.title.match_a_table_entry": "Match a table entry",
+ "step.title.rewrite_the_product_as_first_harmonics": "Rewrite the product as first harmonics",
+ "step.note.powers_and_products_of_sine_and_cosine_expand_into_first_harmonics": "A product or power of sines and cosines is a sum of first harmonics, and the transform is linear.",
  "step.title.maximum_point_on_interval": "Maximum point on the interval",
  "step.title.measure_the_convergence_order": "Measure the convergence order",
  "step.title.method_detection": "Method detection",
