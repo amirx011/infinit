@@ -920,6 +920,14 @@ void polish(ode::Result& r) {
         } catch (...) {
         }
     };
+    // A value that came out of a double reaches the result as a raw rational
+    // such as 8443681/11034640.  That is numerical noise, not information, so
+    // show the decimal the computation actually meant.
+    auto tidyValue = [](ode::Ex& e) {
+        if (!e || !e->isNum()) return;
+        if (std::llabs(e->num.d) <= 1000) return;
+        e = ode::Fn("decimal", {e, ode::Num(12)});
+    };
     fix(r.solution);
     fix(r.explicitY);
     fix(r.paramX);
@@ -928,6 +936,10 @@ void polish(ode::Result& r) {
     fix(r.trajectory);
     for (auto& e : r.singular) fix(e);
     for (auto& e : r.familyBranches) fix(e);
+    tidyValue(r.value);
+    tidyValue(r.valueA);
+    tidyValue(r.valueB);
+    tidyValue(r.valueAt);
 }
 
 ode::Result handle(const JVal& req) {

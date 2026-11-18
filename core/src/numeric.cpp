@@ -75,7 +75,7 @@ struct Compiler {
                 if (n == "Deriv" || n == "Integral") { ok = false; return; }
                 // "decimal" is a display wrapper produced by smartNum; for
                 // numeric work it is just its argument.
-                if (n == "decimal" && a->args.size() == 1) {
+                if (n == "decimal" && !a->args.empty()) {
                     compile(a->args[0]);
                     return;
                 }

@@ -1866,6 +1866,25 @@ int main() {
     }
 
     {
+        // A computed value keeps enough digits to compare at 1e-9.
+        Ex d = Fn("decimal", {Num(Rational::fromDouble(5.783185962946785)),
+                              Num(12)});
+        expect(toPlain(d).find("5.78318596295") != std::string::npos,
+               "a computed value prints with enough precision");
+    }
+    {
+        // Simpson should not print 1/4 as 0.2499999999 in the table.
+        TopicRequest req;
+        req.topic = "fourier_series";
+        req.strs["f"] = "x^2";
+        req.nums["n"] = 4;
+        Result r = solveTopic(req);
+        bool clean = false;
+        for (const auto& s : r.steps)
+            if (s.note.find("0.25\t") != std::string::npos) clean = true;
+        expect(r.ok && clean, "the Fourier table snaps noise to the exact coefficient");
+    }
+    {
         // L{t cos t} needs the derivative rule, not a table lookup.
         TopicRequest req;
         req.topic = "laplace";

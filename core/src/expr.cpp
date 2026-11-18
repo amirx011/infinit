@@ -36,24 +36,27 @@ static std::string sgn(bool neg) { return neg ? "−" : " + "; }
 // carry a value no rational can.  Printing has to treat it as one: pull it out
 // of a term so its sign lands on the term and it heads the product, exactly as
 // an ordinary numeric coefficient would.
-static bool stripDecimal(const Ex& t, double* value, Ex* rest) {
-    auto asDecimal = [&](const Ex& f, double* v) {
-        if (f && f->isFunc("decimal") && f->args.size() == 1 && f->args[0]->isNum()) {
-            *v = f->args[0]->num.toDouble();
-            return true;
-        }
-        return false;
+static bool stripDecimal(const Ex& t, double* value, int* digits, Ex* rest) {
+    auto asDecimal = [&](const Ex& f, double* v, int* d) {
+        if (!f || !f->isFunc("decimal") || f->args.empty() || !f->args[0]->isNum())
+            return false;
+        *v = f->args[0]->num.toDouble();
+        if (f->args.size() > 1 && f->args[1]->isNum()) *d = (int)f->args[1]->num.n;
+        return true;
     };
     double v = 0;
-    if (asDecimal(t, &v)) {
+    int d = 6;
+    if (asDecimal(t, &v, &d)) {
         *value = v;
+        *digits = d;
         *rest = Num(1);
         return true;
     }
     if (!t->isMul()) return false;
     for (size_t i = 0; i < t->args.size(); ++i) {
-        if (!asDecimal(t->args[i], &v)) continue;
+        if (!asDecimal(t->args[i], &v, &d)) continue;
         *value = v;
+        *digits = d;
         std::vector<Ex> others(t->args.begin(), t->args.end());
         others.erase(others.begin() + i);
         if (others.empty()) *rest = Num(1);
@@ -64,9 +67,9 @@ static bool stripDecimal(const Ex& t, double* value, Ex* rest) {
     return false;
 }
 
-static std::string decimalText(double v) {
+static std::string decimalText(double v, int digits = 6) {
     char buf[64];
-    std::snprintf(buf, sizeof buf, "%.6g", v);
+    std::snprintf(buf, sizeof buf, "%.*g", digits, v);
     std::string out(buf);
     if (out.find('.') != std::string::npos && out.find('e') == std::string::npos) {
         while (!out.empty() && out.back() == '0') out.pop_back();
@@ -745,8 +748,9 @@ struct Printer {
                 bool first = true;
                 for (auto& t : a->args) {
                     double dv = 0;
+                    int ddigits = 6;
                     Ex decRest;
-                    if (stripDecimal(t, &dv, &decRest)) {
+                    if (stripDecimal(t, &dv, &ddigits, &decRest)) {
                         const bool decNeg = dv < 0;
                         if (first) {
                             if (decNeg) s += (latex ? "-" : (pretty ? "−" : "-"));
@@ -758,7 +762,7 @@ struct Printer {
                         const double mag = std::fabs(dv);
                         const bool showMag = decRest->isOne() || std::fabs(mag - 1.0) > 1e-12;
                         if (showMag) {
-                            s += decimalText(mag);
+                            s += decimalText(mag, ddigits);
                             if (!decRest->isOne()) {
                                 if (!latex) s += mulSign();
                                 s += wrap(decRest, 2);
@@ -810,13 +814,16 @@ struct Printer {
                 // A decimal coefficient heads the product and owns its sign.
                 bool hasDec = false;
                 double decVal = 1.0;
+                int decDigits = 6;
                 Ex decNode;
                 for (size_t i = 0; i < num.size(); ++i) {
                     double dv = 0;
+                    int d = 6;
                     Ex rest;
-                    if (!stripDecimal(num[i], &dv, &rest)) continue;
+                    if (!stripDecimal(num[i], &dv, &d, &rest)) continue;
                     hasDec = true;
                     decVal = dv;
+                    decDigits = d;
                     decNode = num[i];
                     num.erase(num.begin() + i);
                     if (!rest->isOne()) num.insert(num.begin() + i, rest);
@@ -869,7 +876,7 @@ struct Printer {
                     const double mag = std::fabs(v);
                     s = v < 0 ? (latex ? "-" : (pretty ? "−" : "-")) : "";
                     if (num.empty() || std::fabs(mag - 1.0) > 1e-12) {
-                        s += decimalText(mag);
+                        s += decimalText(mag, decDigits);
                         if (!num.empty() && !latex) s += mulSign();
                     }
                 }
@@ -939,8 +946,11 @@ struct Printer {
                     if (latex) return (paren ? "\\left(" + pr(u) + "\\right)" : pr(u)) + "!";
                     return (paren ? "(" + pr(u) + ")" : pr(u)) + "!";
                 }
-                if (a->name == "decimal" && a->args.size() == 1 && a->args[0]->isNum()) {
-                    return decimalText(a->args[0]->num.toDouble());
+                if (a->name == "decimal" && !a->args.empty() && a->args[0]->isNum()) {
+                    int digits = 6;
+                    if (a->args.size() > 1 && a->args[1]->isNum())
+                        digits = (int)a->args[1]->num.n;
+                    return decimalText(a->args[0]->num.toDouble(), digits);
                 }
                 if (a->name == "exp") {
                     if (latex) return "e^{" + pr(a->args[0]) + "}";

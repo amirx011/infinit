@@ -2656,6 +2656,14 @@ Result fourierSeries(const TopicRequest& req, bool en) {
     if (std::fabs(a0) > 1e-10) parts.push_back(exactCoeff(a0 / 2.0));
     std::ostringstream coeffs;
     coeffs << "n\ta_n\tb_n\n";
+    // Simpson leaves ~1e-10 noise, so 1/4 printed as 0.2499999999.  Snap the
+    // table to the exact value the assembled series uses, then show a short
+    // decimal (the table is read by machines, so no fractions).
+    auto coeffText = [](double v) {
+        Ex snapped = exactCoeff(v);
+        const double shown = (snapped && snapped->isNum()) ? snapped->num.toDouble() : v;
+        return numStr(shown, 8);
+    };
     for (int n = 1; n <= terms; ++n) {
         const Ex arg = Mul(piMultiple(n, L), Sym("x"));
         const Ex fc = Mul(f, cosEx(arg));
@@ -2673,7 +2681,7 @@ Result fourierSeries(const TopicRequest& req, bool en) {
 
             return r;
         }
-        coeffs << n << "\t" << numStr(an, 10) << "\t" << numStr(bn, 10) << "\n";
+        coeffs << n << "\t" << coeffText(an) << "\t" << coeffText(bn) << "\n";
         if (std::fabs(an) > 1e-10) parts.push_back(Mul(exactCoeff(an), cosEx(arg)));
         if (std::fabs(bn) > 1e-10) parts.push_back(Mul(exactCoeff(bn), sinEx(arg)));
     }
