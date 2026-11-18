@@ -3653,6 +3653,9 @@ Result laplaceIvp(const TopicRequest& req, bool en) {
     Ex g;
     try {
         g = parseExpr(req.text("g", "exp(t)"));
+        // A student may type the forcing in a form the transform table does
+        // not recognise, such as (t^2-1)/(t-1); simplify before matching.
+        g = simplifyStrong(g);
     } catch (const std::exception& e) {
         failFrom(r, e, "laplace ivp");
         return r;

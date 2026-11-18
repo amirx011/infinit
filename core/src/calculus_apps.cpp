@@ -29,6 +29,18 @@ std::string numStr(double v, int digits = 6) {
     return s;
 }
 
+// Students type the function in whatever shape they have, so the analytic
+// work starts from its shortest form: (x^3-3x^2+2x)/x is x^2-3x+2 before it is
+// differentiated, and the derivative prints as 2x-3 instead of a fraction.
+Ex tidy(const Ex& f) {
+    if (!f) return f;
+    try {
+        return simplifyStrong(f);
+    } catch (...) {
+        return f;
+    }
+}
+
 double evalAt(const Ex& f, const std::string& x, double xv, bool* ok) {
     std::map<std::string, double> vars;
     vars[x] = xv;
@@ -292,10 +304,10 @@ Result analyseFunction(const std::string& input, const std::string& x, double xm
             r.errorCode = "bad_interval";
             return r;
         }
-        Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
+        Ex f = tidy(parseODEExpr(input, x, nullptr, {x, "e", "pi"}));
         r.normalized = f;
-        Ex df = simplify(diff(f, x));
-        Ex ddf = simplify(diff(df, x));
+        Ex df = tidy(diff(f, x));
+        Ex ddf = tidy(diff(df, x));
         r.derivative = df;
         r.secondDerivative = ddf;
         addStep(r, "step.title.function_and_derivatives", f, "", "",
@@ -613,10 +625,10 @@ Result tangentAndNormal(const std::string& input, const std::string& x, const st
     r.variable = x;
     r.point = at;
     try {
-        Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
+        Ex f = tidy(parseODEExpr(input, x, nullptr, {x, "e", "pi"}));
         Ex a = parseODEExpr(at, x, nullptr, {x, "e", "pi"});
         r.normalized = f;
-        Ex df = simplify(diff(f, x));
+        Ex df = tidy(diff(f, x));
         r.derivative = df;
 
         bool okA = false;
@@ -681,7 +693,7 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
             r.errorCode = "bad_interval";
             return r;
         }
-        Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
+        Ex f = tidy(parseODEExpr(input, x, nullptr, {x, "e", "pi"}));
         r.normalized = f;
         const std::string unknown = unknownFunction(f);
         if (!unknown.empty()) {
@@ -691,7 +703,7 @@ Result optimiseFunction(const std::string& input, const std::string& x, double x
             r.errorDetail = "unknown function: " + unknown;
             return r;
         }
-        Ex df = simplify(diff(f, x));
+        Ex df = tidy(diff(f, x));
         r.derivative = df;
         addStep(r, "step.title.objective_function_and_derivative", f, "", "",
                 "f' = " + toPlain(df));
@@ -932,7 +944,8 @@ Result meanValueTheorems(const std::string& input, const std::string& x, double 
             r.errorCode = "bad_interval";
             return r;
         }
-        Ex f = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
+        const Ex raw = parseODEExpr(input, x, nullptr, {x, "e", "pi"});
+        Ex f = tidy(raw);
         r.normalized = f;
         bool okFa = false, okFb = false;
         const double fa = evalAt(f, x, a, &okFa);
@@ -951,13 +964,13 @@ Result meanValueTheorems(const std::string& input, const std::string& x, double 
         bool continuous = true;
         for (int i = 0; i <= probes; ++i) {
             bool ok = false;
-            const double v = evalAt(f, x, a + (b - a) * i / probes, &ok);
+            const double v = evalAt(raw, x, a + (b - a) * i / probes, &ok);
             if (!ok || !std::isfinite(v)) {
                 continuous = false;
                 break;
             }
         }
-        Ex df = simplify(diff(f, x));
+        Ex df = tidy(diff(f, x));
         r.derivative = df;
         bool differentiable = true;
         for (int i = 1; i < probes; ++i) {
@@ -1000,6 +1013,11 @@ Result meanValueTheorems(const std::string& input, const std::string& x, double 
         const bool truncated = roots.size() > kMaxTheoremPoints;
         if (truncated) roots.resize(kMaxTheoremPoints);
         for (double c : roots) {
+            // The theorem needs the original function, not its continuous
+            // extension: a point that sits on a removed hole is not valid.
+            bool okRaw = false;
+            const double rawValue = evalAt(raw, x, c, &okRaw);
+            if (!okRaw || !std::isfinite(rawValue)) continue;
             r.points.push_back(snap(c));
             bool okF = false;
             const double fv = evalAt(f, x, c, &okF);
@@ -1043,8 +1061,10 @@ Result cauchyMeanValue(const std::string& fIn, const std::string& gIn, const std
             r.errorCode = "bad_interval";
             return r;
         }
-        Ex f = parseODEExpr(fIn, x, nullptr, {x, "e", "pi"});
-        Ex g = parseODEExpr(gIn, x, nullptr, {x, "e", "pi"});
+        const Ex rawF = parseODEExpr(fIn, x, nullptr, {x, "e", "pi"});
+        const Ex rawG = parseODEExpr(gIn, x, nullptr, {x, "e", "pi"});
+        Ex f = tidy(rawF);
+        Ex g = tidy(rawG);
         r.functionF = f;
         r.functionG = g;
         addStep(r, "step.title.functions_f_and_g", f, "", "",
@@ -1067,8 +1087,8 @@ Result cauchyMeanValue(const std::string& fIn, const std::string& gIn, const std
         r.valueB = snap(fb);
         r.functionValueA = snap(ga);
         r.functionValueB = snap(gb);
-        Ex df = simplify(diff(f, x));
-        Ex dg = simplify(diff(g, x));
+        Ex df = tidy(diff(f, x));
+        Ex dg = tidy(diff(g, x));
         r.derivative = df;
         r.secondDerivative = dg;
         const double ratio = (fb - fa) / (gb - ga);
@@ -1089,6 +1109,12 @@ Result cauchyMeanValue(const std::string& fIn, const std::string& gIn, const std
         const bool truncated = roots.size() > kMaxTheoremPoints;
         if (truncated) roots.resize(kMaxTheoremPoints);
         for (double c : roots) {
+            bool okRaw = false;
+            const double rawValue = evalAt(rawF, x, c, &okRaw);
+            bool okRawG = false;
+            const double rawValueG = evalAt(rawG, x, c, &okRawG);
+            if (!okRaw || !std::isfinite(rawValue) || !okRawG || !std::isfinite(rawValueG))
+                continue;
             r.points.push_back(snap(c));
             bool okF = false;
             const double fv = evalAt(f, x, c, &okF);
@@ -1123,8 +1149,8 @@ Result lhopitalLimit(const std::string& numerator, const std::string& denominato
     r.variable = x;
     r.point = point;
     try {
-        Ex N = parseODEExpr(numerator, x, nullptr, {x, "e", "pi"});
-        Ex D = parseODEExpr(denominator, x, nullptr, {x, "e", "pi"});
+        Ex N = tidy(parseODEExpr(numerator, x, nullptr, {x, "e", "pi"}));
+        Ex D = tidy(parseODEExpr(denominator, x, nullptr, {x, "e", "pi"}));
         Ex a = parseODEExpr(point, x, nullptr, {x, "e", "pi", "inf"});
         r.normalized = N;
         r.functionF = N;

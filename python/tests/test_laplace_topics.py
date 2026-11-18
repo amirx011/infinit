@@ -113,6 +113,8 @@ def check_ivp(response: dict, a: float, b: float, c: float, forcing: sp.Expr,
         (1, 0, 1, "sin(t)", 0, 0),
         (2, -1, 3, "t", 0, 1),
         (1, -2, 1, "exp(t)", 1, 1),
+        # The forcing is typed unsimplified; the engine must reduce it first.
+        (1, 1, 2, "(t^2-1)/(t-1)", 1, 0),
     ],
 )
 def test_laplace_ivp_satisfies_the_equation(
