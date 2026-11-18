@@ -55,7 +55,10 @@ size_t fractionDepth(const Ex& a, int level) {
     return s;
 }
 
-size_t readability(const Ex& a) { return nodeCount(a) + 2 * fractionDepth(a, 0); }
+// A division inside a division costs more than its node count suggests:
+// the reader has to invert twice.  Four nodes of budget is enough to
+// clear a nested denominator, never enough to expand a polynomial.
+size_t readability(const Ex& a) { return nodeCount(a) + 4 * fractionDepth(a, 0); }
 
 // ---------------------------------------------------------------- fractions
 
@@ -675,6 +678,33 @@ Ex presentPolynomial(const Ex& a) {
     return node;
 }
 
+// 1/(C/x^2 - x/3) hides a division inside a division.  Combining only the
+// inner denominator keeps the surrounding sum in its own shape:
+//   1/(C/x^2 - x/3)  ->  -3x^2/(x^3 - 3C).
+static Ex denestFractions(const Ex& a) {
+    if (!a) return a;
+    if (a->isPow() && a->args.size() == 2 && a->args[1]->isNum() &&
+        a->args[1]->num.isInt() && a->args[1]->num.n < 0 && a->args[0]->isAdd()) {
+        Ex num, den;
+        if (splitFraction(together(a->args[0]), num, den) && !den->isOne()) {
+            const long long n = -a->args[1]->num.n;
+            Ex p = Pow(den, Num(n));
+            Ex q = Pow(num, Num(n));
+            return simplify(Mul(p, Pow(q, Num(-1))));
+        }
+    }
+    if (a->args.empty()) return a;
+    std::vector<Ex> v;
+    for (auto& c : a->args) v.push_back(denestFractions(c));
+    switch (a->kind) {
+        case Kind::Add: return Add(v);
+        case Kind::Mul: return Mul(v);
+        case Kind::Pow: return Pow(v[0], v[1]);
+        case Kind::Func: return Fn(a->name, v);
+        default: return a;
+    }
+}
+
 // -(a + b) reads badly inside a fraction numerator; flipping the sign of each
 // term keeps a square factored where a full expansion would multiply it out.
 static Ex distributeNegatedSum(const Ex& a) {
@@ -712,6 +742,7 @@ Ex normalRound(const Ex& a) {
         // polynomial factor can expand a perfect-square denominator and hide
         // the compact form exp(x)/(exp(x)+1)^2 behind exp(x)/(exp(2x)+2exp(x)+1).
         consider(expand(a));
+        consider(denestFractions(best));
         Ex t = together(best);
         consider(t);
         Ex flat = flattenQuotientPowers(t);
