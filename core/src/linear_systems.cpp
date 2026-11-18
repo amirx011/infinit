@@ -687,9 +687,10 @@ Result systemTheory(const TopicRequest& req) {
                toPlain(polyToExpr(ch, "r")) + "\n" + eigenLines(roots));
     addStepRaw(r, "step.title.build_the_fundamental_matrix", nullptr,
                "Phi(t) = " + exMatrixText(phi));
+    const Ex wronskian =
+        Fn("exp", {Mul(Num(matrixTrace(A)), Sym("t"))});
     addStep(r, "step.title.wronskian",
-            Sym("W(t) = det Phi(t) = exp(tr(A) t) = exp((" +
-                rat(matrixTrace(A)) + ") t)"));
+            Sym("W(t) = det Phi(t) = exp(tr(A) t) = " + toPlain(wronskian)));
     addStep(r, "step.title.write_the_general_solution", Sym("x(t) = Phi(t) c"));
 
     const auto at0 = evalMatrix(phi, 0.0);
@@ -919,7 +920,7 @@ Result systemRepeated(const TopicRequest& req) {
         if (geom == alg) {
             for (const auto& v : kernel) {
                 const Ex expPart = Fn("exp", {Mul(Num(lambda), Sym("t"))});
-                solutions.push_back("x = " + toPlain(expPart) + " * " + vectorText(v));
+                solutions.push_back(toPlain(expPart) + " * " + vectorText(v));
             }
         } else {
             // Chain decomposition of the generalized eigenspace.  Start at
@@ -957,8 +958,7 @@ Result systemRepeated(const TopicRequest& req) {
                                                    Sym(vectorText(rev[j - 1]))));
                         }
                         const Ex expPart = Fn("exp", {Mul(Num(lambda), Sym("t"))});
-                        solutions.push_back("x = " +
-                                            toPlain(simplify(Mul(expPart, inner))));
+                        solutions.push_back(toPlain(simplify(Mul(expPart, inner))));
                     }
                 }
             }

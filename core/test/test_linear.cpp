@@ -49,6 +49,15 @@ static std::string allFunctions(const Result& r) {
     return all;
 }
 
+static std::string allStepMath(const Result& r) {
+    std::string all;
+    for (const auto& s : r.steps) {
+        if (s.math) all += toPlain(s.math) + "\n";
+        all += s.note + "\n";
+    }
+    return all;
+}
+
 static double evalValue(const Ex& e) {
     std::map<std::string, double> vars;
     bool ok = false;
@@ -66,6 +75,9 @@ static void testSystemTheory() {
                "the eigenvalue 3 is reported");
         expect(allFunctions(r).find("-1") != std::string::npos,
                "the eigenvalue -1 is reported");
+        // Abel's formula must read as an expression, not as exp((2) t).
+        expect(allStepMath(r).find("exp(2*t)") != std::string::npos,
+               "the Wronskian is printed as exp(2*t)");
     }
     {
         Result r = solve("system_theory", {{"matrix", "0, 1; -2, -3"}});
@@ -125,6 +137,11 @@ static void testRepeated() {
         expect(allChecksOk(r), "the defective system checks pass");
         expect(allFunctions(r).find("t") != std::string::npos,
                "the defective solution contains a t factor");
+        const std::string text = allFunctions(r) + allStepMath(r);
+        expect(text.find("= x = ") == std::string::npos,
+               "no vector is prefixed with a stray x =");
+        expect(allFunctions(r).find("x1(t) = [1, 0]*exp(3*t)") != std::string::npos,
+               "the eigenvector line reads x1(t) = [1, 0]*exp(3*t)");
     }
     {
         Result r = solve("system_repeated", {{"matrix", "3, 0; 0, 3"}});
