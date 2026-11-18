@@ -79,6 +79,10 @@ int main() {
            "((s - 2)^2 - 1)/((s - 2)^2 + 1)^2");
     // The same preference applies to a whole expression, not only a numerator.
     expect("-(x^2 - 2*ln(abs(y)))", "-x^2 + 2*ln(abs(y))");
+    // sqrt(1 - x^2/4) has no sign to pull out of the root, so the two
+    // denominators must meet on sqrt(4 - x^2) instead of a complex split.
+    expect("1/sqrt(4-x^2) + 3/sqrt(1-x^2/4)", "7/sqrt((-x^2 + 4))");
+    expect("1/sqrt(1-x^2/4) + 1/sqrt(4-x^2)", "3/sqrt((-x^2 + 4))");
 
     // A negative denominator leading coefficient becomes a leading minus.
     expect("(x+1)/(-x+1)", "-(x + 1)/(x - 1)");

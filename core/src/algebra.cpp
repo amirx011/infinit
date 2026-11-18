@@ -252,7 +252,8 @@ static Rational ratGcd(Rational a, Rational b) {
     return Rational(n, d);
 }
 
-static bool addContent(const Ex& a, Rational& content, Ex& prim) {
+static bool addContent(const Ex& a, Rational& content, Ex& prim,
+                       bool normaliseLeadSign = true) {
     if (!a->isAdd() || a->args.size() < 2) return false;
     std::vector<Rational> cs;
     std::vector<Ex> rests;
@@ -278,12 +279,14 @@ static bool addContent(const Ex& a, Rational& content, Ex& prim) {
     }
     Ex p0 = Add(parts);
     if (!p0->isAdd()) return false;
-    // make the leading coefficient positive
+    // Make the leading coefficient positive.  An even root has no sign to
+    // move outside: sqrt(1 - x^2/4) must stay 1/2 sqrt(4 - x^2), not
+    // sqrt(-1/4) sqrt(x^2 - 4).
     Rational lead(1);
     const Ex& first = p0->args[0];
     if (first->isNum()) lead = first->num;
     else if (first->isMul() && first->args[0]->isNum()) lead = first->args[0]->num;
-    if (lead.isNeg()) {
+    if (lead.isNeg() && normaliseLeadSign) {
         g = Rational(-g.n, g.d);
         std::vector<Ex> neg;
         for (auto& t : p0->args) neg.push_back(Mul(Num(-1), t));
@@ -313,7 +316,7 @@ Ex cancelCommon(const Ex& a) {
             if (f->isPow() && f->args[1]->isNum() && f->args[1]->num.isNeg()) {
                 Ex b = f->args[0]; Ex e = Num(-f->args[1]->num);
                 Rational ac; Ex prim;
-                if (addContent(b, ac, prim)) {
+                if (addContent(b, ac, prim, e->isNum() && e->num.isInt())) {
                     // (ac·prim)^−e = ac^−e · prim^−e, so the extracted
                     // content must be raised to the same power.
                     coeff = Mul(coeff, Pow(Num(ac), Mul(Num(-1), e)));
@@ -325,7 +328,7 @@ Ex cancelCommon(const Ex& a) {
                 Ex b = f, e = Num(1);
                 if (f->isPow()) { b = f->args[0]; e = f->args[1]; }
                 Rational ac; Ex prim;
-                if (addContent(b, ac, prim)) {
+                if (addContent(b, ac, prim, e->isNum() && e->num.isInt())) {
                     // (ac·prim)^e = ac^e · prim^e.
                     coeff = Mul(coeff, Pow(Num(ac), e));
                     bump(pos, prim, e);

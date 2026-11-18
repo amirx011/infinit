@@ -54,6 +54,19 @@ int main() {
         Result r = integrateExpression("x*ln(x)^2", "x", "en");
         expect(r.ok && r.closedForm, "x*ln(x)^2 integrates in closed form");
     }
+    {
+        // Parts leaves x^2/sqrt(1-x^2); the reduction formula must finish it.
+        Result r = integrateExpression("x*asin(x)", "x", "en");
+        expect(r.ok && r.closedForm && r.verified,
+               "x*asin(x) integrates in a verified closed form");
+    }
+    {
+        // The reduction formula scales the I_(n-2) term by C/k, so a circle of
+        // radius 2 checks the normalisation, not only the n = 1, 2 cases.
+        Result r = integrateExpression("x^4/sqrt(4-x^2)", "x", "en");
+        expect(r.ok && r.closedForm && r.verified,
+               "x^4/sqrt(4-x^2) integrates with the right normalisation");
+    }
     // ---------------------------------------------------------- derivatives
     {
         Result r = derivativeExpression("x^6", "x", 5, "en");

@@ -216,7 +216,16 @@ Result bvpTwoPoint(const TopicRequest& req) {
     };
     const double e1 = errorAtCommon(coarse, medium, 2);
     const double e2 = errorAtCommon(medium, fine, 2);
+    // Below round-off the ratio is noise, so an "order" of 0 would be a
+    // statement about floating point, not about the scheme.  Say that the
+    // grid has converged instead of printing a meaningless exponent.
+    const bool gridConverged = e1 < 1e-10;
     const double order = (e1 > 1e-14 && e2 > 1e-14) ? std::log2(e1 / e2) : 0.0;
+    const std::string orderText =
+        gridConverged
+            ? "the refined grids agree (|y_N - y_2N| = " + numStr(e1, 3) +
+                  "), so the order is below round-off"
+            : "observed convergence order = " + numStr(order, 3);
     const double residual = bvpResidual(medium, p, q, f, a, b);
 
     std::ostringstream table;
@@ -234,7 +243,7 @@ Result bvpTwoPoint(const TopicRequest& req) {
                           numStr(alpha) + ", y(" + numStr(b) + ") = " + numStr(beta));
     r.functions.push_back("grid: N = " + std::to_string(N) + " (refined to " +
                           std::to_string(2 * N) + " and " + std::to_string(4 * N) + ")");
-    r.functions.push_back("observed convergence order = " + numStr(order, 3));
+    r.functions.push_back(orderText);
     r.functions.push_back("discrete residual = " + numStr(residual, 3));
     r.value = Num(Rational::fromDouble(medium.y[medium.y.size() / 2]));
     r.solution = Sym("y(x) on the grid (numerical)");
@@ -251,7 +260,9 @@ Result bvpTwoPoint(const TopicRequest& req) {
             Sym("Thomas algorithm on the (N-1) x (N-1) system"));
     addStepRaw(r, "step.title.step_through_the_grid", nullptr, table.str());
     addStep(r, "step.title.estimate_the_convergence_order",
-            Sym("p ~ log2(|y_N - y_2N| / |y_2N - y_4N|) = " + numStr(order, 3)));
+            Sym(gridConverged ? orderText
+                              : "p ~ log2(|y_N - y_2N| / |y_2N - y_4N|) = " +
+                                    numStr(order, 3)));
 
     addCheck(r, "check.the_boundary_values_are_exact",
              std::fabs(medium.y.front() - alpha) < 1e-12 &&
@@ -260,8 +271,8 @@ Result bvpTwoPoint(const TopicRequest& req) {
     addCheck(r, "check.the_discrete_residual_is_small", residual < 1e-6, "", "",
              "residual = " + numStr(residual, 3));
     addCheck(r, "check.the_observed_order_is_close_to_two",
-             std::fabs(order - 2.0) < 0.5 || e1 < 1e-10, "", "",
-             "order = " + numStr(order, 3));
+             std::fabs(order - 2.0) < 0.5 || gridConverged, "", "",
+             gridConverged ? orderText : "order = " + numStr(order, 3));
     return r;
 }
 

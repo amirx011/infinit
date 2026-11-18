@@ -304,9 +304,77 @@ struct Integrator {
         return Integral(f, x);
     }
 
+    // ∫ x^n / sqrt(C - k x^2) dx with n a non-negative integer and k > 0, C > 0.
+    // Substituting x = sqrt(C/k) sin t turns it into ∫ sin^n t dt, whose
+    // reduction formula gives
+    //   I_n = -x^(n-1) sqrt(C - k x^2)/(n k) + (n-1)/n I_(n-2),
+    //   I_0 = asin(x sqrt(k/C))/sqrt(k),  I_1 = -sqrt(C - k x^2)/k.
+    Ex monomialOverSqrt(const Ex& f) {
+        std::vector<Ex> facs = f->isMul() ? f->args : std::vector<Ex>{f};
+        Rational coeff(1);
+        long long power = 0;
+        Ex circle;
+        for (const auto& t : facs) {
+            if (t->isNum()) {
+                coeff = coeff * t->num;
+                continue;
+            }
+            if (t->isSym(x)) {
+                power += 1;
+                continue;
+            }
+            if (t->isPow() && t->args.size() == 2) {
+                const Ex& base = t->args[0];
+                const Ex& expon = t->args[1];
+                if (base->isSym(x) && expon->isNum() && expon->num.isInt() &&
+                    expon->num.n >= 0) {
+                    power += expon->num.n;
+                    continue;
+                }
+                if (!circle && expon->isNum() && expon->num == Rational(-1, 2)) {
+                    Ex A, B, C;
+                    if (!quadraticIn(base, x, A, B, C)) return nullptr;
+                    if (!B->isZero() || A->num.n >= 0 || C->num.n <= 0) return nullptr;
+                    circle = base;
+                    continue;
+                }
+            }
+            return nullptr;
+        }
+        if (!circle || power > 12) return nullptr;
+        Ex qa, qb, qc;
+        if (!quadraticIn(circle, x, qa, qb, qc)) return nullptr;
+        const Rational A = qa->num, C = qc->num;
+        const Rational k(-A.n, A.d);
+        if (k.isZero() || C.isZero()) return nullptr;
+        const Ex X = Sym(x);
+        const Ex sqrtCircle = Sqrt(circle);
+        Ex prev2 = Mul(Pow(Num(k), Num(Rational(-1, 2))),
+                       Fn("asin", {Mul(X, Sqrt(Num(k * C.inv())))}));
+        Ex prev1 = Mul(Num(-k.inv()), sqrtCircle);
+        if (power == 0) return Mul(Num(coeff), prev2);
+        if (power == 1) return Mul(Num(coeff), prev1);
+        // The I_(n-2) term is scaled by C/k: the substitution factor for n
+        // differs from the one already inside I_(n-2).
+        const Rational carry = C * k.inv();
+        for (long long n = 2; n <= power; ++n) {
+            Ex term = Mul(Num(Rational(-1, n) * k.inv()), Pow(X, Num(n - 1)),
+                          sqrtCircle);
+            const Ex cur =
+                Add(term, Mul(Num(Rational(n - 1, n) * carry), prev2));
+            prev2 = prev1;
+            prev1 = cur;
+        }
+        return Mul(Num(coeff), prev1);
+    }
+
     Ex table(const Ex& f) {
         Ex X = Sym(x);
         if (f->isSym(x)) return Mul(Num(Rational(1, 2)), Pow(X, Num(2)));
+
+        // ∫ x^n / sqrt(C - k x^2) dx.  This is what integration by parts leaves
+        // behind for ∫ x asin(x) dx, so the reduction formula closes the loop.
+        if (Ex g = monomialOverSqrt(f)) return g;
 
         // ∫ e^(a x) sin(b x) dx and ∫ e^(a x) cos(b x) dx.
         if (f->isMul()) {
