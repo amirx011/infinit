@@ -887,6 +887,18 @@ static bool tryClairautLagrange(Builder& b, const Ex& F, const Ex& p) {
     }
 }
 
+// y = -u'/(P u) is unchanged when u is scaled, so the two constants of the
+// second-order auxiliary equation describe one free parameter.  Fold them into
+// one instead of showing a redundant C and C2 in a first-order answer.
+static Ex oneConstant(const Ex& y) {
+    if (!y || !dependsOn(y, "C2")) return y;
+    try {
+        return simplify(substitute(y, "C2", Num(1)));
+    } catch (...) {
+        return y;
+    }
+}
+
 static bool tryRiccati(Builder& b, const Ex& yp, const std::vector<TermPow>& ts) {
     size_t stepMark = b.r.steps.size();
     size_t warnMark = b.r.warnings.size();
@@ -960,6 +972,7 @@ static bool tryRiccati(Builder& b, const Ex& yp, const std::vector<TermPow>& ts)
             if (u) {
                 Ex up = simplify(diff(u, b.x));
                 Ex ysol = simplify(Mul(Num(-1), up, Pow(Mul(Pc, u), Num(-1))));
+                ysol = oneConstant(ysol);
                 b.step("ode.t17", ysol, "ode.n14");
                 setSolution(b.r, "riccati", ysol, true, ysol);
                 return true;
@@ -979,6 +992,7 @@ static bool tryRiccati(Builder& b, const Ex& yp, const std::vector<TermPow>& ts)
                 Ex u = ur.explicitY;
                 Ex up = simplify(diff(u, b.x));
                 Ex ysol = simplify(Mul(Num(-1), up, Pow(Mul(Pc, u), Num(-1))));
+                ysol = oneConstant(ysol);
                 if (ysol && !ysol->isZero()) {
                     b.step("ode.t17", ysol, "ode.n14");
                     setSolution(b.r, "riccati", ysol, true, ysol);
