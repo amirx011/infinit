@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Branded launch screen: the app's own deep-navy backdrop with the infinity
+     mark centred, instead of the default white flash. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/ic_launcher_background" />
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/launch_logo" />
+    </item>
+</layer-list>
