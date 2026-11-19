@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Infinit Lab
+GenericName=Math workbench
+Comment=Solve differential equations and calculus problems step by step
+Exec=infinit
+Icon=infinit
+Terminal=false
+Categories=Education;Math;
+Keywords=ode;differential;equation;calculus;integral;derivative;math;
+StartupWMClass=ir.infinit
