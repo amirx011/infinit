@@ -6,7 +6,7 @@ The interface for the native `libodecore` engine. It ships in twelve languages, 
 - `lib/src/pages/`: workbenches, study articles and settings
 - `lib/src/native_engine.dart`: FFI bridge to `ode_solve`, `ode_free` and `ode_core_version`
 - `lib/src/settings_store.dart`: JSON settings on Linux and Windows, platform channel storage on Android
-- `lib/src/study_articles.dart`: the thirteen article catalogue and the library page map
+- `lib/src/study_articles.dart`: the nineteen article catalogue and the library page map
 - `lib/src/theme.dart`, `widgets.dart`, `models.dart`, `l10n.dart`: shared UI, data models and strings
 
 The default theme is dark and the default language is English. Mathematical content always renders left-to-right, independent of the interface direction.

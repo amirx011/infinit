@@ -46,8 +46,10 @@ import 'src/widgets.dart';
 /// differential-equations curriculum slots, 61–64 are the four original study
 /// articles, 65 is the Heun workbench, 66–115 are the curriculum
 /// placeholders, 116–124 are the new study articles, 125 is the
-/// explanations library and 126 is the Gauss/Cramer linear-system workbench.
-const int _lastPageIndex = 126;
+/// explanations library, 126 is the Gauss/Cramer linear-system workbench,
+/// 127–130 are the linear-algebra workbenches and 131–136 are the
+/// vector-space workbenches.
+const int _lastPageIndex = 162;
 
 /// Curriculum slots that still render the shared coming-soon page.
 ///
@@ -60,6 +62,36 @@ const Map<int, String> _topicPages = <int, String>{
   27: 'linear_system',
   28: 'matrix_eigen',
   126: 'linear_solve',
+  127: 'linalg_rank',
+  128: 'linalg_det',
+  129: 'linalg_inverse',
+  130: 'linalg_lu',
+  131: 'linalg_span',
+  132: 'linalg_independence',
+  133: 'linalg_basis',
+  134: 'linalg_coordinates',
+  135: 'linalg_change_basis',
+  136: 'linalg_subspace',
+  137: 'linalg_projection',
+  138: 'linalg_gram_schmidt',
+  139: 'linalg_qr',
+  140: 'linalg_least_squares',
+  141: 'linalg_diagonalize',
+  142: 'linalg_power',
+  143: 'linalg_orthogonal_complement',
+  144: 'linalg_graph',
+  145: 'linalg_fft',
+  146: 'linalg_similarity',
+  147: 'linalg_matrix_exp',
+  148: 'linalg_positive_definite',
+  149: 'linalg_svd',
+  150: 'linalg_norm',
+  151: 'linalg_power_iteration',
+  152: 'linalg_qr_algorithm',
+  153: 'linalg_iterative',
+  154: 'linalg_lp',
+  155: 'linalg_game',
+  156: 'linalg_symmetric',
   29: 'phase_portrait',
   30: 'critical_points',
   31: 'predator_prey',
@@ -378,9 +410,8 @@ class HomeScreenState extends State<HomeScreen> {
       case 1:
         return LinearAlgebraPage(
           key: const ValueKey('linear-algebra'),
-          engine: _engine,
-          engineError: _engineError,
           l10n: l10n,
+          onOpen: (page) => _open(page),
         );
       case 2:
         return OdePage(
@@ -628,7 +659,7 @@ class HomeScreenState extends State<HomeScreen> {
                           child: ListView(
                             key: const ValueKey('home-scroll'),
                             controller: _scroll,
-                            padding: const EdgeInsets.fromLTRB(22, 20, 22, 44),
+                            padding: const EdgeInsets.fromLTRB(24, 20, 24, 48),
                             children: [
                               _Header(
                                 l10n: l10n,
@@ -642,7 +673,7 @@ class HomeScreenState extends State<HomeScreen> {
                                     ? null
                                     : _showShortcuts,
                               ),
-                              const SizedBox(height: 26),
+                              const SizedBox(height: 28),
                               AnimatedSwitcher(
                                 duration: widget.settings.reduceMotion
                                     ? Duration.zero
@@ -758,7 +789,7 @@ class _AppDrawerState extends State<_AppDrawer> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(20, 18, 10, 14),
+              padding: const EdgeInsetsDirectional.fromSTEB(20, 16, 10, 16),
               child: Row(
                 children: [
                   const InfinitMark(size: 34),
@@ -798,7 +829,7 @@ class _AppDrawerState extends State<_AppDrawer> {
             if (query.isEmpty)
               _DrawerLocation(sections: sections, selected: widget.selected),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: _DrawerSearchField(
                 l10n: widget.l10n,
                 controller: _search,
@@ -808,7 +839,7 @@ class _AppDrawerState extends State<_AppDrawer> {
             Expanded(
               child: query.isEmpty
                   ? ListView(
-                      padding: const EdgeInsets.fromLTRB(10, 4, 10, 20),
+                      padding: const EdgeInsets.fromLTRB(10, 4, 10, 24),
                       children: [
                         for (var i = 0; i < sections.length; i++) ...[
                           if (i > 0 && sections[i].isGroup)
@@ -1091,7 +1122,7 @@ class _SideNav extends StatelessWidget {
     final sections = _navSections(l10n);
     return Container(
       key: const ValueKey('nav-side'),
-      width: 278,
+      width: 280,
       decoration: BoxDecoration(
         color: c.card.withValues(alpha: 0.52),
         border: BorderDirectional(end: BorderSide(color: c.line)),
@@ -1100,7 +1131,7 @@ class _SideNav extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
             child: Row(
               children: [
                 const InfinitMark(size: 34),
@@ -1140,7 +1171,7 @@ class _SideNav extends StatelessWidget {
           Divider(color: c.line, height: 1),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(10, 12, 10, 16),
+              padding: const EdgeInsets.fromLTRB(10, 12, 10, 20),
               children: [
                 for (var i = 0; i < sections.length; i++) ...[
                   if (i > 0 && sections[i].isGroup) const SizedBox(height: 4),
@@ -1160,8 +1191,10 @@ class _SideNav extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               child: Text(
                 'v$version',
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(fontSize: 11, letterSpacing: 0.4),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: 11,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
         ],
@@ -1386,8 +1419,11 @@ class _CommandPaletteState extends State<_CommandPalette> {
                                   Icon(entry.icon, size: 19, color: c.accent),
                                   const SizedBox(width: 12),
                                   Expanded(
+                                    flex: 3,
                                     child: Text(
                                       entry.label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontFamily: 'Vazirmatn',
                                         fontSize: 13.5,
@@ -1397,12 +1433,17 @@ class _CommandPaletteState extends State<_CommandPalette> {
                                     ),
                                   ),
                                   if (entry.hint != null)
-                                    Text(
-                                      entry.hint!,
-                                      style: TextStyle(
-                                        fontFamily: 'Vazirmatn',
-                                        fontSize: 11.5,
-                                        color: c.muted,
+                                    Flexible(
+                                      child: Text(
+                                        entry.hint!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.end,
+                                        style: TextStyle(
+                                          fontFamily: 'Vazirmatn',
+                                          fontSize: 11.5,
+                                          color: c.muted,
+                                        ),
                                       ),
                                     ),
                                   const SizedBox(width: 8),
@@ -1482,6 +1523,139 @@ List<_DrawerEntry> _navSections(L10n l10n) {
       _DrawerEntry.link(index: index, icon: icon, label: l10n.t(labelKey));
 
   return _collapseSingleChildGroups(<_DrawerEntry>[
+    _DrawerEntry.group(
+      icon: Icons.grid_on_rounded,
+      label: l10n.t('nav.group.linalg'),
+      hint: l10n.t('ui.matrices_eigenvalues'),
+      children: [
+        _DrawerEntry.link(
+          index: 1,
+          icon: Icons.dashboard_customize_rounded,
+          label: l10n.t('linalg.home.overview'),
+          hint: l10n.t('linalg.home.subtitle'),
+        ),
+        _DrawerEntry.group(
+          icon: Icons.table_rows_rounded,
+          label: l10n.t('nav.group.linalg.matrices'),
+          children: [
+            topic(127, Icons.table_rows_rounded, 'topic.linalg_rank.title'),
+            topic(128, Icons.calculate_rounded, 'topic.linalg_det.title'),
+            topic(129, Icons.flip_rounded, 'topic.linalg_inverse.title'),
+            topic(130, Icons.call_split_rounded, 'topic.linalg_lu.title'),
+            topic(126, Icons.calculate_rounded, 'topic.linear_solve.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.blur_on_rounded,
+          label: l10n.t('nav.group.linalg.vector_spaces'),
+          children: [
+            topic(131, Icons.blur_on_rounded, 'topic.linalg_span.title'),
+            topic(132, Icons.rule_rounded,
+                'topic.linalg_independence.title'),
+            topic(133, Icons.account_tree_rounded,
+                'topic.linalg_basis.title'),
+            topic(134, Icons.my_location_rounded,
+                'topic.linalg_coordinates.title'),
+            topic(135, Icons.swap_horiz_rounded,
+                'topic.linalg_change_basis.title'),
+            topic(136, Icons.checklist_rounded,
+                'topic.linalg_subspace.title'),
+            topic(144, Icons.hub_rounded, 'topic.linalg_graph.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.vertical_align_center_rounded,
+          label: l10n.t('nav.group.linalg.orthogonality'),
+          children: [
+            topic(137, Icons.vertical_align_center_rounded,
+                'topic.linalg_projection.title'),
+            topic(138, Icons.auto_fix_high_rounded,
+                'topic.linalg_gram_schmidt.title'),
+            topic(139, Icons.qr_code_2_rounded, 'topic.linalg_qr.title'),
+            topic(140, Icons.show_chart_rounded,
+                'topic.linalg_least_squares.title'),
+            topic(143, Icons.blur_circular_rounded,
+                'topic.linalg_orthogonal_complement.title'),
+            topic(145, Icons.graphic_eq_rounded, 'topic.linalg_fft.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.filter_center_focus_rounded,
+          label: l10n.t('nav.group.linalg.eigen'),
+          children: [
+            topic(28, Icons.grid_4x4_rounded, 'topic.matrix_eigen.title'),
+            topic(141, Icons.filter_center_focus_rounded,
+                'topic.linalg_diagonalize.title'),
+            topic(142, Icons.bolt_rounded, 'topic.linalg_power.title'),
+            topic(146, Icons.compare_arrows_rounded,
+                'topic.linalg_similarity.title'),
+            topic(147, Icons.timeline_rounded,
+                'topic.linalg_matrix_exp.title'),
+            topic(156, Icons.balance_rounded,
+                'topic.linalg_symmetric.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.check_circle_rounded,
+          label: l10n.t('nav.group.linalg.positive'),
+          children: [
+            topic(148, Icons.check_circle_rounded,
+                'topic.linalg_positive_definite.title'),
+            topic(149, Icons.auto_graph_rounded, 'topic.linalg_svd.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.straighten_rounded,
+          label: l10n.t('nav.group.linalg.numerical'),
+          children: [
+            topic(150, Icons.straighten_rounded, 'topic.linalg_norm.title'),
+            topic(151, Icons.trending_up_rounded,
+                'topic.linalg_power_iteration.title'),
+            topic(152, Icons.qr_code_2_rounded,
+                'topic.linalg_qr_algorithm.title'),
+            topic(153, Icons.sync_rounded, 'topic.linalg_iterative.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.linear_scale_rounded,
+          label: l10n.t('nav.group.linalg.optimization'),
+          children: [
+            topic(154, Icons.linear_scale_rounded, 'topic.linalg_lp.title'),
+            topic(155, Icons.sports_esports_rounded,
+                'topic.linalg_game.title'),
+          ],
+        ),
+        _DrawerEntry.group(
+          icon: Icons.auto_stories_rounded,
+          label: l10n.t('nav.group.linalg.articles'),
+          children: [
+            _DrawerEntry.link(
+              index: 124,
+              icon: Icons.menu_book_rounded,
+              label: l10n.t('study.linear_algebra.title'),
+              hint: l10n.t('study.linear_algebra.subtitle'),
+            ),
+            for (final article in studyArticlesInSection(
+              StudySection.linearAlgebra,
+            ))
+              _DrawerEntry.link(
+                index: kStudyArticlePages[article.id]!,
+                icon: article.icon,
+                label: article.title(l10n),
+              ),
+            _DrawerEntry.link(
+              index: kStudyLibraryPage,
+              icon: Icons.local_library_rounded,
+              label: l10n.t('study.library.title'),
+              hint: l10n.t(
+                'study.library.count',
+                {'count': kStudyArticles.length},
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
     _DrawerEntry.group(
       icon: Icons.functions_rounded,
       label: l10n.t('ui.differential_equations'),
@@ -1587,8 +1761,6 @@ List<_DrawerEntry> _navSections(L10n l10n) {
           label: l10n.t('nav.group.ch7'),
           children: [
             topic(27, Icons.hub_rounded, 'topic.linear_system.title'),
-            topic(126, Icons.calculate_rounded, 'topic.linear_solve.title'),
-            topic(28, Icons.grid_4x4_rounded, 'topic.matrix_eigen.title'),
             topic(75, Icons.account_tree_rounded, 'topic.system_theory.title'),
             topic(
               76,
@@ -1861,7 +2033,7 @@ List<_DrawerEntry> _navSections(L10n l10n) {
           ],
         ),
         _DrawerEntry.group(
-          icon: Icons.auto_awesome_rounded,
+          icon: Icons.extension_rounded,
           label: l10n.t('nav.group.calculus_further'),
           children: [
             _DrawerEntry.link(
@@ -1874,12 +2046,6 @@ List<_DrawerEntry> _navSections(L10n l10n) {
           ],
         ),
       ],
-    ),
-    _DrawerEntry.link(
-      index: 1,
-      icon: Icons.view_in_ar_rounded,
-      label: l10n.t('ui.linear_algebra'),
-      hint: l10n.t('ui.matrices_eigenvalues'),
     ),
     _DrawerEntry.group(
       icon: Icons.auto_stories_rounded,
@@ -2059,24 +2225,16 @@ class _DrawerGroupNodeState extends State<_DrawerGroupNode> {
                     ),
                     if (count > 0) ...[
                       const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _active ? c.accentSoft : c.cardAlt,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: c.line),
-                        ),
-                        child: Text(
-                          '$count',
-                          style: TextStyle(
-                            fontFamily: 'SpaceGrotesk',
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: _active ? c.accent : c.muted,
-                          ),
+                      // A count is meta, so it reads as quiet text instead of a
+                      // pill repeated on every group header.
+                      Text(
+                        '$count',
+                        style: TextStyle(
+                          fontFamily: 'SpaceGrotesk',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          color: _active ? c.accent : c.muted,
                         ),
                       ),
                     ],
@@ -2592,7 +2750,7 @@ class _HomePageState extends State<_HomePage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _hero(context, l),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         LearningCard(
           l10n: l,
           title: l.t('ui.how_to_read_a_solution'),
@@ -2604,7 +2762,7 @@ class _HomePageState extends State<_HomePage> {
             l.t('ui.validation_substitutes_the_answer_back_a_failed'),
           ],
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 28),
         SoftCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2678,11 +2836,11 @@ class _HomePageState extends State<_HomePage> {
             ],
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 32),
         SectionLabel(l.t('ui.more_sections')),
         const SizedBox(height: 12),
         _topicCards(context, l),
-        const SizedBox(height: 28),
+        const SizedBox(height: 32),
         SectionLabel(l.t('ui.analysis_tools')),
         const SizedBox(height: 12),
         LayoutBuilder(
@@ -2726,9 +2884,11 @@ class _HomePageState extends State<_HomePage> {
             );
           },
         ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 32),
+        SectionLabel(l.t('ui.calculus_tools')),
+        const SizedBox(height: 12),
         _calculusRow(context, l),
-        const SizedBox(height: 30),
+        const SizedBox(height: 32),
         Center(
           child: Text(
             l.t('ui.see_the_steps_not_just_the_answer'),
@@ -2791,16 +2951,14 @@ class _HomePageState extends State<_HomePage> {
       ],
     );
 
+    // Quiet chrome around a rich preview: the example panel carries the
+    // accent and the detail, the hero surface stays on the neutral ramp.
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: [c.accent.withValues(alpha: 0.10), c.card],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: c.accent.withValues(alpha: 0.20)),
+        color: c.card,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: c.line),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -2832,6 +2990,13 @@ class _HomePageState extends State<_HomePage> {
   /// reads as a map of the whole workbench instead of a list of ODE forms.
   Widget _topicCards(BuildContext context, L10n l) {
     final cards = <Widget>[
+      _WideCard(
+        icon: Icons.grid_on_rounded,
+        title: l.t('ui.linear_algebra'),
+        subtitle: l.t('linalg.home.subtitle'),
+        formula: r"A\mathbf{x} = \mathbf{b}",
+        onTap: () => widget.onOpen(1),
+      ),
       _WideCard(
         icon: Icons.square_foot_rounded,
         title: l.t('topic.euler_equations.title'),
@@ -2915,10 +3080,6 @@ class _HomePageState extends State<_HomePage> {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text(
-          l.t('ui.calculus_tools'),
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 12),
-        ),
         for (final item in items)
           TextButton.icon(
             onPressed: () => widget.onOpen(item.index),
@@ -3253,9 +3414,9 @@ class _WideCard extends StatelessWidget {
     final c = context.colors;
     return _HoverSurface(
       onTap: onTap,
-      radius: 18,
+      radius: 16,
       childBuilder: (context, hovered) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 15, 14, 15),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         child: Row(
           children: [
             Container(
@@ -3286,7 +3447,7 @@ class _WideCard extends StatelessWidget {
                       color: hovered ? c.accent : c.text,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   MathText(
                     subtitle,
                     maxLines: 2,
@@ -3295,7 +3456,7 @@ class _WideCard extends StatelessWidget {
                         ?.copyWith(fontSize: 12),
                   ),
                   if (formula != null) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Directionality(
                       textDirection: TextDirection.ltr,
                       child: SingleChildScrollView(

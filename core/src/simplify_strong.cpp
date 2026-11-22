@@ -60,6 +60,16 @@ size_t fractionDepth(const Ex& a, int level) {
 // clear a nested denominator, never enough to expand a polynomial.
 size_t readability(const Ex& a) { return nodeCount(a) + 4 * fractionDepth(a, 0); }
 
+// True when the expression contains a reciprocal power, i.e. it is a fraction
+// somewhere in the tree.
+bool hasDivision(const Ex& a) {
+    if (!a) return false;
+    if (a->isPow() && a->args[1]->isNum() && a->args[1]->num.isNeg()) return true;
+    for (auto& c : a->args)
+        if (hasDivision(c)) return true;
+    return false;
+}
+
 // ---------------------------------------------------------------- fractions
 
 // (p/q)^n  ->  p^n · q^(−n)  for integer n.  Growing the tree here is fine:
@@ -221,7 +231,17 @@ bool dividePolyVar(const Ex& A, const Ex& B, const std::string& v, Ex& out) {
         long long shift = dr - db;
         Ex c;
         if (!divideExact(r.back(), b.back(), c)) return false;
-        q[(size_t)shift] = c;
+        // A leading coefficient can cancel only after expansion, so the exact
+        // quotient comes out zero even though the coefficient is not
+        // structurally zero.  Drop that degree and retry instead of looping:
+        // another pass at the same power would overwrite the coefficient the
+        // quotient already holds with zero and silently lose a term.
+        if (c->isZero()) {
+            if (r.size() <= 1) break;
+            r.pop_back();
+            continue;
+        }
+        q[(size_t)shift] = Add(q[(size_t)shift], c);
         std::vector<Ex> next(r.size(), Num(0));
         for (size_t i = 0; i < r.size(); ++i) {
             Ex sub = Num(0);
@@ -559,10 +579,13 @@ Ex factorCommonTerm(const Ex& a) {
     for (auto& kv : found) {
         auto& hit = kv.second;
         if (hit.terms.size() < 2) continue;
-        // Factoring a bare symbol out of a polynomial gives odd forms such as
-        // x*(x + 3) + 2 or -1/6*x*(-2*x^2 + 9*x - 12); only a factor that is
-        // itself an expression (a function or a composite) reads better.
-        if (!hit.base->isFunc() && nodeCount(hit.base) < 3) continue;
+        // A bare symbol is only worth pulling out when it sits in *every* term;
+        // factoring it out of some terms gives odd forms such as
+        // x*(x + 3) + 2.  A composite factor such as exp(x) may be common to
+        // just the terms that carry it.
+        if (!hit.base->isFunc() && nodeCount(hit.base) < 3 &&
+            hit.terms.size() != ts.size())
+            continue;
         Rational minExp = hit.exps[0];
         for (auto& e : hit.exps) minExp = e < minExp ? e : minExp;
         if (minExp.isZero()) continue;
@@ -579,6 +602,11 @@ Ex factorCommonTerm(const Ex& a) {
         if (!ok) continue;
         Ex factor = minExp.isOne() ? hit.base : Pow(hit.base, Num(minExp));
         Ex inner = quot.size() == 1 ? quot[0] : Add(quot);
+        // Pulling out one factor can expose the next one: A*x*e^x*(...) needs
+        // three rounds, and a single round would leave a sum that looks longer
+        // than the nested original.
+        inner = simplify(inner);
+        if (inner->isAdd()) inner = factorCommonTerm(inner);
         Ex factored = simplify(Mul(factor, inner));
         std::vector<Ex> rest;
         for (size_t i = 0; i < ts.size(); ++i) {
@@ -678,6 +706,61 @@ Ex presentPolynomial(const Ex& a) {
     return node;
 }
 
+// presentPolynomial only sees the outermost sum, so a polynomial factor inside
+// a product keeps its canonical (unsorted) term order:
+// exp(x)*(cos(x)*P + sin(x)*Q) printed P as x + x^2 + x^5 + ...
+// This walks the tree and presents every polynomial factor it can reach.
+Ex presentPolynomialFactors(const Ex& a) {
+    if (!a || a->args.empty()) return a;
+    try {
+        if (a->isAdd()) {
+            // Only sort a sum that is already expanded.  Expanding here would
+            // turn (s - 2)^2 back into s^2 - 4s + 4 and destroy the grouped
+            // shape that presentPolynomial leaves alone in quotients.
+            Ex e = expand(a);
+            if (equals(e, a)) {
+                Ex p = presentPolynomial(a);
+                if (!equals(p, a)) return p;
+            }
+            std::vector<Ex> v;
+            bool changed = false;
+            for (auto& t : a->args) {
+                Ex g = presentPolynomialFactors(t);
+                if (!equals(g, t)) changed = true;
+                v.push_back(g);
+            }
+            return changed ? Add(v) : a;
+        }
+        if (a->isMul()) {
+            std::vector<Ex> v;
+            bool changed = false;
+            for (auto& f : a->args) {
+                Ex g = presentPolynomialFactors(f);
+                if (!equals(g, f)) changed = true;
+                v.push_back(g);
+            }
+            return changed ? Mul(v) : a;
+        }
+        if (a->isPow()) {
+            Ex g = presentPolynomialFactors(a->args[0]);
+            return equals(g, a->args[0]) ? a : Pow(g, a->args[1]);
+        }
+        if (a->isFunc()) {
+            std::vector<Ex> v;
+            bool changed = false;
+            for (auto& f : a->args) {
+                Ex g = presentPolynomialFactors(f);
+                if (!equals(g, f)) changed = true;
+                v.push_back(g);
+            }
+            return changed ? Fn(a->name, v) : a;
+        }
+        return a;
+    } catch (...) {
+        return a;
+    }
+}
+
 // 1/(C/x^2 - x/3) hides a division inside a division.  Combining only the
 // inner denominator keeps the surrounding sum in its own shape:
 //   1/(C/x^2 - x/3)  ->  -3x^2/(x^3 - 3C).
@@ -727,14 +810,34 @@ Ex normalRound(const Ex& a) {
         return e && e->isMul() && e->args.size() == 2 && e->args[0]->isNum() &&
                e->args[0]->num.n == -1;
     };
-    auto consider = [&](const Ex& cand) {
+    auto take = [&](const Ex& cand) {
         if (!cand) return;
         const int rc = readability(cand), rb = readability(best);
         if (rc < rb || (rc == rb && leadingNegation(best) && !leadingNegation(cand)))
             best = cand;
-        // A cancelled sum often hides one factor repeated in every term.
-        Ex grouped = factorCommonTerm(best);
-        if (readability(grouped) < readability(best)) best = grouped;
+    };
+    auto consider = [&](const Ex& cand) {
+        if (!cand) return;
+        take(cand);
+        // A cancelled sum often hides one factor repeated in every term.  With
+        // fractions, factoring the expanded shape destroys a grouped square
+        // such as (s-2)^2 and is left to the numerator pass below.
+        if (!hasDivision(cand)) take(factorCommonTerm(cand));
+        // The distributed form can be longer than the nested one and still
+        // collapse far below it once its common factor comes out:
+        // A*x*e^x*(3x + x(x+3) + 6) expands to 22 nodes, but
+        // A*x*e^x*(x^2 + 6x + 6) has 14.  With fractions this route only
+        // produces compound fractions, so it is limited to division-free
+        // expressions.
+        if (!hasDivision(cand)) {
+            Ex expanded = expand(cand);
+            if (!equals(expanded, cand)) {
+                Ex flat = simplify(expanded);
+                Ex regrouped = factorCommonTerm(flat);
+                if (!equals(regrouped, flat)) take(regrouped);
+            }
+        }
+        take(factorCommonTerm(best));
     };
     try {
         // Look at the expanded shape of the round's input before any later
@@ -742,6 +845,26 @@ Ex normalRound(const Ex& a) {
         // polynomial factor can expand a perfect-square denominator and hide
         // the compact form exp(x)/(exp(x)+1)^2 behind exp(x)/(exp(2x)+2exp(x)+1).
         consider(expand(a));
+        // An Add nested inside a product never reaches factorCommonTerm above.
+        // For example exp(x)*(sin(x)*P + sin(x)*P') keeps both sine terms even
+        // though they share sin(x); factor each sum factor and keep the rebuild
+        // only when the whole expression reads shorter.
+        if (best->isMul()) {
+            std::vector<Ex> facs;
+            bool changed = false;
+            for (auto& f : best->args) {
+                if (f->isAdd()) {
+                    Ex g = factorCommonTerm(f);
+                    if (!equals(g, f)) {
+                        facs.push_back(g);
+                        changed = true;
+                        continue;
+                    }
+                }
+                facs.push_back(f);
+            }
+            if (changed) take(simplify(Mul(facs)));
+        }
         consider(denestFractions(best));
         Ex t = together(best);
         consider(t);
@@ -807,7 +930,8 @@ Ex simplifyStrong(const Ex& a) {
         if (readability(next) > readability(cur)) break;
         cur = next;
     }
-    return presentPolynomial(positiveDenominator(cur));
+    return presentPolynomialFactors(
+        presentPolynomial(positiveDenominator(cur)));
 }
 
 } // namespace ode

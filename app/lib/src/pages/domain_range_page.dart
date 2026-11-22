@@ -35,6 +35,11 @@ class _DomainRangePageState extends State<DomainRangePage> {
   DomainResult? _result;
   String? _error;
   bool _busy = false;
+  // The window actually sampled, so editing the fields afterwards cannot move
+  // the picture away from the data it was computed for.
+  double? _windowX0;
+  double? _windowX1;
+  String _windowVariable = 'x';
 
   static const _examples = <(String, String, String)>[
     ('1/(x^2-1)', '-12', '12'),
@@ -97,10 +102,11 @@ class _DomainRangePageState extends State<DomainRangePage> {
       _busy = true;
       _error = null;
     });
+    final variable = _xv.text.trim().isEmpty ? 'x' : _xv.text.trim();
     try {
       final r = await engine.domainAsync(
         text,
-        x: _xv.text.trim().isEmpty ? 'x' : _xv.text.trim(),
+        x: variable,
         xmin: xmin,
         xmax: xmax,
       );
@@ -108,6 +114,11 @@ class _DomainRangePageState extends State<DomainRangePage> {
       setState(() {
         _result = r;
         _busy = false;
+        if (r.ok) {
+          _windowX0 = xmin;
+          _windowX1 = xmax;
+          _windowVariable = variable;
+        }
         if (!r.ok) {
           _error = r.error.isEmpty ? l.t('ui.the_scan_failed') : r.error;
         }
@@ -356,8 +367,10 @@ class _DomainRangePageState extends State<DomainRangePage> {
                                 kind: PlotMarkerKind.hole,
                               ),
                           ],
-                          xMin: double.tryParse(_xmin.text.trim()),
-                          xMax: double.tryParse(_xmax.text.trim()),
+                          xMin: _windowX0,
+                          xMax: _windowX1,
+                          xLabel: _windowVariable,
+                          yLabel: 'y',
                         ),
                         legend: false,
                       ),

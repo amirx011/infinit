@@ -17,8 +17,4 @@ Result systemRepeatedTopic(const TopicRequest& req);
 Result systemNonhomogeneousTopic(const TopicRequest& req);
 Result systemRk4Topic(const TopicRequest& req);
 
-// Elementary linear algebra: solve A x = b by Gaussian elimination or
-// Cramer's rule.  Separate from the ODE-system topics above.
-Result linearSolveTopic(const TopicRequest& req);
-
 } // namespace ode

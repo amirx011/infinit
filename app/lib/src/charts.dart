@@ -4,6 +4,7 @@
 // Linux, Android and the web without a Python or gnuplot dependency.
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/material.dart';
 
 import 'app_state.dart';
@@ -219,8 +220,9 @@ class MathPlot extends StatelessWidget {
   }
 }
 
-class _Bounds {
-  const _Bounds(this.x0, this.x1, this.y0, this.y1);
+/// The window a plot draws, in data coordinates.
+class PlotWindow {
+  const PlotWindow(this.x0, this.x1, this.y0, this.y1);
 
   final double x0;
   final double x1;
@@ -231,6 +233,209 @@ class _Bounds {
   double get ySpan => y1 - y0;
 
   bool get valid => xSpan > 0 && ySpan > 0;
+}
+
+/// The range that holds almost every finite value.
+///
+/// A pole turns a handful of samples into huge numbers; plotting them at face
+/// value flattens the rest of the curve into a line. When the full span is more
+/// than eight times the 2 %…98 % band the band wins, so the interesting part
+/// keeps its shape. A well-behaved data set is returned untouched.
+@visibleForTesting
+({double lo, double hi})? robustValueRange(Iterable<double> values) {
+  final finite = values.where((v) => v.isFinite).toList()..sort();
+  if (finite.isEmpty) return null;
+  var lo = finite.first;
+  var hi = finite.last;
+  if (finite.length > 8 && hi - lo > 1e-12) {
+    final coreLo = finite[(finite.length * 0.02).floor()];
+    final coreHiIndex = (finite.length * 0.98)
+        .ceil()
+        .clamp(0, finite.length - 1)
+        .toInt();
+    final coreHi = finite[coreHiIndex];
+    final core = coreHi - coreLo;
+    if (core > 1e-12 && hi - lo > 8 * core) {
+      lo = coreLo;
+      hi = coreHi;
+    }
+  }
+  return (lo: lo, hi: hi);
+}
+
+/// Picks the window for a spec. An explicit side always wins; a missing side
+/// falls back to the data, so a caller may pin only `xMin` or only `yMax`.
+///
+/// Automatic y sides use [robustValueRange], so a pole's huge samples do not
+/// flatten the interesting part while a caller's own limits are never silently
+/// moved.
+@visibleForTesting
+PlotWindow? resolvePlotBounds(PlotSpec spec) {
+  final xs = <double>[];
+  final ys = <double>[];
+  for (final s in spec.series) {
+    final n = math.min(s.xs.length, s.ys.length);
+    for (var i = 0; i < n; i++) {
+      final x = s.xs[i];
+      final y = s.ys[i];
+      if (x.isFinite && y.isFinite) {
+        xs.add(x);
+        ys.add(y);
+      }
+    }
+  }
+  for (final m in spec.markers) {
+    if (m.x.isFinite && m.y.isFinite) {
+      xs.add(m.x);
+      ys.add(m.y);
+    }
+  }
+  for (final b in spec.bands) {
+    final target = b.horizontal ? ys : xs;
+    if (!b.interval.loInfinite) target.add(b.interval.lo);
+    if (!b.interval.hiInfinite) target.add(b.interval.hi);
+  }
+  for (final a in spec.asymptotes) {
+    if (a.isFinite) xs.add(a);
+  }
+  for (final a in spec.arrows) {
+    if (a.x.isFinite) xs.add(a.x);
+    if (a.y.isFinite) ys.add(a.y);
+  }
+
+  double? x0 = spec.xMin;
+  double? x1 = spec.xMax;
+  if (x0 == null || x1 == null) {
+    if (xs.isEmpty) return null;
+    x0 ??= xs.reduce(math.min);
+    x1 ??= xs.reduce(math.max);
+    if (x1 - x0 < 1e-12) {
+      // Widen only the side the caller left free.
+      if (spec.xMin == null && spec.xMax == null) {
+        x0 -= 1;
+        x1 += 1;
+      } else if (spec.xMin == null) {
+        x0 = x1 - 1;
+      } else {
+        x1 = x0 + 1;
+      }
+    }
+  } else if (x1 - x0 < 1e-12) {
+    return null;
+  }
+
+  final robust = robustValueRange(ys);
+  double? y0 = spec.yMin;
+  double? y1 = spec.yMax;
+  if (y0 == null || y1 == null) {
+    if (robust == null) {
+      if (spec.series.isEmpty && spec.arrows.isEmpty) return null;
+      // Keep the pinned side and give the other a readable unit span.
+      if (y0 == null && y1 == null) {
+        y0 = -1;
+        y1 = 1;
+      } else if (y0 == null) {
+        y0 = y1! - 1;
+      } else {
+        y1 = y0 + 1;
+      }
+    } else {
+      y0 ??= robust.lo;
+      y1 ??= robust.hi;
+    }
+  }
+
+  if (y1 - y0 < 1e-12) {
+    // A degenerate explicit window is an error; an automatic one gets padding.
+    if (spec.yMin != null && spec.yMax != null) return null;
+    final pad = math.max(0.5, y0.abs() * 0.2);
+    if (spec.yMin == null) y0 -= pad;
+    if (spec.yMax == null) y1 += pad;
+    if (y1 - y0 < 1e-12) return null;
+  }
+
+  final xPad = (x1 - x0) * 0.03;
+  final yPad = (y1 - y0) * 0.06;
+  return PlotWindow(x0 - xPad, x1 + xPad, y0 - yPad, y1 + yPad);
+}
+
+/// Tick positions at a "nice" step, always inside `[lo, hi]`.
+@visibleForTesting
+List<double> plotTicks(double lo, double hi) {
+  if (!lo.isFinite || !hi.isFinite || hi <= lo) return const [];
+  final step = _niceStep((hi - lo) / 5);
+  final first = (lo / step).ceil() * step;
+  final count = ((hi - first) / step + 1e-9).floor();
+  final out = <double>[];
+  for (var i = 0; i <= count && out.length < 24; i++) {
+    final v = first + step * i;
+    out.add(v.abs() < step * 1e-9 ? 0 : v);
+  }
+  return out;
+}
+
+/// A tick label split into its body and, for very large or very small
+/// magnitudes, a power of ten: `2.5×10⁴` is drawn as `2.5×10` plus a raised
+/// `4`. The exponent is painted separately so it stays readable even when the
+/// UI font has no superscript glyphs.
+class PlotTickText {
+  const PlotTickText(this.body, [this.exponent]);
+
+  final String body;
+  final int? exponent;
+}
+
+@visibleForTesting
+PlotTickText plotTickText(double v) {
+  if (v == 0) return const PlotTickText('0');
+  final a = v.abs();
+  if (a >= 1e6 || a < 1e-4) {
+    final exp = (math.log(a) / math.ln10).floor();
+    final mant = v / math.pow(10, exp);
+    final m = mant.abs() < 1e-9 ? '0' : _trim(mant);
+    return PlotTickText(m.replaceAll('-', '−'), exp);
+  }
+  return PlotTickText(_trim(v).replaceAll('-', '−'));
+}
+
+double _niceStep(double raw) {
+  if (!raw.isFinite || raw <= 0) return 1;
+  final mag = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
+  final norm = raw / mag;
+  double nice;
+  // 2.5 keeps a wide window from falling back to three lonely ticks: an
+  // 16-unit span gets 2.5 spacing instead of 5.
+  if (norm < 1.5) {
+    nice = 1;
+  } else if (norm < 2.25) {
+    nice = 2;
+  } else if (norm < 3.5) {
+    nice = 2.5;
+  } else if (norm < 7.5) {
+    nice = 5;
+  } else {
+    nice = 10;
+  }
+  return nice * mag;
+}
+
+String _trim(double v) {
+  var s = v.toStringAsFixed(4);
+  s = s.replaceFirst(RegExp(r'0+$'), '');
+  s = s.replaceFirst(RegExp(r'\.$'), '');
+  return s == '-0' ? '0' : s;
+}
+
+/// One measured tick label. [body] holds the number (and `×10`), [power] the
+/// raised exponent when the value is written in scientific notation.
+class _TickLabel {
+  _TickLabel(this.body, this.power);
+
+  final TextPainter body;
+  final TextPainter? power;
+
+  double get width => body.width + (power?.width ?? 0);
+  double get height => body.height;
 }
 
 class _PlotPainter extends CustomPainter {
@@ -246,24 +451,51 @@ class _PlotPainter extends CustomPainter {
   final TextDirection textDirection;
   final String emptyMessage;
 
-  static const _padLeft = 46.0;
+  static const _minPadLeft = 46.0;
   static const _padTop = 14.0;
   static const _padRight = 16.0;
   static const _padBottom = 28.0;
 
+  TextStyle get _tickStyle => TextStyle(
+    color: colors.muted,
+    fontSize: 10,
+    fontFamily: 'Vazirmatn',
+  );
+
+  TextStyle get _axisLabelStyle => TextStyle(
+    color: colors.muted,
+    fontSize: 11,
+    fontFamily: 'Vazirmatn',
+    fontStyle: FontStyle.italic,
+  );
+
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTRB(
-      _padLeft,
-      _padTop,
-      math.max(_padLeft + 10, size.width - _padRight),
-      math.max(_padTop + 10, size.height - _padBottom),
-    );
-    final bounds = _resolveBounds(rect);
+    final bounds = resolvePlotBounds(spec);
     if (bounds == null || !bounds.valid) {
       _drawEmpty(canvas, size);
       return;
     }
+
+    // Tick labels decide the left margin: a long label such as −100000 must
+    // not be cut by the frame edge.
+    final xTicks = plotTicks(bounds.x0, bounds.x1);
+    final yTicks = plotTicks(bounds.y0, bounds.y1);
+    final xLabels = [for (final v in xTicks) _tickLabel(v)];
+    final yLabels = [for (final v in yTicks) _tickLabel(v)];
+    var widestY = 0.0;
+    for (final label in yLabels) {
+      widestY = math.max(widestY, label.width);
+    }
+    final left = math.max(_minPadLeft, widestY + 14);
+    final top = spec.yLabel == null ? _padTop : 26.0;
+    final bottom = _padBottom + (spec.xLabel == null ? 0 : 14.0);
+    final rect = Rect.fromLTRB(
+      left,
+      top,
+      math.max(left + 10, size.width - _padRight),
+      math.max(top + 10, size.height - bottom),
+    );
 
     double px(double x) =>
         rect.left + (x - bounds.x0) / bounds.xSpan * rect.width;
@@ -346,113 +578,25 @@ class _PlotPainter extends CustomPainter {
     }
 
     canvas.restore();
-    _drawTicks(canvas, rect, bounds, px, py);
-  }
-
-  _Bounds? _resolveBounds(Rect rect) {
-    final xs = <double>[];
-    final ys = <double>[];
-    for (final s in spec.series) {
-      final n = math.min(s.xs.length, s.ys.length);
-      for (var i = 0; i < n; i++) {
-        final x = s.xs[i];
-        final y = s.ys[i];
-        if (x.isFinite && y.isFinite) {
-          xs.add(x);
-          ys.add(y);
-        }
-      }
-    }
-    for (final m in spec.markers) {
-      if (m.x.isFinite && m.y.isFinite) {
-        xs.add(m.x);
-        ys.add(m.y);
-      }
-    }
-    for (final b in spec.bands) {
-      final target = b.horizontal ? ys : xs;
-      if (!b.interval.loInfinite) target.add(b.interval.lo);
-      if (!b.interval.hiInfinite) target.add(b.interval.hi);
-    }
-    for (final a in spec.asymptotes) {
-      if (a.isFinite) xs.add(a);
-    }
-    for (final a in spec.arrows) {
-      if (a.x.isFinite) xs.add(a.x);
-      if (a.y.isFinite) ys.add(a.y);
-    }
-
-    double x0;
-    double x1;
-    if (spec.xMin != null && spec.xMax != null) {
-      x0 = spec.xMin!;
-      x1 = spec.xMax!;
-    } else {
-      if (xs.isEmpty) return null;
-      x0 = xs.reduce(math.min);
-      x1 = xs.reduce(math.max);
-      if (x1 - x0 < 1e-12) {
-        x0 -= 1;
-        x1 += 1;
-      }
-    }
-
-    double y0;
-    double y1;
-    if (spec.yMin != null && spec.yMax != null) {
-      y0 = spec.yMin!;
-      y1 = spec.yMax!;
-    } else {
-      final finite = ys.where((v) => v.isFinite).toList()..sort();
-      if (finite.isEmpty) {
-        if (spec.series.isEmpty && spec.arrows.isEmpty) return null;
-        y0 = spec.yMin ?? -1;
-        y1 = spec.yMax ?? 1;
-      } else {
-        y0 = spec.yMin ?? finite.first;
-        y1 = spec.yMax ?? finite.last;
-        // Outliers near a pole should not flatten the whole picture.
-        if (spec.yMin == null && spec.yMax == null && finite.length > 8) {
-          final lo = finite[(finite.length * 0.02).floor()];
-          final hiIndex = (finite.length * 0.98)
-              .ceil()
-              .clamp(0, finite.length - 1)
-              .toInt();
-          final hi = finite[hiIndex];
-          final core = hi - lo;
-          if (core > 1e-12 && (y1 - y0) > 8 * core) {
-            y0 = lo - core * 0.08;
-            y1 = hi + core * 0.08;
-          }
-        }
-        if (y1 - y0 < 1e-12) {
-          final pad = math.max(0.5, y0.abs() * 0.2);
-          y0 -= pad;
-          y1 += pad;
-        }
-      }
-    }
-
-    final xPad = (x1 - x0) * 0.03;
-    final yPad = (y1 - y0) * 0.06;
-    return _Bounds(x0 - xPad, x1 + xPad, y0 - yPad, y1 + yPad);
+    _drawTicks(canvas, rect, xTicks, yTicks, px, py, xLabels, yLabels);
+    _drawAxisLabels(canvas, rect);
   }
 
   void _drawGrid(
     Canvas canvas,
     Rect rect,
-    _Bounds b,
+    PlotWindow b,
     double Function(double) px,
     double Function(double) py,
   ) {
     final paint = Paint()
       ..color = colors.line.withValues(alpha: 0.45)
       ..strokeWidth = 1;
-    for (final x in _ticks(b.x0, b.x1)) {
+    for (final x in plotTicks(b.x0, b.x1)) {
       final sx = px(x);
       canvas.drawLine(Offset(sx, rect.top), Offset(sx, rect.bottom), paint);
     }
-    for (final y in _ticks(b.y0, b.y1)) {
+    for (final y in plotTicks(b.y0, b.y1)) {
       final sy = py(y);
       canvas.drawLine(Offset(rect.left, sy), Offset(rect.right, sy), paint);
     }
@@ -461,7 +605,7 @@ class _PlotPainter extends CustomPainter {
   void _drawAxes(
     Canvas canvas,
     Rect rect,
-    _Bounds b,
+    PlotWindow b,
     double Function(double) px,
     double Function(double) py,
   ) {
@@ -481,7 +625,7 @@ class _PlotPainter extends CustomPainter {
   void _drawSeries(
     Canvas canvas,
     Rect rect,
-    _Bounds b,
+    PlotWindow b,
     PlotSeries series,
     double Function(double) px,
     double Function(double) py,
@@ -503,6 +647,9 @@ class _PlotPainter extends CustomPainter {
     }
     final path = Path();
     final fill = Path();
+    // A filled area runs to the x-axis, not to the bottom of the frame: when
+    // the window does not include y = 0 the baseline is clamped to the edge.
+    final baseline = py(0).clamp(rect.top, rect.bottom);
     var penDown = false;
     var lastY = double.nan;
     var lastX = rect.left;
@@ -519,15 +666,15 @@ class _PlotPainter extends CustomPainter {
       lastX = p.dx;
       if (!penDown) {
         path.moveTo(p.dx, p.dy);
-        fill.moveTo(p.dx, rect.bottom);
+        fill.moveTo(p.dx, baseline);
         fill.lineTo(p.dx, p.dy);
         penDown = true;
       } else {
         final jump = (y - lastY).abs();
         if (jump > jumpLimit) {
           path.moveTo(p.dx, p.dy);
-          fill.lineTo(p.dx, rect.bottom);
-          fill.moveTo(p.dx, rect.bottom);
+          fill.lineTo(p.dx, baseline);
+          fill.moveTo(p.dx, baseline);
           fill.lineTo(p.dx, p.dy);
         } else {
           path.lineTo(p.dx, p.dy);
@@ -537,7 +684,7 @@ class _PlotPainter extends CustomPainter {
       lastY = y;
     }
     if (series.fill) {
-      fill.lineTo(lastX, rect.bottom);
+      fill.lineTo(lastX, baseline);
       fill.close();
       canvas.drawPath(
         fill,
@@ -595,7 +742,7 @@ class _PlotPainter extends CustomPainter {
   void _drawArrow(
     Canvas canvas,
     Rect rect,
-    _Bounds b,
+    PlotWindow b,
     PlotArrow arrow,
     double Function(double) px,
     double Function(double) py,
@@ -640,39 +787,96 @@ class _PlotPainter extends CustomPainter {
   void _drawTicks(
     Canvas canvas,
     Rect rect,
-    _Bounds b,
+    List<double> xTicks,
+    List<double> yTicks,
     double Function(double) px,
     double Function(double) py,
+    List<_TickLabel> xLabels,
+    List<_TickLabel> yLabels,
   ) {
-    final style = TextStyle(
-      color: colors.muted,
-      fontSize: 10,
-      fontFamily: 'Vazirmatn',
-    );
-    for (final x in _ticks(b.x0, b.x1)) {
-      final sx = px(x);
+    for (var i = 0; i < xTicks.length && i < xLabels.length; i++) {
+      final sx = px(xTicks[i]);
       if (sx < rect.left - 1 || sx > rect.right + 1) continue;
+      final label = xLabels[i];
+      // Keep the label inside the frame instead of letting the first and last
+      // tick be cut in half by the chart edge.
+      var dx = sx - label.width / 2;
+      dx = math.min(dx, rect.right - label.width);
+      dx = math.max(dx, rect.left);
+      _paintTickLabel(canvas, label, Offset(dx, rect.bottom + 7));
+    }
+    for (var i = 0; i < yTicks.length && i < yLabels.length; i++) {
+      final sy = py(yTicks[i]);
+      if (sy < rect.top - 1 || sy > rect.bottom + 1) continue;
+      final label = yLabels[i];
+      _paintTickLabel(
+        canvas,
+        label,
+        Offset(rect.left - 7 - label.width, sy - label.height / 2),
+      );
+    }
+  }
+
+  _TickLabel _tickLabel(double value) {
+    final parts = plotTickText(value);
+    final body = _layout(
+      parts.exponent == null ? parts.body : '${parts.body}×10',
+      _tickStyle,
+    );
+    final power = parts.exponent == null
+        ? null
+        : _layout(
+            parts.exponent! < 0 ? '−${parts.exponent!.abs()}' : '${parts.exponent}',
+            _tickStyle.copyWith(fontSize: (_tickStyle.fontSize ?? 10) * 0.72),
+          );
+    return _TickLabel(body, power);
+  }
+
+  /// Draws the body and, when present, the raised power of ten.
+  void _paintTickLabel(Canvas canvas, _TickLabel label, Offset at) {
+    label.body.paint(canvas, at);
+    final power = label.power;
+    if (power != null) {
+      power.paint(
+        canvas,
+        Offset(at.dx + label.body.width, at.dy - label.body.height * 0.34),
+      );
+    }
+  }
+
+  /// Axis names live outside the frame: y above the top-left corner and x
+  /// under the bottom-right one, where the ticks have already made room.
+  void _drawAxisLabels(Canvas canvas, Rect rect) {
+    final yLabel = spec.yLabel;
+    if (yLabel != null && yLabel.isNotEmpty) {
       _text(
         canvas,
-        _formatTick(x),
-        Offset(sx, rect.bottom + 7),
-        style,
-        align: TextAlign.center,
+        yLabel,
+        Offset(rect.left, 2),
+        _axisLabelStyle,
+        align: TextAlign.left,
         direction: TextDirection.ltr,
       );
     }
-    for (final y in _ticks(b.y0, b.y1)) {
-      final sy = py(y);
-      if (sy < rect.top - 1 || sy > rect.bottom + 1) continue;
+    final xLabel = spec.xLabel;
+    if (xLabel != null && xLabel.isNotEmpty) {
       _text(
         canvas,
-        _formatTick(y),
-        Offset(rect.left - 7, sy - 6),
-        style,
+        xLabel,
+        Offset(rect.right, rect.bottom + 20),
+        _axisLabelStyle,
         align: TextAlign.right,
         direction: TextDirection.ltr,
       );
     }
+  }
+
+  TextPainter _layout(String text, TextStyle style) {
+    return TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.left,
+    )..layout();
   }
 
   void _text(
@@ -752,60 +956,6 @@ class _PlotPainter extends CustomPainter {
     }
   }
 
-  static List<double> _ticks(double lo, double hi) {
-    if (!lo.isFinite || !hi.isFinite || hi <= lo) return const [];
-    final step = _niceStep((hi - lo) / 5);
-    final first = (lo / step).ceil() * step;
-    final out = <double>[];
-    for (var v = first; v <= hi + step * 1e-6; v += step) {
-      if (v.abs() < step * 1e-9) {
-        out.add(0);
-      } else {
-        out.add(v);
-      }
-      if (out.length > 24) break;
-    }
-    return out;
-  }
-
-  static double _niceStep(double raw) {
-    if (!raw.isFinite || raw <= 0) return 1;
-    final mag = math.pow(10, (math.log(raw) / math.ln10).floor()).toDouble();
-    final norm = raw / mag;
-    double nice;
-    if (norm <= 1) {
-      nice = 1;
-    } else if (norm <= 2) {
-      nice = 2;
-    } else if (norm <= 5) {
-      nice = 5;
-    } else {
-      nice = 10;
-    }
-    return nice * mag;
-  }
-
-  static String _formatTick(double v) {
-    if (v == 0) return '0';
-    final a = v.abs();
-    String text;
-    if (a >= 1e6 || a < 1e-4) {
-      final exp = (math.log(a) / math.ln10).floor();
-      final mant = v / math.pow(10, exp);
-      final m = mant.abs() < 1e-9 ? '0' : _trim(mant);
-      text = '$m×10^$exp';
-    } else {
-      text = _trim(v);
-    }
-    return text.replaceAll('-', '−');
-  }
-
-  static String _trim(double v) {
-    var s = v.toStringAsFixed(4);
-    s = s.replaceFirst(RegExp(r'0+$'), '');
-    s = s.replaceFirst(RegExp(r'\.$'), '');
-    return s == '-0' ? '0' : s;
-  }
 
   @override
   bool shouldRepaint(covariant _PlotPainter oldDelegate) =>
@@ -881,6 +1031,7 @@ class _CurvePlotState extends State<CurvePlot> {
         oldWidget.variable != widget.variable ||
         oldWidget.xmin != widget.xmin ||
         oldWidget.xmax != widget.xmax ||
+        oldWidget.samples != widget.samples ||
         oldWidget.engine != widget.engine) {
       _load();
     }
@@ -1108,6 +1259,9 @@ class _FieldPlotState extends State<FieldPlot> {
         oldWidget.xmax != widget.xmax ||
         oldWidget.ymin != widget.ymin ||
         oldWidget.ymax != widget.ymax ||
+        oldWidget.cols != widget.cols ||
+        oldWidget.rows != widget.rows ||
+        oldWidget.curves != widget.curves ||
         oldWidget.engine != widget.engine ||
         _extraCurvesChanged(oldWidget.extraCurves)) {
       _load();
@@ -1471,18 +1625,24 @@ class _MultiCurvePlotState extends State<MultiCurvePlot> {
         oldWidget.xmin != widget.xmin ||
         oldWidget.xmax != widget.xmax ||
         oldWidget.variable != widget.variable ||
+        oldWidget.samples != widget.samples ||
         oldWidget.engine != widget.engine ||
         oldWidget.curves.length != widget.curves.length;
-    var expressionChanged = false;
+    var curvesChanged = false;
     if (!changed) {
       for (var i = 0; i < widget.curves.length; i++) {
-        if (oldWidget.curves[i].expression != widget.curves[i].expression) {
-          expressionChanged = true;
+        final a = oldWidget.curves[i];
+        final b = widget.curves[i];
+        // A family member is identified by its expression *and* its constant:
+        // changing c must resample the curve, not repaint the old one.
+        if (a.expression != b.expression ||
+            !mapEquals(a.constants, b.constants)) {
+          curvesChanged = true;
           break;
         }
       }
     }
-    if (changed || expressionChanged) _load();
+    if (changed || curvesChanged) _load();
   }
 
   Future<void> _load() async {
@@ -1696,6 +1856,7 @@ class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
         oldWidget.xmin != widget.xmin ||
         oldWidget.xmax != widget.xmax ||
         oldWidget.curves != widget.curves ||
+        oldWidget.engine != widget.engine ||
         oldWidget.xVariable != widget.xVariable ||
         oldWidget.yVariable != widget.yVariable) {
       _load();
@@ -1760,38 +1921,24 @@ class _OdeSolutionPlotState extends State<OdeSolutionPlot> {
     ];
     final series = <PlotSeries>[];
     final markers = <PlotMarker>[];
-    var yMin = double.infinity;
-    var yMax = double.negativeInfinity;
     for (var i = 0; i < result.curves.length; i++) {
       final curve = result.curves[i];
       final color = palette[i % palette.length];
-      for (final y in curve.ys) {
-        if (!y.isFinite || y.abs() > 1e6) continue;
-        if (y < yMin) yMin = y;
-        if (y > yMax) yMax = y;
-      }
       final label = 'y(${_short(curve.x0)}) = ${_short(curve.y0)}';
       series.add(
         PlotSeries(xs: curve.xs, ys: curve.ys, color: color, label: label),
       );
       markers.add(PlotMarker(x: curve.x0, y: curve.y0, color: color));
     }
-    if (!yMin.isFinite || !yMax.isFinite) {
-      yMin = -6;
-      yMax = 6;
-    }
-    if ((yMax - yMin).abs() < 1e-9) {
-      yMin -= 1;
-      yMax += 1;
-    }
-    final pad = (yMax - yMin) * 0.08;
+    // The y window stays automatic on purpose: a solution that blows up at the
+    // edge of the window must not squeeze the whole family into a flat line.
+    // The bounds resolver trims such tails, and the markers keep every initial
+    // condition visible.
     return PlotSpec(
       series: series,
       markers: markers,
       xMin: result.xmin,
       xMax: result.xmax,
-      yMin: yMin - pad,
-      yMax: yMax + pad,
       xLabel: widget.xVariable,
       yLabel: widget.yVariable,
     );
@@ -1973,10 +2120,13 @@ class _SurfacePlotState extends State<SurfacePlot> {
   void didUpdateWidget(covariant SurfacePlot oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.expression != widget.expression ||
+        oldWidget.xVariable != widget.xVariable ||
+        oldWidget.yVariable != widget.yVariable ||
         oldWidget.xmin != widget.xmin ||
         oldWidget.xmax != widget.xmax ||
         oldWidget.ymin != widget.ymin ||
-        oldWidget.ymax != widget.ymax) {
+        oldWidget.ymax != widget.ymax ||
+        oldWidget.engine != widget.engine) {
       _load();
     }
   }
@@ -2162,16 +2312,11 @@ class _SurfacePainter extends CustomPainter {
     final nx = result.nx;
     final ny = result.ny;
     if (nx < 2 || ny < 2 || result.zs.length < ny) return;
-    var zMin = double.infinity;
-    var zMax = double.negativeInfinity;
-    for (final row in result.zs) {
-      for (final z in row) {
-        if (!z.isFinite) continue;
-        if (z < zMin) zMin = z;
-        if (z > zMax) zMax = z;
-      }
-    }
-    if (!zMin.isFinite || !zMax.isFinite) return;
+    // A pole in one cell must not wash the whole map to a single colour.
+    final range = robustValueRange(result.zs.expand((row) => row));
+    if (range == null) return;
+    var zMin = range.lo;
+    var zMax = range.hi;
     if ((zMax - zMin).abs() < 1e-12) {
       zMin -= 1;
       zMax += 1;

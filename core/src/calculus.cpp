@@ -377,17 +377,30 @@ struct Integrator {
         if (Ex g = monomialOverSqrt(f)) return g;
 
         // ∫ e^(a x) sin(b x) dx and ∫ e^(a x) cos(b x) dx.
+        // The pattern must account for every factor: in x·e^x·sin(x) the x is
+        // not part of the table entry, and ignoring it silently integrated
+        // only e^x·sin(x).  Any other x-dependent factor sends the product to
+        // integration by parts instead.
         if (f->isMul()) {
             Ex expArg, trigArg;
             std::string trigName;
+            int expCount = 0, trigCount = 0;
+            bool tableOnly = true;
             for (auto& q : f->args) {
-                if (q->isFunc("exp") && q->args.size() == 1) expArg = q->args[0];
-                if ((q->isFunc("sin") || q->isFunc("cos")) && q->args.size() == 1) {
+                if (q->isFunc("exp") && q->args.size() == 1) {
+                    expArg = q->args[0];
+                    ++expCount;
+                } else if ((q->isFunc("sin") || q->isFunc("cos")) &&
+                           q->args.size() == 1) {
                     trigName = q->name;
                     trigArg = q->args[0];
+                    ++trigCount;
+                } else if (dependsOn(q, x)) {
+                    tableOnly = false;
                 }
             }
-            if (expArg && !trigName.empty()) {
+            if (tableOnly && expCount == 1 && trigCount == 1 && expArg &&
+                !trigName.empty()) {
                 Ex a, b0, b, d0;
                 if (linearIn(expArg, x, a, b0) && a->isNum() && b0->isZero() &&
                     linearIn(trigArg, x, b, d0) && b->isNum() && d0->isZero()) {

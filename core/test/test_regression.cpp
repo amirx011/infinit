@@ -592,7 +592,23 @@ int main() {
     }
     {
         Result r = solve("y'' + y = cos(x)");
-        expect(r.ok && r.steps.size() == 6, "non-homogeneous second-order equation emits 6 steps");
+        // The undetermined-coefficient path now shows the ansatz, the
+        // coefficient system, its solution and the particular solution.
+        expect(r.ok && r.steps.size() == 8,
+               "non-homogeneous second-order equation emits 8 steps");
+        bool sawSystem = false, sawValues = false;
+        for (const auto& s : r.steps) {
+            if (s.titleKey == "step.title.write_the_system" && s.math &&
+                toPlain(s.math).find("A1") != std::string::npos)
+                sawSystem = true;
+            if (s.titleKey == "ode.t.solve_coefficients" && s.math) {
+                const std::string values = toPlain(s.math);
+                sawValues = values.find("A1 = 0") != std::string::npos &&
+                            values.find("A2 = 1/2") != std::string::npos;
+            }
+        }
+        expect(sawSystem, "the coefficient system is shown as equations");
+        expect(sawValues, "the coefficient values are shown");
     }
     {
         Result r = solveWronskian({"x", "x^2", "x^3"}, "x", "en");
@@ -614,6 +630,36 @@ int main() {
                    toPlain(r.explicitY) == "C2 + x^3 + C*x",
                "y''=6x answer is x^3 + Cx + C2");
         expect(r.checks.size() == 1 && r.checks[0].ok, "y''=6x verified");
+    }
+    {
+        // Order reduction wins the classification, but the equation is also
+        // linear with constant coefficients.  The reader gets a hint about the
+        // direct method when that method is not longer.
+        Result r = solve("y'' + y' = x");
+        expect(r.ok && r.typeId == "reduction_missing_y",
+               "y''+y'=x still uses the missing-y reduction");
+        expect(std::find(r.warnings.begin(), r.warnings.end(),
+                         "ode.w.alt_undetermined") != r.warnings.end(),
+               "y''+y'=x suggests undetermined coefficients");
+    }
+    {
+        Result r = solve("y'' + y' = sec(x)");
+        expect(r.ok && r.typeId == "reduction_missing_y",
+               "y''+y'=sec(x) still uses the missing-y reduction");
+        expect(std::find(r.warnings.begin(), r.warnings.end(),
+                         "ode.w.alt_variation") != r.warnings.end(),
+               "y''+y'=sec(x) suggests variation of parameters");
+    }
+    {
+        // Variable coefficients: neither direct constant-coefficient method
+        // applies, so no hint may be emitted.
+        Result r = solve("x*y'' + y' = x");
+        expect(r.ok, "x*y''+y'=x solved by reduction");
+        expect(std::find(r.warnings.begin(), r.warnings.end(),
+                         "ode.w.alt_undetermined") == r.warnings.end() &&
+                   std::find(r.warnings.begin(), r.warnings.end(),
+                             "ode.w.alt_variation") == r.warnings.end(),
+               "variable-coefficient reduction gets no constant-coefficient hint");
     }
     {
         Result r = solve("y'' = y'^2");

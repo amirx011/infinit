@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/hero.png" alt="Infinit Lab solving a differential equation step by step" width="100%">
+  <img src="docs/images/overview.png" alt="Infinit Lab home: every problem has a shape, with a worked example and the platform's sections" width="100%">
 </p>
 
 <h1 align="center">Infinit Lab</h1>
@@ -11,9 +11,13 @@
   <img src="https://img.shields.io/badge/license-Apache%202.0-475569?style=flat-square" alt="Apache 2.0 license">
 </p>
 
-Infinit Lab is a desktop and mobile workbench for differential equations and calculus. It solves a problem symbolically in a native C++17 engine, then shows the answer together with the steps that produced it: the family it recognised, the substitution it used, and the check that puts the result back into the equation. There is no hidden numeric guess behind a symbolic answer; when no exact method fits, the app says so and offers a clearly labelled RK4 approximation instead.
+Infinit Lab is a desktop and mobile workbench for differential equations, calculus and linear algebra. It solves a problem symbolically in a native C++17 engine, then shows the answer together with its graph and the steps that produced it: the family it recognised, the substitution it used, and the check that puts the result back into the equation. There is no hidden numeric guess behind a symbolic answer; when no exact method fits, the app says so and offers a clearly labelled RK4 approximation instead.
 
 The same engine and the same interface run on Linux, Windows and Android.
+
+<p align="center">
+  <img src="docs/images/answer.png" alt="A first-order linear equation solved on Android: the direction field, the closed form and the explained steps" width="300">
+</p>
 
 ## What it does
 
@@ -23,11 +27,13 @@ The same engine and the same interface run on Linux, Windows and Android.
 
 **Applications and series.** Monotonicity, concavity, inflection points and asymptotes, tangent and normal lines, extrema on a closed interval, related rates, the mean value theorems, L'Hôpital's rule and convergence tests with exact sums where a closed form exists.
 
-**Linear algebra and geometry.** Wronskians, exact determinants, traces, characteristic polynomials, eigenvalues, eigenvectors, inverses and diagonalisability for matrices up to 3x3, envelopes, and orthogonal and oblique trajectories.
+**Linear algebra.** A standalone section of 32 workbenches: rank and the four fundamental subspaces, exact determinants, inverses, LU, Gaussian elimination and Cramer's rule, span and independence, bases and coordinates, change of basis, projections, Gram–Schmidt, QR, least squares, orthogonal complements, the discrete Fourier transform, diagonalisation, matrix powers and exponentials, similar matrices, the spectral theorem, positive-definite matrices and the SVD, norms and conditioning, power iteration, the QR algorithm, iterative linear solvers, linear programming and 2×2 matrix games. Every step carries a short prose explanation, and six articles cover fields, vector spaces, linear transformations, determinants, rational and Jordan forms, and inner-product spaces.
+
+**Geometry.** Wronskians, envelopes, and orthogonal and oblique trajectories.
 
 **Workbenches.** Linear systems and phase portraits, critical points and stability, Lotka-Volterra, Laplace and inverse Laplace transforms, discontinuous forcing and impulses, convolution, Fourier series and transform, Euler, Heun, RK4 and Adams-Bashforth methods with error and convergence, growth and decay, Newton cooling, logistic growth, mixing, spring-mass systems, damped oscillation, circuits, free fall, and a partial differential equations group covering transport, characteristics, classification, separation of variables, and the heat, wave and Laplace equations on a rectangle.
 
-**Study library.** Thirteen self-contained articles with key ideas, the full explanation, two worked examples and a list of common mistakes. Each article links to the workbench that puts the method to use.
+**Study library.** Nineteen self-contained articles with key ideas, the full explanation, two worked examples and a list of common mistakes. Each article links to the workbench that puts the method to use.
 
 **Interface.** Dark, light and system themes with six accent palettes, high-contrast mode, reduced motion and four text sizes. Twelve languages, with Persian and Arabic switching the whole layout to right-to-left. Keyboard shortcuts and a command palette on desktop, touch-first layout on phones. Fully offline: preferences stay on the device and nothing is sent anywhere.
 

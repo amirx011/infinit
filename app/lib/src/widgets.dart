@@ -68,7 +68,7 @@ class SoftCard extends StatelessWidget {
   const SoftCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(22),
+    this.padding = const EdgeInsets.all(24),
     this.color,
     this.borderColor,
     this.elevated = true,
@@ -87,7 +87,7 @@ class SoftCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: color ?? c.card,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: borderColor ?? c.line),
         boxShadow: elevated && !dark
             ? [
@@ -119,7 +119,7 @@ class SectionLabel extends StatelessWidget {
       children: [
         if (icon != null) ...[
           Icon(icon, size: 16, color: c.accent),
-          const SizedBox(width: 7),
+          const SizedBox(width: 8),
         ],
         Expanded(
           child: MathText(
@@ -470,17 +470,15 @@ class _LearningCardState extends State<LearningCard> {
     final c = context.colors;
     final l = widget.l10n;
     final theme = Theme.of(context);
+    // A quiet aside: the teaching note earns its colour from the icon and the
+    // label, not from a tinted surface that competes with the workbench.
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: [c.accentAltSoft, c.card],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: c.accentAlt.withValues(alpha: 0.28)),
+        color: c.cardAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.line),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -510,8 +508,7 @@ class _LearningCardState extends State<LearningCard> {
                       style: TextStyle(
                         fontFamily: 'Vazirmatn',
                         fontSize: 12,
-                        letterSpacing: l.isRtl ? 0 : 0.8,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: c.accentAlt,
                       ),
                     ),
@@ -1771,7 +1768,10 @@ class ResultView extends StatelessWidget {
       // ODE families, so never append the implicit `= C` suffix here.
       final primary = result.primary;
       children.add(
-        SectionLabel(l10n.t('ui.simplest_answer'), icon: Icons.bolt_rounded),
+        SectionLabel(
+          l10n.t('ui.simplest_answer'),
+          icon: Icons.short_text_rounded,
+        ),
       );
       if (result.typeEn.isNotEmpty && result.typeEn != 'topic') {
         children.add(const SizedBox(height: 8));
@@ -2783,7 +2783,7 @@ class _SolutionPlanBlock extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome_rounded, size: 16, color: c.accent),
+              Icon(Icons.route_rounded, size: 16, color: c.accent),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

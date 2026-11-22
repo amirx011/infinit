@@ -1111,3 +1111,348 @@ Unless a key already appears above, the English value is the key
 with underscores replaced by spaces and the first letter capitalised;
 the other 11 catalogues need a translated sentence, not a copy of the
 English text.
+
+---
+
+## 12. Elementary linear algebra (indices 127–130)
+
+A second linear-algebra group sits next to the ODE-system slots.  These pages
+are about matrices as objects, not about systems of differential equations.
+All four are exact-first: the answer is a rational expression, and a decimal
+read-out is shown only as a labelled approximation.  Symbolic entries are
+accepted; when a pivot contains a symbol the page reports the generic answer
+and adds `assumption.generic_symbolic_pivots`.
+
+| Index | Topic id | Engine entry | Inputs |
+|---:|---|---|---|
+| 127 | `linalg_rank` | `linalgRankTopic` | `matrix` (≤4×4) |
+| 128 | `linalg_det` | `linalgDetTopic` | `matrix` (square, ≤4×4) |
+| 129 | `linalg_inverse` | `linalgInverseTopic` | `matrix` (square, ≤4×4) |
+| 130 | `linalg_lu` | `linalgLuTopic` | `matrix` (square, ≤4×4) |
+
+The shared entry point `linear_solve` (index 126) now uses the same symbolic
+engine (`linalgSolveTopic` in `core/src/linalg.cpp`).  It keeps its old backend
+id and error codes (`linear_system_bad_matrix`, `linear_system_bad_rhs`,
+`linear_system_size_mismatch`, `linear_system_inconsistent`) so persisted
+links and tests stay valid.
+
+Implementation notes:
+
+1. `core/src/linalg.cpp` parses `2, 1; 1, -1` and `[[2, 1], [1, -1]]` into a
+   `std::vector<std::vector<Ex>>`; entries are parsed by `parseExpr`, so
+   `a`, `a-1`, `sqrt(2)` and `1/3` are all valid.
+2. Rank, determinant, inverse and LU are computed by row reduction with a
+   smallest-expression pivot rule.  The determinant is re-checked by cofactor
+   expansion, the inverse by `A A^{-1} = I`, the LU factors by `P A = L U`,
+   and the null-space basis by `A v_j = 0`.
+3. The inverse uses the adjugate route for symbolic matrices up to 4×4 so the
+   answer is printed as `1/det(A) * adj(A)` instead of nested fractions.  A 4×4
+   adjugate entry is only a 3×3 determinant, so this stays fast (about 2 s for
+   sixteen symbolic entries) where Gauss–Jordan ran for a minute and printed
+   thousands of characters.
+4. A singular inverse is a successful answer (`A^{-1} does not exist`) with
+   `warning.singular_matrix`; an inconsistent system is still an error.
+5. The four new catalogue keys are `topic.linalg_{rank,det,inverse,lu}.*`,
+   plus `nav.group.linalg`; every new `step.*`, `check.*`, `warning.*`,
+   `assumption.*` and `error.linalg_*` key exists in all 12 catalogues.
+
+Tests: `core/test/test_linear.cpp` (native regressions) and
+`python/tests/test_linalg_topics.py` (SymPy oracle, including symbolic and
+random 2×2/3×3 sweeps plus the 4×4 symbolic determinant and inverse).  The
+4×4 elimination pivots are three fractions deep, so their product is also a
+regression in `core/test/test_simplify.cpp`: `simplifyStrong` has to expand it
+back to the 24-term determinant.
+
+---
+
+## 13. Vector-space theory (indices 131–136)
+
+The second phase of the linear-algebra curriculum adds the vocabulary that
+makes the matrix routines mean something: span, independence, basis,
+coordinates, change of basis and the subspace test.  Every page works on the
+same symbolic matrix type, so a set like `a, b; 2*a, 2*b` gets the generic
+answer with `assumption.generic_symbolic_pivots` rather than a numeric guess.
+
+| Index | Topic id | Engine entry | Inputs |
+|---:|---|---|---|
+| 131 | `linalg_span` | `linalgSpanTopic` | `vectors`, optional `target` |
+| 132 | `linalg_independence` | `linalgIndependenceTopic` | `vectors` |
+| 133 | `linalg_basis` | `linalgBasisTopic` | `vectors` |
+| 134 | `linalg_coordinates` | `linalgCoordinatesTopic` | `basis`, `vector` |
+| 135 | `linalg_change_basis` | `linalgChangeBasisTopic` | `basis_b`, `basis_c` |
+| 136 | `linalg_subspace` | `linalgSubspaceTopic` | `vectors` |
+
+The input convention matches the matrix pages: one vector per row, so
+`1, 0; 0, 1` is the standard basis of the plane.  Internally the rows are
+transposed into the column matrix that row reduction expects.  Vectors live
+in the number of columns, which is why a target of the wrong length is a
+`linalg_dimension_mismatch` and not a silent padding.
+
+Algorithms and certificates:
+
+1. **Span.**  Row-reduce the column matrix; the pivot columns name a maximal
+   independent subset, and their number is the dimension.  With a target, the
+   augmented system `[A | b]` is reduced: a pivot in the last column means
+   `warning.not_in_the_span`, otherwise the free coordinates are set to zero
+   and the remaining coefficients are read from the last column.  The
+   combination is then multiplied back out and compared with `b`
+   (`check.the_combination_reproduces_the_target`).
+2. **Independence.**  The set is independent exactly when the rank equals the
+   number of vectors.  When it is not, the first free column gives a nonzero
+   relation: its coefficient is `1`, and each pivot coefficient is minus the
+   corresponding entry of the reduced row.  The relation is evaluated on the
+   original vectors (`check.dependence_relation_vanishes`).
+3. **Basis.**  The pivot vectors of the set are the basis.  Independence is
+   rechecked, and spanning is checked by appending every original vector to
+   the basis columns and confirming that the rank does not rise.  The empty
+   basis is reported as `{ }` with dimension zero.
+4. **Coordinates.**  The basis must be square and nonsingular (checked with the
+   determinant); then `[B | v]` reduces to `[I | c]`, so `c` solves `B c = v`.
+   The coordinates are multiplied back through `B` and compared with `v`
+   (`check.coordinates_rebuild_the_vector`), and the numeric read-out is added
+   when the answer is not made of integers.
+5. **Change of basis.**  `[C | B]` reduces to `[I | C^{-1} B]`, so the right
+   half is the transition matrix without a separate inversion.  The engine
+   verifies `C P = B` (`check.transition_matrix_maps_b_to_c`); both bases are
+   rejected with `linalg_not_a_basis` when either is singular or the sizes do
+   not agree.
+6. **Subspace test.**  The page shows the three axioms on the given span:
+   `0 = 0 v_1 + ... + 0 v_m`, closure under addition by adding the
+   coefficients of two combinations, and closure under scaling by doubling
+   them.  Each is re-solved against the original vectors, so the checks are
+   independent of the strings printed in the steps.  The basis and dimension
+   are then extracted as in the basis page.
+
+New catalogue keys are `topic.linalg_{span,independence,basis,coordinates,
+change_basis,subspace}.*`, plus the `step.title.*`, `step.note.*`, `check.*`,
+`warning.*` and `error.linalg_*` sentences used above.  The two new error codes
+are `linalg_dimension_mismatch` and `linalg_not_a_basis`.
+
+Tests: `core/test/test_linear.cpp::testVectorSpaceTopics` covers membership,
+non-membership, the explicit dependence relation, the empty basis, coordinates,
+the transition matrix and the three subspace checks.  The SymPy oracle
+`python/tests/test_linalg_topics.py` compares rank, membership, independence,
+basis, coordinates and `C P = B` against independent computations, including
+symbolic inputs.
+
+## 14. Linear-algebra applications (indices 137–142)
+
+The third phase turns the matrix and vector-space routines into the standard
+applications: projection, Gram–Schmidt, QR, least squares, diagonalization and
+matrix powers.  The engine keeps the exact-first contract of phases 1–2: every
+answer is a rational or radical expression, and a numeric read-out is added
+only when it differs from the exact text.  Rank-deficient inputs are named
+explicitly instead of being solved with a pseudo-inverse.
+
+| Index | Topic id | Engine entry | Inputs |
+|---:|---|---|---|
+| 137 | `linalg_projection` | `linalgProjectionTopic` | `basis`, `vector` |
+| 138 | `linalg_gram_schmidt` | `linalgGramSchmidtTopic` | `vectors` |
+| 139 | `linalg_qr` | `linalgQrTopic` | `matrix` |
+| 140 | `linalg_least_squares` | `linalgLeastSquaresTopic` | `matrix`, `rhs` |
+| 141 | `linalg_diagonalize` | `linalgDiagonalizeTopic` | `matrix` |
+| 142 | `linalg_power` | `linalgPowerTopic` | `matrix`, `power` |
+
+The vector convention is unchanged: one vector per row, transposed internally
+into the column matrix used by row reduction.  `linalg_projection` and
+`linalg_gram_schmidt` therefore accept `1, 0; 0, 1` as the standard basis of
+the plane.
+
+Algorithms and certificates:
+
+1. **Projection.**  With `B` the matrix of basis columns, the coefficients
+   solve the normal equations `B^T B c = B^T v`.  The projection is `B c`, the
+   residual is `v - B c`, and the distance is `||v - B c||`.  The page checks
+   `B^T r = 0` (`check.residual_is_orthogonal_to_the_basis`) and re-expands the
+   projection in the basis (`check.projection_lies_in_the_span`).  A dependent
+   basis is rejected with `linalg_dependent_basis`, because the coefficients
+   are not unique.
+2. **Gram–Schmidt.**  Classical Gram–Schmidt subtracts the projection onto
+   every vector already produced.  A vector that reduces to zero is dropped
+   and the page reports `warning.linearly_dependent`; the remaining vectors
+   are normalized by dividing by their length.  The checks verify pairwise
+   orthogonality, unit length and that the rank is unchanged.
+3. **QR.**  Modified Gram–Schmidt on the columns of `A` produces orthonormal
+   `q_j` and `R_{ij} = q_i^T a_j` for `i <= j`, so `R` is upper triangular.
+   The page verifies `Q R = A` (`check.qr_reconstructs_the_matrix`) and
+   `Q^T Q = I` (`check.q_has_orthonormal_columns`).  Dependent columns are
+   `linalg_not_full_column_rank`; a wide matrix is rejected for the same
+   reason.
+4. **Least squares.**  The normal equations `A^T A x = A^T b` are assembled
+   and solved by row reduction, with every elimination step shown.  The
+   residual and its norm are printed, and the page checks `A^T (b - A x) = 0`
+   (`check.normal_equations_hold`, `check.residual_is_orthogonal_to_the_columns`).
+   A rank-deficient `A` makes `A^T A` singular and is reported as
+   `linalg_not_full_column_rank`.
+5. **Diagonalization.**  The characteristic polynomial `det(lambda I - A)` is
+   built by cofactors and factored over the rationals.  Each rational root
+   gives a null space of `A - lambda I`; the matrix is diagonalizable exactly
+   when the nullities match the multiplicities.  The result is `A = P D P^{-1}`
+   with the eigenvalues on the diagonal of `D`, verified by `A P = P D` and
+   `det(P) != 0`.  A defective matrix is `linalg_not_diagonalizable`; complex
+   eigenvalues are `linalg_eigenvalues_not_rational`; symbolic entries are
+   `linalg_numeric_required`.
+6. **Matrix powers.**  `A^k` is built by repeated multiplication, so the page
+   works even when `A` is defective.  A negative `k` inverts `A` first and is
+   `linalg_singular_matrix` when `A` is singular; `|k| > 12` is
+   `linalg_bad_power`.  When the matrix diagonalizes, the page also computes
+   `P D^k P^{-1}` and cross-checks it with direct multiplication
+   (`check.power_matches_direct_multiplication`).
+
+New catalogue keys are `topic.linalg_{projection,gram_schmidt,qr,
+least_squares,diagonalize,power}.*`, together with the `step.title.*`,
+`step.note.*` and `check.*` sentences above.  The new error codes are
+`linalg_dependent_basis`, `linalg_not_full_column_rank`,
+`linalg_numeric_required`, `linalg_not_diagonalizable`,
+`linalg_eigenvalues_not_rational`, `linalg_bad_power` and
+`linalg_singular_matrix`.
+
+Tests: `core/test/test_linear.cpp::testApplicationTopics` covers the exact
+projection, a dependent basis, both Gram–Schmidt outcomes, QR, least squares,
+the four diagonalization outcomes and positive, negative and invalid powers.
+The SymPy oracle `python/tests/test_linalg_topics.py` rebuilds the projection,
+Gram–Schmidt, `Q R = A`, the normal-equation solution, `P^{-1} A P = D` and
+`A^k` independently, and checks every new catalogue key in English and
+Persian.
+
+## 15. The rest of the Strang curriculum (indices 143–156)
+
+Phases 1–3 covered the first ten chapters.  This phase closes the book: the
+orthogonality chapter, the eigen and positive-definite chapters, the numerical
+chapter (norm, iteration, QR algorithm) and the optimization chapter (linear
+programming and matrix games).  The pages live in their own top-level drawer
+group, `nav.group.linalg`, split into the subgroups
+`nav.group.linalg.{matrices,vector_spaces,orthogonality,eigen,positive,numerical,optimization,articles}`.
+Index 1 is now the section home: a shelf of every workbench with its count,
+followed by the article shelf, so the drawer and the home page describe the
+same map.
+
+| Index | Topic id | Engine entry | Inputs |
+|---:|---|---|---|
+| 143 | `linalg_orthogonal_complement` | `linalgOrthogonalComplementTopic` | `matrix` |
+| 144 | `linalg_graph` | `linalgGraphTopic` | `nodes` (2–6), `edges` (`1-2, 2-3`) |
+| 145 | `linalg_fft` | `linalgFftTopic` | `signal` (4 or 8 values) |
+| 146 | `linalg_similarity` | `linalgSimilarityTopic` | `matrix`, `change` |
+| 147 | `linalg_matrix_exp` | `linalgMatrixExpTopic` | `matrix` (≤3×3) |
+| 148 | `linalg_positive_definite` | `linalgPositiveDefiniteTopic` | `matrix` |
+| 149 | `linalg_svd` | `linalgSvdTopic` | `matrix` |
+| 150 | `linalg_norm` | `linalgNormTopic` | `matrix` |
+| 151 | `linalg_power_iteration` | `linalgPowerIterationTopic` | `matrix`, `start` |
+| 152 | `linalg_qr_algorithm` | `linalgQrAlgorithmTopic` | `matrix` (symmetric) |
+| 153 | `linalg_iterative` | `linalgIterativeTopic` | `matrix`, `rhs`, `method` |
+| 154 | `linalg_lp` | `linalgLpTopic` | `objective`, `constraints`, `bounds` |
+| 155 | `linalg_game` | `linalgGameTopic` | `matrix` (exact 2×2) |
+| 156 | `linalg_symmetric` | `linalgSymmetricTopic` | `matrix` (symmetric) |
+
+**Orthogonality.**  `linalg_orthogonal_complement` transposes `A`, row-reduces
+`A^T` and reads `N(A^T)` from the free columns, then verifies `A^T y = 0` for
+every basis vector.  A 1×n matrix therefore has a trivial complement: its
+columns live in R¹, and the catalogue example uses `1; 1; 1` for the plane
+case.  `linalg_graph` builds the signed incidence matrix of a small graph,
+row-reduces it, and reports `rank(B) = n - components`; the null space of `B`
+gives the node potentials and the left null space gives the cycle basis, each
+checked against `B v = 0` and `w^T B = 0`.  `linalg_fft` builds the 4×4 or 8×8
+DFT matrix explicitly and compares it with the recursive radix-2 transform.
+The forward transform uses the negative exponent, so `(1, 2, 3, 4)` gives
+`(10, -2 + 2i, -2, -2 - 2i)`; the inverse DFT is checked by reconstructing the
+signal.  Any other length is `linalg_fft_length`; symbolic samples are
+`linalg_numeric_required`.
+
+**Eigen and positive definite.**  `linalg_similarity` inverts `P` and prints
+`B = P^{-1} A P`, then checks that `B` and `A` share trace and determinant.
+`linalg_matrix_exp` exponentiates a diagonalization when one exists and falls
+back to the two-term formula `e^{tA} = e^{at}(I + (A - aI)t)` for a defective
+2×2 matrix, using the discriminant only when it is numeric.  The result is
+checked at `t = 0` against `I`.  `linalg_positive_definite` runs the leading
+minor test, reports the minors, and factors `A = L L^T` by Cholesky; a
+non-symmetric input is `linalg_not_symmetric` and a failed minor is
+`linalg_not_positive_definite`.  `linalg_symmetric` returns the spectral
+factorization `A = Q D Q^T` with orthonormal columns, checked by `Q^T Q = I`
+and by rebuilding `A`.
+
+**Numerical linear algebra.**  `linalg_svd` diagonalizes `A^T A`, sorts the
+singular values, builds `U`, `S`, `V` and the pseudo-inverse `A^+`, and checks
+`U S V^T = A`, orthonormal `U` columns and the Penrose identity
+`A A^+ A = A`.  `linalg_norm` reports `||A||_1`, `||A||_inf`, the Frobenius
+norm, the spectral norm and `cond(A)`, with the two inequalities that must
+hold.  `linalg_power_iteration` normalizes the iterate at every step and
+converges on the residual `||A v - lambda v||` rather than on the Rayleigh
+quotient, because the quotient converges twice as fast as the vector; failure
+to converge is `warning.power_iteration_not_converged`.  `linalg_qr_algorithm`
+is symmetric-only (otherwise `linalg_not_symmetric`), runs shifted QR
+iterations and checks that the off-diagonal mass decreases.  `linalg_iterative`
+offers Jacobi and Gauss–Seidel, runs up to 40 sweeps, stops on stagnation or
+blow-up, and labels a diverged run `x_k = ...` with
+`warning.iterative_diverged`; the residual is checked at the end.  Numeric
+routines snap a result to a rational only when `Rational::fromDouble` is exact
+to 1e-9 relative, and otherwise keep the decimal as `Sym(numStr(...))`.
+
+**Optimization.**  `linalg_lp` solves `max c^T x` subject to `A x <= b`,
+`x >= 0`, `b >= 0` with the simplex method on a full tableau, one elimination
+step per pivot, then checks the vertex for feasibility.  A negative `b` is
+`linalg_lp_negative_rhs` (the two-phase method is deliberately out of scope), an
+unbounded column is `linalg_lp_unbounded`, and an exhausted basis is
+`linalg_lp_infeasible`.  `linalg_game` solves an exact 2×2 zero-sum game: it
+first looks for a saddle point in pure strategies, then solves the mixed game
+with the closed-form value `(ad - bc) / (a + d - b - c)`, and checks that both
+mixed strategies attain that value.  Symbolic payoffs are
+`linalg_numeric_required`; larger games are `linalg_too_large`.
+
+The 14 new catalogue key families are `topic.linalg_{orthogonal_complement,
+graph,fft,similarity,matrix_exp,positive_definite,svd,norm,power_iteration,
+qr_algorithm,iterative,lp,game,symmetric}.*` with the `step.title.*`,
+`step.note.*`, `check.*`, `warning.*` and `error.linalg_*` sentences used above.
+Two engine bugs were fixed while writing the tests: the radix-2 transform used
+the positive exponent for the forward DFT, and the power iteration stopped on
+the Rayleigh quotient before the vector had converged.
+
+Tests: `core/test/test_linear.cpp::testExtendedTopics` exercises all fourteen
+topics including the failure codes.  `python/tests/test_linalg_topics.py` adds
+fourteen SymPy oracles: the complement against `A^T y = 0`, the incidence rank
+against `n - components`, the DFT against `sum x_j e^{-2 pi i k j / n}`, the
+similarity against `P^{-1} A P`, the matrix exponential against
+`(tA).exp()`, Cholesky against `L L^T`, the SVD against `U S V^T`, the norms
+against the column and row sums and the largest singular value, power iteration
+against the dominant eigenvalue, the QR algorithm against `eigenvals()`, both
+iterative solvers against `A.solve(b)`, the linear program against an
+exhaustive vertex search, the game value against the closed form, and the
+spectral factorization against `Q D Q^T`.
+
+## 16. The articles shelf (pages 157–162)
+
+The workbenches compute; the articles explain.  A sixth study section,
+`StudySection.linearAlgebra` (`study.section.linalg`), holds six long-form
+articles in the style of Hoffman–Kunze: definition, precise theorem, proof
+sketch where it is short, worked example, key ideas and pitfalls.  They are
+reached from the drawer subgroup `nav.group.linalg.articles`, from the section
+home, and from the explanations library; `kStudyArticlePages` maps each id to
+its page, and `_lastPageIndex` is now 162.
+
+| Page | Article id | Group | Subject |
+|---:|---|---|---|
+| 157 | `la_fields` | `laFoundations` | Fields, row operations and why elimination is legal |
+| 158 | `la_vector_spaces` | `laFoundations` | Subspaces, span, independence, basis, dimension |
+| 159 | `la_transformations` | `laStructure` | Linear maps, matrices, composition, rank–nullity |
+| 160 | `la_determinants` | `laStructure` | The determinant, cofactors, characteristic polynomial, Cayley–Hamilton |
+| 161 | `la_canonical` | `laStructure` | Minimal polynomial, diagonalizability, Jordan and rational forms |
+| 162 | `la_inner_products` | `laGeometry` | Inner products, Cauchy–Schwarz, Gram–Schmidt, spectral theorem, SVD |
+
+The groups are `study.group.la_foundations`, `study.group.la_structure` and
+`study.group.la_geometry`.  Each article carries a title, subtitle, short
+answer, theory paragraphs, two worked examples with three steps each, key
+ideas and a pitfalls paragraph, all as `study.la_<id>.*` keys.  The bodies are
+authored in Persian and English; the other ten catalogues carry the English
+text so the key-parity guard stays green, and translation can proceed per
+language without touching the article model.
+
+References: Strang supplies the topic order and the worked examples' shape,
+Hoffman–Kunze supplies the definitions and theorem statements, and
+Trefethen–Bau supplies the numerical algorithm design (QR iteration, power
+iteration, SVD, conditioning).  No page numbers are stored in the code, so the
+coverage is described by algorithm rather than claimed as a citation.
+
+Tests: `test_i18n_guard.py` asserts that all twelve catalogues have the same
+3791 keys and that placeholders match; `widget_test.dart` opens the linear
+algebra section home and one article from the drawer; the article renderer is
+shared with the existing calculus and ODE articles, so `Math` rendering is
+covered by the same widget test.

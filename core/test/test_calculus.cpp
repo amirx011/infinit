@@ -55,6 +55,20 @@ int main() {
         expect(r.ok && r.closedForm, "x*ln(x)^2 integrates in closed form");
     }
     {
+        // The exp·sin table entry must not swallow a third x-dependent factor.
+        // It used to integrate only e^x·sin(x) and drop the polynomial.
+        for (const char* f : {"x*e^x*sin(x)", "x^2*e^x*sin(x)",
+                              "x*e^x*cos(x)", "x*e^(2*x)*cos(3*x)"}) {
+            Result r = integrateExpression(f, "x", "en");
+            expect(r.ok && r.closedForm, std::string(f) + " integrates in closed form");
+            if (!r.ok || !r.solution) continue;
+            Ex back = diff(r.solution, "x");
+            const bool residual = numericallyZero(
+                Add(back, Mul(Num(-1), parseExpr(f))), {"x"}, 8, 1e-7);
+            expect(residual, std::string(f) + " antiderivative differentiates back");
+        }
+    }
+    {
         // Parts leaves x^2/sqrt(1-x^2); the reduction formula must finish it.
         Result r = integrateExpression("x*asin(x)", "x", "en");
         expect(r.ok && r.closedForm && r.verified,

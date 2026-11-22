@@ -155,6 +155,31 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
     final c = context.colors;
     final spec = widget.spec;
     final r = _result;
+    // Labels such as "Matrix $A$" carry inline mathematics, so they are
+    // typeset above the field instead of passed to InputDecoration as text.
+    Widget fieldLabel(String key) => Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: MathText(
+        l.t(key),
+        style: Theme.of(context).textTheme.bodySmall,
+      ),
+    );
+    Widget mathField(TopicField field, double width) => SizedBox(
+      width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          fieldLabel(field.labelKey),
+          LabelledField(
+            controller: _controllers[field.key]!,
+            label: '',
+            hint: field.hintKey.isEmpty ? null : l.t(field.hintKey),
+            width: width,
+            onSubmitted: _run,
+          ),
+        ],
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -180,11 +205,7 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              l.t(field.labelKey),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            const SizedBox(height: 8),
+                            fieldLabel(field.labelKey),
                             SegmentedButton<String>(
                               showSelectedIcon: false,
                               segments: [
@@ -213,37 +234,14 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
                         ),
                       )
                     else if (_wideField(field))
-                      SizedBox(
-                        width:
-                            const {'f', 'F', 'g', 'matrix'}.contains(field.key)
+                      mathField(
+                        field,
+                        const {'f', 'F', 'g', 'matrix'}.contains(field.key)
                             ? 360
                             : 300,
-                        child: LabelledField(
-                          controller: _controllers[field.key]!,
-                          label: l.t(field.labelKey),
-                          hint: field.hintKey.isEmpty
-                              ? null
-                              : l.t(field.hintKey),
-                          width:
-                              const {
-                                'f',
-                                'F',
-                                'g',
-                                'matrix',
-                              }.contains(field.key)
-                              ? 360
-                              : 300,
-                          onSubmitted: _run,
-                        ),
                       )
                     else
-                      LabelledField(
-                        controller: _controllers[field.key]!,
-                        label: l.t(field.labelKey),
-                        hint: field.hintKey.isEmpty ? null : l.t(field.hintKey),
-                        width: 160,
-                        onSubmitted: _run,
-                      ),
+                      mathField(field, 160),
                 ],
               ),
               const SizedBox(height: 16),

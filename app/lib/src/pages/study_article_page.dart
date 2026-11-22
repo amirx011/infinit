@@ -50,7 +50,10 @@ class StudyArticlePage extends StatelessWidget {
                   subtitle: article.subtitle(l),
                 ),
                 const SizedBox(height: 20),
-                SectionLabel(l.t('ui.short_answer'), icon: Icons.bolt_rounded),
+                SectionLabel(
+                  l.t('ui.short_answer'),
+                  icon: Icons.short_text_rounded,
+                ),
                 const SizedBox(height: 10),
                 MathText(
                   article.shortAnswer(l),
@@ -105,7 +108,7 @@ class StudyArticlePage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          margin: const EdgeInsets.only(top: 7),
+                          margin: const EdgeInsets.only(top: 8),
                           width: 7,
                           height: 7,
                           decoration: BoxDecoration(
@@ -237,7 +240,7 @@ class _ExampleCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           MathBlock(math: example.answerMath, accent: true),
-          const SizedBox(height: 22),
+          const SizedBox(height: 24),
           SectionLabel(
             l10n.t('ui.step_by_step'),
             icon: Icons.format_list_numbered_rounded,
@@ -296,7 +299,7 @@ class _StepBlock extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Padding(
-            padding: EdgeInsets.only(bottom: isLast ? 0 : 18),
+            padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,14 +309,14 @@ class _StepBlock extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium
                       ?.copyWith(fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
                 MathText(
                   step.detail(l10n),
                   style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(height: 1.7),
                 ),
                 if (step.math != null) ...[
-                  const SizedBox(height: 9),
+                  const SizedBox(height: 8),
                   MathBlock(math: step.math!, size: 16),
                 ],
               ],

@@ -42,7 +42,7 @@ Future<void> _awaitEngine(WidgetTester tester, Finder done) async {
 /// is not built until its parent groups are open. Expanding in tree order and
 /// stopping as soon as the target appears keeps unrelated groups closed.
 Future<void> _expandUntilVisible(WidgetTester tester, Finder target) async {
-  for (var round = 0; round < 16; round++) {
+  for (var round = 0; round < 40; round++) {
     if (target.evaluate().isNotEmpty) return;
     final closed = find.descendant(
       of: find.byType(Drawer),
@@ -76,12 +76,12 @@ Finder _drawerLabel(String label) {
 }
 
 Future<void> _drawerTap(WidgetTester tester, String label) async {
-  var finder = _drawerLabel(label);
-  if (finder.evaluate().isEmpty) {
-    await _expandUntilVisible(tester, finder);
-    finder = _drawerLabel(label);
+  var all = _drawerLabel(label);
+  if (all.evaluate().isEmpty) {
+    await _expandUntilVisible(tester, all);
+    all = _drawerLabel(label);
   }
-  if (finder.evaluate().isEmpty) {
+  if (all.evaluate().isEmpty) {
     // The leaf may still be unbuilt because it is far below the viewport.
     // The search field flattens the tree, so use it as a reliable fallback.
     final search = find.descendant(
@@ -90,8 +90,11 @@ Future<void> _drawerTap(WidgetTester tester, String label) async {
     );
     await tester.enterText(search, label);
     await tester.pumpAndSettle();
-    finder = _drawerLabel(label);
+    all = _drawerLabel(label);
   }
+  // The same label can appear twice (a group header and a link, or the
+  // library link on two shelves); the first row is the one to tap.
+  final finder = all.evaluate().isEmpty ? all : all.first;
   final list = find.descendant(
     of: find.byType(Drawer),
     matching: find.byType(ListView),
@@ -102,7 +105,7 @@ Future<void> _drawerTap(WidgetTester tester, String label) async {
     scrollable: find.descendant(of: list, matching: find.byType(Scrollable)),
   );
   await tester.pumpAndSettle();
-  await tester.tap(finder.first);
+  await tester.tap(finder);
   await tester.pumpAndSettle();
 }
 
@@ -125,7 +128,7 @@ void main() {
     expect(find.text('Derivative'), findsOneWidget);
     expect(find.text('Integral'), findsWidgets);
     expect(find.text('Differential equation forms'), findsOneWidget);
-    expect(find.text('STUDY NOTE'), findsOneWidget);
+    expect(find.text('Study note'), findsOneWidget);
     expect(find.text('How to read a solution'), findsOneWidget);
   });
 
@@ -160,7 +163,7 @@ void main() {
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Integral');
     expect(find.text('Integrals'), findsOneWidget);
-    expect(find.text('STUDY NOTE'), findsOneWidget);
+    expect(find.text('Study note'), findsOneWidget);
     expect(find.text('Integration is accumulation'), findsOneWidget);
 
     final expand = find.text('Worked example & pitfalls');
@@ -1679,7 +1682,14 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
-    await _drawerTap(tester, 'Linear algebra');
+    await _drawerTap(tester, 'Section overview');
+
+    // The section opens on its map, not on a single workbench.
+    expect(find.text('Matrices and elimination'), findsOneWidget);
+    expect(find.text('Rank & fundamental subspaces'), findsOneWidget);
+
+    await tester.tap(find.text('Rank & fundamental subspaces'));
+    await tester.pumpAndSettle();
 
     final button = find.text('Show the answer and steps');
     await tester.ensureVisible(button);
@@ -1694,6 +1704,54 @@ void main() {
     expect(find.textContaining('= C'), findsNothing);
   });
 
+  testWidgets('solves a vector-space workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Linear algebra');
+    await _drawerTap(tester, 'Coordinates in a basis');
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Solution path'), findsOneWidget);
+    expect(find.text('Simplest answer'), findsOneWidget);
+    expect(find.byType(Math), findsWidgets);
+  });
+
+  testWidgets('solves an application workbench', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 2200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byIcon(Icons.menu_rounded).first);
+    await tester.pumpAndSettle();
+    await _drawerTap(tester, 'Linear algebra');
+    await _drawerTap(tester, 'QR decomposition');
+
+    final button = find.text('Show the answer and steps');
+    await tester.ensureVisible(button);
+    await tester.pumpAndSettle();
+    await tester.tap(button);
+    await _awaitEngine(tester, find.text('Solution path'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Solution path'), findsOneWidget);
+    expect(find.text('Simplest answer'), findsOneWidget);
+    expect(find.byType(Math), findsWidgets);
+  });
+
   testWidgets('solves a linear system by Gauss and by Cramer', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1703,7 +1761,8 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
-    await _drawerTap(tester, 'Linear systems');
+    await _drawerTap(tester, 'Linear algebra');
+    await _drawerTap(tester, 'Matrices and elimination');
     await _drawerTap(tester, 'Linear systems (Gauss / Cramer)');
 
     // The method selector must offer both methods and start on Gauss.
@@ -1719,6 +1778,8 @@ void main() {
     expect(find.text('Back substitution'), findsOneWidget);
 
     // Choosing Cramer must actually change the path, not just the label.
+    await tester.ensureVisible(find.text('Cramer'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Cramer'));
     await tester.pumpAndSettle();
     final runAgain = find.text('Show the answer and steps');

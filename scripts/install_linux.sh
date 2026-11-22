@@ -110,7 +110,7 @@ cat > "$DESKTOP_FILE" <<EOF
 Type=Application
 Name=Infinit Lab
 Name[fa]=Infinit Lab
-Comment=Exact symbolic calculus and differential equations
+Comment=Exact symbolic differential equations, calculus and linear algebra
 Exec=$LAUNCHER
 Icon=$APP_ID
 Terminal=false

@@ -592,6 +592,600 @@ const kTopicCatalog = <String, TopicSpec>{
       'A = [[1, 1], [1, 1]], b = [1, 2]  →  no solution',
     ],
   ),
+  'linalg_rank': TopicSpec(
+    id: 'linalg_rank',
+    icon: Icons.table_rows_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '1, 2, 3; 2, 4, 6; 1, 1, 1',
+      ),
+    ],
+    examples: [
+      'A = [[1, 2, 3], [2, 4, 6], [1, 1, 1]]  →  rank 2',
+      'A = [[1, 2], [2, 4]]  →  rank 1, nullity 1',
+      'A = [[a, b], [2a, 2b]]  →  symbolic rank 1',
+    ],
+  ),
+  'linalg_det': TopicSpec(
+    id: 'linalg_det',
+    icon: Icons.calculate_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_det.field.matrix.label',
+        hintKey: 'topic.linalg_det.field.matrix.hint',
+        initial: '1, 2; 3, 4',
+      ),
+    ],
+    examples: [
+      'A = [[1, 2], [3, 4]]  →  det = −2',
+      'A = [[a, b], [c, d]]  →  det = ad − bc',
+      'A = [[1, 2], [2, 4]]  →  det = 0',
+    ],
+  ),
+  'linalg_inverse': TopicSpec(
+    id: 'linalg_inverse',
+    icon: Icons.flip_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_inverse.field.matrix.label',
+        hintKey: 'topic.linalg_inverse.field.matrix.hint',
+        initial: '2, 1; 1, 1',
+      ),
+    ],
+    examples: [
+      'A = [[2, 1], [1, 1]]  →  A⁻¹ = [[1, −1], [−1, 2]]',
+      'A = [[a, b], [c, d]]  →  adj(A) / det(A)',
+      'A = [[1, 1], [1, 1]]  →  no inverse',
+    ],
+  ),
+  'linalg_lu': TopicSpec(
+    id: 'linalg_lu',
+    icon: Icons.call_split_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_lu.field.matrix.label',
+        hintKey: 'topic.linalg_lu.field.matrix.hint',
+        initial: '4, 3; 6, 3',
+      ),
+    ],
+    examples: [
+      'A = [[4, 3], [6, 3]]  →  PA = LU',
+      'A = [[0, 1], [1, 0]]  →  a row swap',
+      'A = [[a, b], [c, d]]  →  symbolic factors',
+    ],
+  ),
+  'linalg_span': TopicSpec(
+    id: 'linalg_span',
+    icon: Icons.blur_on_rounded,
+    fields: [
+      TopicField(
+        'vectors',
+        labelKey: 'topic.linalg_span.field.vectors.label',
+        hintKey: 'topic.linalg_span.field.vectors.hint',
+        initial: '1, 0; 0, 1',
+      ),
+      TopicField(
+        'target',
+        labelKey: 'topic.linalg_span.field.target.label',
+        hintKey: 'topic.linalg_span.field.target.hint',
+        initial: '3, 5',
+      ),
+    ],
+    examples: [
+      'v₁ = (1, 0), v₂ = (0, 1), b = (3, 5)  →  b = 3v₁ + 5v₂',
+      'v₁ = (1, 2), v₂ = (2, 4), b = (1, 1)  →  not in the span',
+      'v₁ = (1, 2, 3), v₂ = (2, 4, 6)  →  dim span = 1',
+    ],
+  ),
+  'linalg_independence': TopicSpec(
+    id: 'linalg_independence',
+    icon: Icons.rule_rounded,
+    fields: [
+      TopicField(
+        'vectors',
+        labelKey: 'topic.linalg_independence.field.vectors.label',
+        hintKey: 'topic.linalg_independence.field.vectors.hint',
+        initial: '1, 2; 2, 4',
+      ),
+    ],
+    examples: [
+      'v₁ = (1, 2), v₂ = (2, 4)  →  −2v₁ + v₂ = 0',
+      'v₁ = (1, 0), v₂ = (0, 1)  →  independent',
+      'v₁ = (a, b), v₂ = (c, d)  →  generic answer',
+    ],
+  ),
+  'linalg_basis': TopicSpec(
+    id: 'linalg_basis',
+    icon: Icons.account_tree_rounded,
+    fields: [
+      TopicField(
+        'vectors',
+        labelKey: 'topic.linalg_basis.field.vectors.label',
+        hintKey: 'topic.linalg_basis.field.vectors.hint',
+        initial: '1, 2, 3; 2, 4, 6; 1, 1, 1',
+      ),
+    ],
+    examples: [
+      'v₁ = (1, 2, 3), v₂ = (2, 4, 6), v₃ = (1, 1, 1)  →  dim = 2',
+      'v₁ = (1, 0), v₂ = (0, 1), v₃ = (1, 1)  →  dim = 2',
+      'v₁ = (0, 0), v₂ = (0, 0)  →  dim = 0',
+    ],
+  ),
+  'linalg_coordinates': TopicSpec(
+    id: 'linalg_coordinates',
+    icon: Icons.my_location_rounded,
+    fields: [
+      TopicField(
+        'basis',
+        labelKey: 'topic.linalg_coordinates.field.basis.label',
+        hintKey: 'topic.linalg_coordinates.field.basis.hint',
+        initial: '1, 1; 0, 1',
+      ),
+      TopicField(
+        'vector',
+        labelKey: 'topic.linalg_coordinates.field.vector.label',
+        hintKey: 'topic.linalg_coordinates.field.vector.hint',
+        initial: '3, 5',
+      ),
+    ],
+    examples: [
+      'B = {(1, 1), (0, 1)}, v = (3, 5)  →  [v]ᴮ = (3, 2)',
+      'B = {(1, 0), (0, 1)}, v = (3, 5)  →  [v]ᴮ = (3, 5)',
+      'B = {(1, 1), (2, 2)}  →  not a basis',
+    ],
+  ),
+  'linalg_change_basis': TopicSpec(
+    id: 'linalg_change_basis',
+    icon: Icons.swap_horiz_rounded,
+    fields: [
+      TopicField(
+        'basis_b',
+        labelKey: 'topic.linalg_change_basis.field.basis_b.label',
+        hintKey: 'topic.linalg_change_basis.field.basis_b.hint',
+        initial: '1, 0; 0, 1',
+      ),
+      TopicField(
+        'basis_c',
+        labelKey: 'topic.linalg_change_basis.field.basis_c.label',
+        hintKey: 'topic.linalg_change_basis.field.basis_c.hint',
+        initial: '1, 1; 0, 1',
+      ),
+    ],
+    examples: [
+      'B = {(1, 0), (0, 1)}, C = {(1, 1), (0, 1)}  →  P = [[1, 0], [−1, 1]]',
+      'B = {(1, 1), (0, 1)}, C = {(1, 0), (0, 1)}  →  the inverse matrix',
+      'C = {(1, 1), (2, 2)}  →  not a basis',
+    ],
+  ),
+  'linalg_subspace': TopicSpec(
+    id: 'linalg_subspace',
+    icon: Icons.checklist_rounded,
+    fields: [
+      TopicField(
+        'vectors',
+        labelKey: 'topic.linalg_subspace.field.vectors.label',
+        hintKey: 'topic.linalg_subspace.field.vectors.hint',
+        initial: '1, 0; 0, 1; 1, 1',
+      ),
+    ],
+    examples: [
+      'v₁ = (1, 0), v₂ = (0, 1), v₃ = (1, 1)  →  a plane, dim = 2',
+      'v₁ = (1, 2), v₂ = (2, 4)  →  a line, dim = 1',
+      'v₁ = (0, 0), v₂ = (0, 0)  →  {0}, dim = 0',
+    ],
+  ),
+  'linalg_projection': TopicSpec(
+    id: 'linalg_projection',
+    icon: Icons.vertical_align_center_rounded,
+    fields: [
+      TopicField(
+        'basis',
+        labelKey: 'topic.linalg_projection.field.basis.label',
+        hintKey: 'topic.linalg_projection.field.basis.hint',
+        initial: '1, 0; 0, 1',
+      ),
+      TopicField(
+        'vector',
+        labelKey: 'topic.linalg_projection.field.vector.label',
+        hintKey: 'topic.linalg_projection.field.vector.hint',
+        initial: '3, 4',
+      ),
+    ],
+    examples: [
+      'W = span{(1, 0), (0, 1)}, v = (3, 4)  →  proj = (3, 4)',
+      'W = span{(1, 1, 0), (0, 1, 1)}, v = (1, 2, 3)  →  proj = (1/3, 8/3, 7/3)',
+      'W = span{(1, 2), (2, 4)}  →  the basis is dependent',
+    ],
+  ),
+  'linalg_gram_schmidt': TopicSpec(
+    id: 'linalg_gram_schmidt',
+    icon: Icons.auto_fix_high_rounded,
+    fields: [
+      TopicField(
+        'vectors',
+        labelKey: 'topic.linalg_gram_schmidt.field.vectors.label',
+        hintKey: 'topic.linalg_gram_schmidt.field.vectors.hint',
+        initial: '3, 4; 1, 0',
+      ),
+    ],
+    examples: [
+      'v₁ = (3, 4), v₂ = (1, 0)  →  q₁ = (3/5, 4/5), q₂ = (4/5, −3/5)',
+      'v₁ = (1, 2), v₂ = (2, 4)  →  v₂ is dropped',
+      'v₁ = (1, 0), v₂ = (0, 1)  →  already orthonormal',
+    ],
+  ),
+  'linalg_qr': TopicSpec(
+    id: 'linalg_qr',
+    icon: Icons.qr_code_2_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_qr.field.matrix.label',
+        hintKey: 'topic.linalg_qr.field.matrix.hint',
+        initial: '1, 1; 1, 0; 0, 1',
+      ),
+    ],
+    examples: [
+      'A = [[1, 1], [1, 0], [0, 1]]  →  A = QR',
+      'A = [[1, 2], [3, 4]]  →  Q with radicals, R upper triangular',
+      'A = [[1, 2], [2, 4]]  →  the columns are dependent',
+    ],
+  ),
+  'linalg_least_squares': TopicSpec(
+    id: 'linalg_least_squares',
+    icon: Icons.show_chart_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_least_squares.field.matrix.label',
+        hintKey: 'topic.linalg_least_squares.field.matrix.hint',
+        initial: '1, 0; 0, 1; 1, 1',
+      ),
+      TopicField(
+        'rhs',
+        labelKey: 'topic.linalg_least_squares.field.rhs.label',
+        hintKey: 'topic.linalg_least_squares.field.rhs.hint',
+        initial: '1; 2; 3',
+      ),
+    ],
+    examples: [
+      'A = [[1, 0], [0, 1], [1, 1]], b = (1, 2, 3)  →  exact fit',
+      'A = [[1, 0], [0, 1], [1, 1]], b = (1, 2, 4)  →  x = (4/3, 7/3)',
+      'A = [[1, 1], [1, 1]], b = (1, 3)  →  not unique',
+    ],
+  ),
+  'linalg_diagonalize': TopicSpec(
+    id: 'linalg_diagonalize',
+    icon: Icons.filter_center_focus_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_diagonalize.field.matrix.label',
+        hintKey: 'topic.linalg_diagonalize.field.matrix.hint',
+        initial: '2, 1; 1, 2',
+      ),
+    ],
+    examples: [
+      'A = [[2, 1], [1, 2]]  →  A = P D P⁻¹, D = diag(1, 3)',
+      'A = [[4, 1], [2, 3]]  →  D = diag(2, 5)',
+      'A = [[1, 1], [0, 1]]  →  not diagonalizable',
+    ],
+  ),
+  'linalg_power': TopicSpec(
+    id: 'linalg_power',
+    icon: Icons.bolt_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_power.field.matrix.label',
+        hintKey: 'topic.linalg_power.field.matrix.hint',
+        initial: '2, 1; 1, 2',
+      ),
+      TopicField(
+        'power',
+        labelKey: 'topic.linalg_power.field.power.label',
+        hintKey: 'topic.linalg_power.field.power.hint',
+        initial: '3',
+      ),
+    ],
+    examples: [
+      'A = [[2, 1], [1, 2]], k = 3  →  A³ = [[14, 13], [13, 14]]',
+      'A = [[2, 0], [0, 3]], k = −1  →  A⁻¹ = [[1/2, 0], [0, 1/3]]',
+      'A = [[1, 1], [0, 1]], k = 3  →  direct multiplication',
+    ],
+  ),
+  'linalg_orthogonal_complement': TopicSpec(
+    id: 'linalg_orthogonal_complement',
+    icon: Icons.blur_circular_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '1, 2; 2, 4; 3, 6',
+      ),
+    ],
+    examples: [
+      'A = [[1, 2], [2, 4], [3, 6]]  →  A^⊥ = span{(−2, 1, 0), (−3, 0, 1)}',
+      'A = [[1, 0], [0, 1]]  →  A^⊥ = {0}',
+      'A = [[1, 1, 1]]  →  a plane orthogonal to (1, 1, 1)',
+    ],
+  ),
+  'linalg_graph': TopicSpec(
+    id: 'linalg_graph',
+    icon: Icons.hub_rounded,
+    fields: [
+      TopicField(
+        'nodes',
+        labelKey: 'topic.linalg_graph.field.nodes.label',
+        hintKey: 'topic.linalg_graph.field.nodes.hint',
+        initial: '3',
+      ),
+      TopicField(
+        'edges',
+        labelKey: 'topic.linalg_graph.field.edges.label',
+        hintKey: 'topic.linalg_graph.field.edges.hint',
+        initial: '1-2, 2-3, 3-1',
+      ),
+    ],
+    examples: [
+      '3 nodes, edges 1-2, 2-3, 3-1  →  one cycle',
+      '4 nodes, edges 1-2, 3-4  →  two components',
+      '3 nodes, edges 1-2, 2-3  →  a tree, no cycle',
+    ],
+  ),
+  'linalg_fft': TopicSpec(
+    id: 'linalg_fft',
+    icon: Icons.graphic_eq_rounded,
+    fields: [
+      TopicField(
+        'signal',
+        labelKey: 'topic.linalg_fft.field.signal.label',
+        hintKey: 'topic.linalg_fft.field.signal.hint',
+        initial: '1, 2, 3, 4',
+      ),
+    ],
+    examples: [
+      'x = (1, 2, 3, 4)  →  X = (10, −2 + 2i, −2, −2 − 2i)',
+      'x = (1, 0, 0, 0)  →  a flat spectrum',
+      'x = (1, 1, 1, 1)  →  X = (4, 0, 0, 0)',
+    ],
+  ),
+  'linalg_similarity': TopicSpec(
+    id: 'linalg_similarity',
+    icon: Icons.compare_arrows_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '1, 2; 3, 4',
+      ),
+      TopicField(
+        'change',
+        labelKey: 'topic.linalg_similarity.field.change.label',
+        hintKey: 'topic.linalg_similarity.field.change.hint',
+        initial: '1, 1; 0, 1',
+      ),
+    ],
+    examples: [
+      'A = [[1, 2], [3, 4]], P = [[1, 1], [0, 1]]  →  B = P⁻¹AP',
+      'A = [[2, 0], [0, 3]], P = [[1, 1], [0, 1]]  →  the same eigenvalues',
+      'P singular  →  not a change of basis',
+    ],
+  ),
+  'linalg_matrix_exp': TopicSpec(
+    id: 'linalg_matrix_exp',
+    icon: Icons.timeline_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '0, 1; -1, 0',
+      ),
+    ],
+    examples: [
+      'A = [[0, 1], [−1, 0]]  →  a rotation',
+      'A = [[1, 1], [0, 1]]  →  e^{At} = e^t [[1, t], [0, 1]]',
+      'A = [[0, 1], [0, 0]]  →  e^{At} = [[1, t], [0, 1]]',
+    ],
+  ),
+  'linalg_positive_definite': TopicSpec(
+    id: 'linalg_positive_definite',
+    icon: Icons.check_circle_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '4, 2; 2, 3',
+      ),
+    ],
+    examples: [
+      'A = [[4, 2], [2, 3]]  →  A = LLᵀ',
+      'A = [[1, 2], [2, 1]]  →  not positive definite',
+      'A = [[2, −1], [−1, 2]]  →  a positive definite tridiagonal matrix',
+    ],
+  ),
+  'linalg_svd': TopicSpec(
+    id: 'linalg_svd',
+    icon: Icons.auto_graph_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '3, 0; 0, 2',
+      ),
+    ],
+    examples: [
+      'A = [[3, 0], [0, 2]]  →  σ = 3, 2',
+      'A = [[1, 0], [0, 0]]  →  rank 1, σ = 1, 0',
+      'A = [[1, 2, 3], [4, 5, 6]]  →  a rectangular SVD',
+    ],
+  ),
+  'linalg_norm': TopicSpec(
+    id: 'linalg_norm',
+    icon: Icons.straighten_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '1, -2; 3, 4',
+      ),
+    ],
+    examples: [
+      'A = [[1, −2], [3, 4]]  →  ‖A‖₁ = 6, ‖A‖∞ = 7',
+      'A = [[2, 0], [0, 1]]  →  cond₂ = 2',
+      'A = [[1, 1], [1, 1]]  →  cond₂ = ∞',
+    ],
+  ),
+  'linalg_power_iteration': TopicSpec(
+    id: 'linalg_power_iteration',
+    icon: Icons.trending_up_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '2, 1; 1, 2',
+      ),
+      TopicField(
+        'start',
+        labelKey: 'topic.linalg_power_iteration.field.start.label',
+        hintKey: 'topic.linalg_power_iteration.field.start.hint',
+        initial: '1, 0',
+      ),
+    ],
+    examples: [
+      'A = [[2, 1], [1, 2]], x₀ = (1, 0)  →  λ = 3',
+      'A = [[4, 1], [2, 3]], x₀ = (1, 1)  →  λ = 5',
+      'A = [[0, 1], [1, 0]]  →  the eigenvalues tie',
+    ],
+  ),
+  'linalg_qr_algorithm': TopicSpec(
+    id: 'linalg_qr_algorithm',
+    icon: Icons.qr_code_2_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '2, 1; 1, 2',
+      ),
+    ],
+    examples: [
+      'A = [[2, 1], [1, 2]]  →  λ = 3, 1',
+      'A = [[4, 1], [1, 4]]  →  λ = 5, 3',
+      'A = [[1, 2], [3, 4]]  →  symmetric input required',
+    ],
+  ),
+  'linalg_iterative': TopicSpec(
+    id: 'linalg_iterative',
+    icon: Icons.sync_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '4, 1; 1, 3',
+      ),
+      TopicField(
+        'rhs',
+        labelKey: 'topic.linalg_least_squares.field.rhs.label',
+        hintKey: 'topic.linalg_least_squares.field.rhs.hint',
+        initial: '1, 2',
+      ),
+      TopicField(
+        'method',
+        labelKey: 'topic.linalg_iterative.field.method.label',
+        initial: 'jacobi',
+        choices: [
+          TopicChoice('jacobi', 'topic.linalg_iterative.method.jacobi'),
+          TopicChoice(
+            'gauss_seidel',
+            'topic.linalg_iterative.method.gauss_seidel',
+          ),
+        ],
+      ),
+    ],
+    examples: [
+      'A = [[4, 1], [1, 3]], b = (1, 2)  →  Jacobi',
+      'A = [[4, 1], [1, 3]], b = (1, 2)  →  Gauss–Seidel',
+      'A = [[1, 2], [2, 1]]  →  the iteration diverges',
+    ],
+  ),
+  'linalg_lp': TopicSpec(
+    id: 'linalg_lp',
+    icon: Icons.linear_scale_rounded,
+    fields: [
+      TopicField(
+        'objective',
+        labelKey: 'topic.linalg_lp.field.objective.label',
+        hintKey: 'topic.linalg_lp.field.objective.hint',
+        initial: '3, 2',
+      ),
+      TopicField(
+        'constraints',
+        labelKey: 'topic.linalg_lp.field.constraints.label',
+        hintKey: 'topic.linalg_lp.field.constraints.hint',
+        initial: '1, 1; 1, 0; 0, 1',
+      ),
+      TopicField(
+        'bounds',
+        labelKey: 'topic.linalg_lp.field.bounds.label',
+        hintKey: 'topic.linalg_lp.field.bounds.hint',
+        initial: '4, 2, 3',
+      ),
+    ],
+    examples: [
+      'max 3x + 2y, x + y ≤ 4, x ≤ 2, y ≤ 3  →  (2, 2), z = 10',
+      'max x + y, x + y ≤ 5  →  a whole edge of optima',
+      'max x + y, x ≥ 0, y ≥ 0  →  unbounded',
+    ],
+  ),
+  'linalg_game': TopicSpec(
+    id: 'linalg_game',
+    icon: Icons.sports_esports_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '3, 0; 0, 2',
+      ),
+    ],
+    examples: [
+      'A = [[3, 0], [0, 2]]  →  mixed value 6/5',
+      'A = [[3, 1], [2, 1]]  →  a saddle point',
+      'A = [[1, −1], [−1, 1]]  →  value 0',
+    ],
+  ),
+  'linalg_symmetric': TopicSpec(
+    id: 'linalg_symmetric',
+    icon: Icons.balance_rounded,
+    fields: [
+      TopicField(
+        'matrix',
+        labelKey: 'topic.linalg_rank.field.matrix.label',
+        hintKey: 'topic.linalg_rank.field.matrix.hint',
+        initial: '2, 1; 1, 2',
+      ),
+    ],
+    examples: [
+      'A = [[2, 1], [1, 2]]  →  Q D Qᵀ',
+      'A = [[4, 1], [1, 4]]  →  λ = 5, 3',
+      'A = [[1, 2], [3, 4]]  →  symmetric input required',
+    ],
+  ),
   'matrix_eigen': TopicSpec(
     id: 'matrix_eigen',
     icon: Icons.grid_4x4_rounded,

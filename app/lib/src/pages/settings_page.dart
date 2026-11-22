@@ -187,7 +187,7 @@ class _SettingsPageState extends State<SettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SoftCard(
-              padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

@@ -50,9 +50,9 @@ Requires:       gtk3
 Requires:       libstdc++
 
 %description
-Infinit Lab solves differential equations and calculus problems symbolically
-and shows every step that produced the answer.  It runs offline and needs no
-account.
+Infinit Lab solves differential equations, calculus and linear algebra problems
+symbolically and shows every step that produced the answer.  It runs offline
+and needs no account.
 
 %prep
 

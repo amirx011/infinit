@@ -5,7 +5,7 @@ import 'models.dart';
 import 'tool_links.dart';
 
 /// Top-level shelf in the explanations library.
-enum StudySection { differentialEquations, calculus, standalone }
+enum StudySection { differentialEquations, calculus, linearAlgebra, standalone }
 
 /// A thematic group inside a section.  The library shows one card grid per
 /// group and the drawer mirrors the same headings.
@@ -17,6 +17,9 @@ enum StudyGroup {
   calculusFoundations,
   calculusCore,
   calculusSeries,
+  laFoundations,
+  laStructure,
+  laGeometry,
   standalone,
 }
 
@@ -84,6 +87,21 @@ const kStudyGroups = <StudyGroup, StudyGroupDef>{
     titleKey: 'study.group.calculus_series',
     icon: Icons.polyline_rounded,
   ),
+  StudyGroup.laFoundations: StudyGroupDef(
+    id: StudyGroup.laFoundations,
+    titleKey: 'study.group.la_foundations',
+    icon: Icons.account_tree_rounded,
+  ),
+  StudyGroup.laStructure: StudyGroupDef(
+    id: StudyGroup.laStructure,
+    titleKey: 'study.group.la_structure',
+    icon: Icons.calculate_rounded,
+  ),
+  StudyGroup.laGeometry: StudyGroupDef(
+    id: StudyGroup.laGeometry,
+    titleKey: 'study.group.la_geometry',
+    icon: Icons.straighten_rounded,
+  ),
   StudyGroup.standalone: StudyGroupDef(
     id: StudyGroup.standalone,
     titleKey: 'study.group.standalone',
@@ -116,10 +134,21 @@ const kStudySections = <StudySectionDef>[
     ],
   ),
   StudySectionDef(
+    id: StudySection.linearAlgebra,
+    titleKey: 'study.section.linalg',
+    subtitleKey: 'study.section.linalg.subtitle',
+    icon: Icons.grid_on_rounded,
+    groups: [
+      StudyGroup.laFoundations,
+      StudyGroup.laStructure,
+      StudyGroup.laGeometry,
+    ],
+  ),
+  StudySectionDef(
     id: StudySection.standalone,
     titleKey: 'study.section.standalone',
     subtitleKey: 'study.section.standalone.subtitle',
-    icon: Icons.auto_awesome_rounded,
+    icon: Icons.bookmarks_rounded,
     groups: [StudyGroup.standalone],
   ),
 ];
@@ -143,6 +172,12 @@ const Map<String, int> kStudyArticlePages = <String, int>{
   'limits': 122,
   'calculus_series': 123,
   'linear_algebra': 124,
+  'la_fields': 157,
+  'la_vector_spaces': 158,
+  'la_transformations': 159,
+  'la_determinants': 160,
+  'la_canonical': 161,
+  'la_inner_products': 162,
 };
 
 StudyArticle? studyArticleForPage(int page) {
@@ -1622,6 +1657,570 @@ final kStudyArticles = <StudyArticle>[
       ToolLink(labelKey: 'ui.linear_algebra', page: 1),
       ToolLink(labelKey: 'ui.wronskian', page: 3),
       ToolLink(labelKey: 'topic.matrix_eigen.title', page: 28),
+    ],
+  ),
+  StudyArticle(
+    id: 'la_fields',
+    icon: Icons.tag_rounded,
+    section: StudySection.linearAlgebra,
+    group: StudyGroup.laFoundations,
+    shortMath: ExView(
+      plain: "F a field: Q,R,C",
+      pretty: "F a field: Q,R,C",
+      latex: r"F\ \text{a field}:\ \mathbb{Q},\mathbb{R},\mathbb{C}",
+    ),
+
+    links: [
+      ToolLink(labelKey: 'topic.linear_solve.title', page: 126),
+      ToolLink(labelKey: 'topic.linalg_rank.title', page: 127),
+    ],
+    examples: [
+      StudyExample(
+        keyPrefix: 'study.la_fields.example.0',
+        answerMath: ExView(
+          plain: "x=2, y=1",
+          pretty: "x=2, y=1",
+          latex: r"x=2,\qquad y=1",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_fields.example.0.step.0',
+            math: ExView(
+              plain: "([[2, 1, 5]; [1, -1, 1]])",
+              pretty: "([[2, 1, 5]; [1, -1, 1]])",
+              latex: r"\left(\begin{array}{cc|c}2&1&5\\1&-1&1\end{array}\right)",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_fields.example.0.step.1',
+            math: ExView(
+              plain: "R_1 <- R_1-2R_2:, 3y=3",
+              pretty: "R_1 <- R_1-2R_2:, 3y=3",
+              latex: r"R_1\leftarrow R_1-2R_2:\qquad 3y=3",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_fields.example.0.step.2',
+            math: ExView(
+              plain: "y=1, x=1+y=2",
+              pretty: "y=1, x=1+y=2",
+              latex: r"y=1,\qquad x=1+y=2",
+            ),
+
+          ),
+        ],
+      ),
+      StudyExample(
+        keyPrefix: 'study.la_fields.example.1',
+        answerMath: ExView(
+          plain: "x=t(1,1,-2)",
+          pretty: "x=t(1,1,-2)",
+          latex: r"\mathbf{x}=t(1,1,-2)",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_fields.example.1.step.0',
+            math: ExView(
+              plain: "[[1, 1, 1]; [1, -1, 0]]",
+              pretty: "[[1, 1, 1]; [1, -1, 0]]",
+              latex: r"\begin{pmatrix}1&1&1\\1&-1&0\end{pmatrix}",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_fields.example.1.step.1',
+            math: ExView(
+              plain: "R_2 <- R_2-R_1:, -2y-z=0",
+              pretty: "R_2 <- R_2-R_1:, -2y-z=0",
+              latex: r"R_2\leftarrow R_2-R_1:\qquad -2y-z=0",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_fields.example.1.step.2',
+            math: ExView(
+              plain: "x=y=t, z=-2t",
+              pretty: "x=y=t, z=-2t",
+              latex: r"x=y=t,\qquad z=-2t",
+            ),
+
+          ),
+        ],
+      ),
+    ],
+  ),
+  StudyArticle(
+    id: 'la_vector_spaces',
+    icon: Icons.blur_on_rounded,
+    section: StudySection.linearAlgebra,
+    group: StudyGroup.laFoundations,
+    shortMath: ExView(
+      plain: "dim V=|B|, dim(U+W)=dim U+dim W-dim(Ucap W)",
+      pretty: "dim V=|B|, dim(U+W)=dim U+dim W-dim(Ucap W)",
+      latex: r"\dim V=|B|,\qquad \dim(U+W)=\dim U+\dim W-\dim(U\cap W)",
+    ),
+
+    links: [
+      ToolLink(labelKey: 'topic.linalg_basis.title', page: 133),
+      ToolLink(labelKey: 'topic.linalg_subspace.title', page: 136),
+    ],
+    examples: [
+      StudyExample(
+        keyPrefix: 'study.la_vector_spaces.example.0',
+        answerMath: ExView(
+          plain: "det A=2≠0",
+          pretty: "det A=2≠0",
+          latex: r"\det A=2\ne0",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_vector_spaces.example.0.step.0',
+            math: ExView(
+              plain: "A=[[1, 0, 1]; [1, 1, 0]; [0, 1, 1]]",
+              pretty: "A=[[1, 0, 1]; [1, 1, 0]; [0, 1, 1]]",
+              latex: r"A=\begin{pmatrix}1&0&1\\1&1&0\\0&1&1\end{pmatrix}",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_vector_spaces.example.0.step.1',
+            math: ExView(
+              plain: "det A=1(1-0)-0+1(1-0)=2",
+              pretty: "det A=1(1-0)-0+1(1-0)=2",
+              latex: r"\det A=1(1-0)-0+1(1-0)=2",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_vector_spaces.example.0.step.2',
+            math: ExView(
+              plain: "3=dimR^3 => a basis",
+              pretty: "3=dimR^3 => a basis",
+              latex: r"3=\dim\mathbb{R}^3\ \Rightarrow\ \text{a basis}",
+            ),
+
+          ),
+        ],
+      ),
+      StudyExample(
+        keyPrefix: 'study.la_vector_spaces.example.1',
+        answerMath: ExView(
+          plain: "dim=3, (-1,1,0,0), (-1,0,1,0), (-1,0,0,1)",
+          pretty: "dim=3, (-1,1,0,0), (-1,0,1,0), (-1,0,0,1)",
+          latex: r"\dim=3,\quad (-1,1,0,0),\ (-1,0,1,0),\ (-1,0,0,1)",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_vector_spaces.example.1.step.0',
+            math: ExView(
+              plain: "x+y+z+w=0",
+              pretty: "x+y+z+w=0",
+              latex: r"x+y+z+w=0",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_vector_spaces.example.1.step.1',
+            math: ExView(
+              plain: "x=-y-z-w",
+              pretty: "x=-y-z-w",
+              latex: r"x=-y-z-w",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_vector_spaces.example.1.step.2',
+            math: ExView(
+              plain: "(-1,1,0,0), (-1,0,1,0), (-1,0,0,1)",
+              pretty: "(-1,1,0,0), (-1,0,1,0), (-1,0,0,1)",
+              latex: r"(-1,1,0,0),\quad(-1,0,1,0),\quad(-1,0,0,1)",
+            ),
+
+          ),
+        ],
+      ),
+    ],
+  ),
+  StudyArticle(
+    id: 'la_transformations',
+    icon: Icons.swap_horiz_rounded,
+    section: StudySection.linearAlgebra,
+    group: StudyGroup.laFoundations,
+    shortMath: ExView(
+      plain: "T(α u+v)=α T(u)+T(v), [Scirc T]=[S][T]",
+      pretty: "T(α u+v)=α T(u)+T(v), [Scirc T]=[S][T]",
+      latex: r"T(\alpha u+v)=\alpha T(u)+T(v),\qquad [S\circ T]=[S][T]",
+    ),
+
+    links: [
+      ToolLink(labelKey: 'topic.linalg_coordinates.title', page: 134),
+      ToolLink(labelKey: 'topic.linalg_similarity.title', page: 146),
+    ],
+    examples: [
+      StudyExample(
+        keyPrefix: 'study.la_transformations.example.0',
+        answerMath: ExView(
+          plain: "[T]=[[1, 1]; [1, -1]], ker T=0",
+          pretty: "[T]=[[1, 1]; [1, -1]], ker T=0",
+          latex: r"[T]=\begin{pmatrix}1&1\\1&-1\end{pmatrix},\qquad \ker T=\{0\}",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_transformations.example.0.step.0',
+            math: ExView(
+              plain: "T(1,0)=(1,1), T(0,1)=(1,-1)",
+              pretty: "T(1,0)=(1,1), T(0,1)=(1,-1)",
+              latex: r"T(1,0)=(1,1),\qquad T(0,1)=(1,-1)",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_transformations.example.0.step.1',
+            math: ExView(
+              plain: "[T]=[[1, 1]; [1, -1]]",
+              pretty: "[T]=[[1, 1]; [1, -1]]",
+              latex: r"[T]=\begin{pmatrix}1&1\\1&-1\end{pmatrix}",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_transformations.example.0.step.2',
+            math: ExView(
+              plain: "x+y=0, x-y=0 => (x,y)=(0,0)",
+              pretty: "x+y=0, x-y=0 => (x,y)=(0,0)",
+              latex: r"x+y=0,\ x-y=0\ \Rightarrow\ (x,y)=(0,0)",
+            ),
+
+          ),
+        ],
+      ),
+      StudyExample(
+        keyPrefix: 'study.la_transformations.example.1',
+        answerMath: ExView(
+          plain: "B=[[-2, -4]; [3, 7]]",
+          pretty: "B=[[-2, -4]; [3, 7]]",
+          latex: r"B=\begin{pmatrix}-2&-4\\3&7\end{pmatrix}",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_transformations.example.1.step.0',
+            math: ExView(
+              plain: "P^-1=[[1, -1]; [0, 1]]",
+              pretty: "P^-1=[[1, -1]; [0, 1]]",
+              latex: r"P^{-1}=\begin{pmatrix}1&-1\\0&1\end{pmatrix}",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_transformations.example.1.step.1',
+            math: ExView(
+              plain: "P^-1AP=[[-2, -4]; [3, 7]]",
+              pretty: "P^-1AP=[[-2, -4]; [3, 7]]",
+              latex: r"P^{-1}AP=\begin{pmatrix}-2&-4\\3&7\end{pmatrix}",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_transformations.example.1.step.2',
+            math: ExView(
+              plain: "trB=5=trA, det B=-2=det A",
+              pretty: "trB=5=trA, det B=-2=det A",
+              latex: r"\operatorname{tr}B=5=\operatorname{tr}A,\quad \det B=-2=\det A",
+            ),
+
+          ),
+        ],
+      ),
+    ],
+  ),
+  StudyArticle(
+    id: 'la_determinants',
+    icon: Icons.calculate_rounded,
+    section: StudySection.linearAlgebra,
+    group: StudyGroup.laStructure,
+    shortMath: ExView(
+      plain: "det(AB)=det Adet B, p(x)=det(xI-A)",
+      pretty: "det(AB)=det Adet B, p(x)=det(xI-A)",
+      latex: r"\det(AB)=\det A\det B,\qquad p(x)=\det(xI-A)",
+    ),
+
+    links: [
+      ToolLink(labelKey: 'topic.linalg_det.title', page: 128),
+      ToolLink(labelKey: 'topic.linalg_diagonalize.title', page: 141),
+    ],
+    examples: [
+      StudyExample(
+        keyPrefix: 'study.la_determinants.example.0',
+        answerMath: ExView(
+          plain: "det A=22",
+          pretty: "det A=22",
+          latex: r"\det A=22",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_determinants.example.0.step.0',
+            math: ExView(
+              plain: "det A=1· M_11-2· M_12+3· M_13",
+              pretty: "det A=1· M_11-2· M_12+3· M_13",
+              latex: r"\det A=1\cdot M_{11}-2\cdot M_{12}+3\cdot M_{13}",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_determinants.example.0.step.1',
+            math: ExView(
+              plain: "M_11=24, M_12=-5, M_13=-4",
+              pretty: "M_11=24, M_12=-5, M_13=-4",
+              latex: r"M_{11}=24,\qquad M_{12}=-5,\qquad M_{13}=-4",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_determinants.example.0.step.2',
+            math: ExView(
+              plain: "det A=24+10-12=22",
+              pretty: "det A=24+10-12=22",
+              latex: r"\det A=24+10-12=22",
+            ),
+
+          ),
+        ],
+      ),
+      StudyExample(
+        keyPrefix: 'study.la_determinants.example.1',
+        answerMath: ExView(
+          plain: "p(x)=x^2-4x+3",
+          pretty: "p(x)=x^2-4x+3",
+          latex: r"p(x)=x^2-4x+3",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_determinants.example.1.step.0',
+            math: ExView(
+              plain: "xI-A=[[x-2, -1]; [-1, x-2]]",
+              pretty: "xI-A=[[x-2, -1]; [-1, x-2]]",
+              latex: r"xI-A=\begin{pmatrix}x-2&-1\\-1&x-2\end{pmatrix}",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_determinants.example.1.step.1',
+            math: ExView(
+              plain: "p(x)=(x-2)^2-1=x^2-4x+3",
+              pretty: "p(x)=(x-2)^2-1=x^2-4x+3",
+              latex: r"p(x)=(x-2)^2-1=x^2-4x+3",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_determinants.example.1.step.2',
+            math: ExView(
+              plain: "A^2-4A+3I=[[0, 0]; [0, 0]]",
+              pretty: "A^2-4A+3I=[[0, 0]; [0, 0]]",
+              latex: r"A^2-4A+3I=\begin{pmatrix}0&0\\0&0\end{pmatrix}",
+            ),
+
+          ),
+        ],
+      ),
+    ],
+  ),
+  StudyArticle(
+    id: 'la_canonical',
+    icon: Icons.account_tree_rounded,
+    section: StudySection.linearAlgebra,
+    group: StudyGroup.laStructure,
+    shortMath: ExView(
+      plain: "A=PJP^-1, m_A(x) | p_A(x)",
+      pretty: "A=PJP^-1, m_A(x) | p_A(x)",
+      latex: r"A=PJP^{-1},\qquad m_A(x)\mid p_A(x)",
+    ),
+
+    links: [
+      ToolLink(labelKey: 'topic.linalg_diagonalize.title', page: 141),
+      ToolLink(labelKey: 'topic.linalg_power.title', page: 142),
+    ],
+    examples: [
+      StudyExample(
+        keyPrefix: 'study.la_canonical.example.0',
+        answerMath: ExView(
+          plain: "J=[[1, 1]; [0, 1]], m(x)=(x-1)^2",
+          pretty: "J=[[1, 1]; [0, 1]], m(x)=(x-1)^2",
+          latex: r"J=\begin{pmatrix}1&1\\0&1\end{pmatrix},\quad m(x)=(x-1)^2",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_canonical.example.0.step.0',
+            math: ExView(
+              plain: "det(A-xI)=(1-x)^2 => x=1",
+              pretty: "det(A-xI)=(1-x)^2 => x=1",
+              latex: r"\det(A-xI)=(1-x)^2\ \Rightarrow\ x=1",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_canonical.example.0.step.1',
+            math: ExView(
+              plain: "(A-I)v=0 => v=(1,0)",
+              pretty: "(A-I)v=0 => v=(1,0)",
+              latex: r"(A-I)v=0\ \Rightarrow\ v=(1,0)",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_canonical.example.0.step.2',
+            math: ExView(
+              plain: "J_2(1)=[[1, 1]; [0, 1]]",
+              pretty: "J_2(1)=[[1, 1]; [0, 1]]",
+              latex: r"J_2(1)=\begin{pmatrix}1&1\\0&1\end{pmatrix}",
+            ),
+
+          ),
+        ],
+      ),
+      StudyExample(
+        keyPrefix: 'study.la_canonical.example.1',
+        answerMath: ExView(
+          plain: "J_2(2)⊕ J_1(3)",
+          pretty: "J_2(2)⊕ J_1(3)",
+          latex: r"J_2(2)\oplus J_1(3)",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_canonical.example.1.step.0',
+            math: ExView(
+              plain: "x=2,2,3",
+              pretty: "x=2,2,3",
+              latex: r"x=2,2,3",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_canonical.example.1.step.1',
+            math: ExView(
+              plain: "a_12=1 => a block of size 2",
+              pretty: "a_12=1 => a block of size 2",
+              latex: r"a_{12}=1\ \Rightarrow\ \text{a block of size }2",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_canonical.example.1.step.2',
+            math: ExView(
+              plain: "J_2(2)⊕ J_1(3)",
+              pretty: "J_2(2)⊕ J_1(3)",
+              latex: r"J_2(2)\oplus J_1(3)",
+            ),
+
+          ),
+        ],
+      ),
+    ],
+  ),
+  StudyArticle(
+    id: 'la_inner_products',
+    icon: Icons.straighten_rounded,
+    section: StudySection.linearAlgebra,
+    group: StudyGroup.laGeometry,
+    shortMath: ExView(
+      plain: "A=QΛ Q^T, A=UΣ V^T",
+      pretty: "A=QΛ Q^T, A=UΣ V^T",
+      latex: r"A=Q\Lambda Q^T,\qquad A=U\Sigma V^T",
+    ),
+
+    links: [
+      ToolLink(labelKey: 'topic.linalg_gram_schmidt.title', page: 138),
+      ToolLink(labelKey: 'topic.linalg_symmetric.title', page: 156),
+    ],
+    examples: [
+      StudyExample(
+        keyPrefix: 'study.la_inner_products.example.0',
+        answerMath: ExView(
+          plain: "q_1=(frac35,frac45), q_2=(frac45,-frac35)",
+          pretty: "q_1=(frac35,frac45), q_2=(frac45,-frac35)",
+          latex: r"q_1=\left(\tfrac35,\tfrac45\right),\quad q_2=\left(\tfrac45,-\tfrac35\right)",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_inner_products.example.0.step.0',
+            math: ExView(
+              plain: "q_1=(1)/(5)(3,4)",
+              pretty: "q_1=(1)/(5)(3,4)",
+              latex: r"q_1=\tfrac{1}{5}(3,4)",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_inner_products.example.0.step.1',
+            math: ExView(
+              plain: "(1,0)-(3)/(5)q_1=((16)/(25),-(12)/(25))",
+              pretty: "(1,0)-(3)/(5)q_1=((16)/(25),-(12)/(25))",
+              latex: r"(1,0)-\tfrac{3}{5}q_1=\left(\tfrac{16}{25},-\tfrac{12}{25}\right)",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_inner_products.example.0.step.2',
+            math: ExView(
+              plain: "q_2=(frac45,-frac35)",
+              pretty: "q_2=(frac45,-frac35)",
+              latex: r"q_2=\left(\tfrac45,-\tfrac35\right)",
+            ),
+
+          ),
+        ],
+      ),
+      StudyExample(
+        keyPrefix: 'study.la_inner_products.example.1',
+        answerMath: ExView(
+          plain: "A=Q[[3, 0]; [0, 1]]Q^T",
+          pretty: "A=Q[[3, 0]; [0, 1]]Q^T",
+          latex: r"A=Q\begin{pmatrix}3&0\\0&1\end{pmatrix}Q^T",
+        ),
+
+        steps: [
+          StudyStep(
+            'study.la_inner_products.example.1.step.0',
+            math: ExView(
+              plain: "λ=3,1",
+              pretty: "λ=3,1",
+              latex: r"\lambda=3,1",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_inner_products.example.1.step.1',
+            math: ExView(
+              plain: "(1,1), (1,-1)",
+              pretty: "(1,1), (1,-1)",
+              latex: r"(1,1),\qquad(1,-1)",
+            ),
+
+          ),
+          StudyStep(
+            'study.la_inner_products.example.1.step.2',
+            math: ExView(
+              plain: "Q=(1)/(sqrt(2))[[1, 1]; [1, -1]]",
+              pretty: "Q=(1)/(sqrt(2))[[1, 1]; [1, -1]]",
+              latex: r"Q=\tfrac{1}{\sqrt2}\begin{pmatrix}1&1\\1&-1\end{pmatrix}",
+            ),
+
+          ),
+        ],
+      ),
     ],
   ),
 ];

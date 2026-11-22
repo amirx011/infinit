@@ -110,6 +110,13 @@ Result integrateExpression(const std::string& input, const std::string& x,
         bool closed = false;
         std::string method;
         Ex F = integrate(f, x, &closed, &method);
+        // The antiderivative is shown to the reader and reused by every later
+        // step, so polish it once here instead of leaving an uncollected
+        // product that only looks tidy after the next derivative.
+        try {
+            F = simplifyStrong(F);
+        } catch (...) {
+        }
         r.method = method;
         r.solution = F;
         r.isExplicit = true;
@@ -901,7 +908,11 @@ Result integrateMulti(const std::string& input, const std::vector<std::string>& 
                             method + "\"}");
             }
             r.solution = g;
-            r.explicitY = g;
+            try {
+                r.solution = simplifyStrong(g);
+            } catch (...) {
+            }
+            r.explicitY = r.solution;
             r.isExplicit = true;
             r.method = lastMethod;
             r.closedForm = closedAll;
@@ -1108,7 +1119,10 @@ Result derivativeExpression(const std::string& input, const std::string& x, int 
         Ex current = f;
         std::vector<Ex> derivatives;
         for (int k = 1; k <= r.order; ++k) {
-            current = simplify(diffAst(current, x, &notes));
+            // Polish every order, not just the answer: each step is shown to
+            // the reader, and the next derivative starts from the tidy form
+            // instead of a nested product that grows with every order.
+            current = simplifyStrong(simplify(diffAst(current, x, &notes)));
             derivatives.push_back(current);
         }
         r.solution = current;

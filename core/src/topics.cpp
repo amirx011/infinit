@@ -4,6 +4,7 @@
 
 #include "series_solutions.hpp"
 #include "linear_systems.hpp"
+#include "linalg.hpp"
 #include "dynamical_systems.hpp"
 #include "bvp.hpp"
 #include "special_series.hpp"
@@ -5430,7 +5431,40 @@ Result solveTopic(const TopicRequest& req) {
         if (t == "multistep") return multistep(req, en);
         if (t == "error_convergence") return errorConvergence(req, en);
         if (t == "linear_system") return linearSystem(req, en);
-        if (t == "linear_solve") return linearSolveTopic(req);
+        if (t == "linear_solve") return linalgSolveTopic(req);
+        if (t == "linalg_rank") return linalgRankTopic(req);
+        if (t == "linalg_det") return linalgDetTopic(req);
+        if (t == "linalg_inverse") return linalgInverseTopic(req);
+        if (t == "linalg_lu") return linalgLuTopic(req);
+        if (t == "linalg_span") return linalgSpanTopic(req);
+        if (t == "linalg_independence") return linalgIndependenceTopic(req);
+        if (t == "linalg_basis") return linalgBasisTopic(req);
+        if (t == "linalg_coordinates") return linalgCoordinatesTopic(req);
+        if (t == "linalg_change_basis") return linalgChangeBasisTopic(req);
+        if (t == "linalg_subspace") return linalgSubspaceTopic(req);
+        if (t == "linalg_projection") return linalgProjectionTopic(req);
+        if (t == "linalg_gram_schmidt") return linalgGramSchmidtTopic(req);
+        if (t == "linalg_qr") return linalgQrTopic(req);
+        if (t == "linalg_least_squares") return linalgLeastSquaresTopic(req);
+        if (t == "linalg_diagonalize") return linalgDiagonalizeTopic(req);
+        if (t == "linalg_power") return linalgPowerTopic(req);
+        if (t == "linalg_orthogonal_complement")
+            return linalgOrthogonalComplementTopic(req);
+        if (t == "linalg_graph") return linalgGraphTopic(req);
+        if (t == "linalg_fft") return linalgFftTopic(req);
+        if (t == "linalg_similarity") return linalgSimilarityTopic(req);
+        if (t == "linalg_matrix_exp") return linalgMatrixExpTopic(req);
+        if (t == "linalg_positive_definite")
+            return linalgPositiveDefiniteTopic(req);
+        if (t == "linalg_svd") return linalgSvdTopic(req);
+        if (t == "linalg_norm") return linalgNormTopic(req);
+        if (t == "linalg_power_iteration")
+            return linalgPowerIterationTopic(req);
+        if (t == "linalg_qr_algorithm") return linalgQrAlgorithmTopic(req);
+        if (t == "linalg_iterative") return linalgIterativeTopic(req);
+        if (t == "linalg_lp") return linalgLpTopic(req);
+        if (t == "linalg_game") return linalgGameTopic(req);
+        if (t == "linalg_symmetric") return linalgSymmetricTopic(req);
         if (t == "matrix_eigen") return matrixEigen(req, en);
         if (t == "phase_portrait") return phasePortrait(req, en);
         if (t == "critical_points") return criticalPoints(req, en);

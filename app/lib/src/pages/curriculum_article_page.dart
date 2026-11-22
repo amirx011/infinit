@@ -66,7 +66,10 @@ class CurriculumArticlePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SectionLabel(l.t('ui.short_answer'), icon: Icons.bolt_rounded),
+                SectionLabel(
+                  l.t('ui.short_answer'),
+                  icon: Icons.short_text_rounded,
+                ),
                 const SizedBox(height: 10),
                 MathText(
                   article.idea(l),

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'i18n/catalog.dart';
 
-/// One selectable interface language.  Everything about it — code, display
-/// names, direction and order — comes from the `__meta.*` keys of
+/// One selectable interface language.  Everything about it (code, display
+/// names, direction and order) comes from the `__meta.*` keys of
 /// `assets/i18n/<code>.json`, so adding a language means adding one file.
 class AppLanguage {
   const AppLanguage(

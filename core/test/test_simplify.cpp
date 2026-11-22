@@ -55,6 +55,19 @@ int main() {
     expect("((x+1)^2/(x-1)^2)*((x-1)^3/(x+1))", "x^2 - 1");
     expect("(3/(x-1) - 3/(x+1))/(6/(x^2-1))", "1");
 
+    // A 4x4 determinant written as the product of its elimination pivots.  The
+    // last pivot is three fractions deep, and the cancellation that turns the
+    // product into the 24-term polynomial only shows after expansion.
+    expect("a*(g - b*f/a)*(m - c*k/a - (h - c*f/a)*(l - b*k/a)/(g - b*f/a))"
+           "*(s - d*p/a - (j - d*f/a)*(q - b*p/a)/(g - b*f/a)"
+           " - (n - d*k/a - (j - d*f/a)*(l - b*k/a)/(g - b*f/a))"
+           "*(r - c*p/a - (h - c*f/a)*(q - b*p/a)/(g - b*f/a))"
+           "/(m - c*k/a - (h - c*f/a)*(l - b*k/a)/(g - b*f/a)))",
+           "a*g*m*s - a*g*n*r - a*h*l*s + a*h*n*q + a*j*l*r - a*j*m*q"
+           " - b*f*m*s + b*f*n*r + b*h*k*s - b*h*n*p - b*j*k*r + b*j*m*p"
+           " + c*f*l*s - c*f*n*q - c*g*k*s + c*g*n*p + c*j*k*q - c*j*l*p"
+           " - d*f*l*r + d*f*m*q + d*g*k*r - d*g*m*p - d*h*k*q + d*h*l*p");
+
     // Exponential and logarithm rules.
     expect("exp(2*ln(x)) + exp(ln(x^2))", "2*x^2");
     expect("ln(exp(x)) + ln(1)", "x");
@@ -106,6 +119,72 @@ int main() {
 
     // A negative denominator leading coefficient becomes a leading minus.
     expect("(x+1)/(-x+1)", "-(x + 1)/(x - 1)");
+
+    // Repeated differentiation of a product must end in the collected form,
+    // not in a nested product that repeats every bracket.  This is what the
+    // derivative page shows for each order, and each order feeds the next.
+    {
+        auto nthDerivative = [](const std::string& input, int order, bool strong) {
+            Ex d = parseExpr(input);
+            for (int k = 0; k < order; ++k) {
+                d = diff(d, "x");
+                d = strong ? simplifyStrong(simplify(d)) : simplify(d);
+            }
+            return d;
+        };
+        struct Case {
+            const char* input;
+            int order;
+            const char* want;
+        } cases[] = {
+            {"A*(3*x^2+x^3)*e^x", 1, "A*x*exp(x)*(x^2 + 6*x + 6)"},
+            {"A*(3*x^2+x^3)*e^x", 2,
+             "A*exp(x)*(x^3 + 9*x^2 + 18*x + 6)"},
+            {"A*(3*x^2+x^3)*e^x", 3,
+             "A*exp(x)*(x^3 + 12*x^2 + 36*x + 24)"},
+            {"x^3*e^x", 2, "x*exp(x)*(x^2 + 6*x + 6)"},
+        };
+        for (auto& c : cases) {
+            Ex out = nthDerivative(c.input, c.order, true);
+            Ex plain = nthDerivative(c.input, c.order, false);
+            std::vector<std::string> syms;
+            collectSymbols(out, syms);
+            const bool equal =
+                numericallyZero(Add(plain, Mul(Num(-1), out)), syms, 12, 1e-5);
+            const bool printed = toPlain(out) == c.want;
+            if (!equal || !printed) {
+                ++failures;
+                std::cout << "FAIL: d^" << c.order << "/dx^" << c.order << " "
+                          << c.input << "\n  got:  " << toPlain(out);
+                if (!printed) std::cout << "\n  want: " << c.want;
+                if (!equal) std::cout << "\n  the result is not equal to the derivative";
+                std::cout << "\n";
+            }
+        }
+    }
+
+    // A common factor can sit inside a sum that is itself a factor of a
+    // product.  The top-level pass never reaches it, so the two sine terms
+    // used to stay separate and the polynomial factor kept its canonical
+    // (unsorted) order.
+    expect("e^x*(sin(x)*(x^2+x) + sin(x)*(2*x+1))",
+           "exp(x)*sin(x)*(x^2 + 3*x + 1)");
+    {
+        Ex in = parseExpr("(x^5+3*x^4+2*x^3+x^2+x+1)*e^x*sin(x)");
+        Ex exact = diff(in, "x");
+        Ex out = simplifyStrong(simplify(exact));
+        const std::string want =
+            "exp(x)*(cos(x)*(x^5 + 3*x^4 + 2*x^3 + x^2 + x + 1) + "
+            "sin(x)*(x^5 + 8*x^4 + 14*x^3 + 7*x^2 + 3*x + 2))";
+        const bool printed = toPlain(out) == want;
+        const bool equal = numericallyZero(
+            Add(out, Mul(Num(-1), exact)), {"x"}, 8, 1e-7);
+        if (!printed || !equal) {
+            ++failures;
+            std::cout << "FAIL: product derivative presentation\n  got:  "
+                      << toPlain(out) << "\n  want: " << want << "\n";
+        }
+    }
 
     if (failures) {
         std::cout << failures << " simplification check(s) failed\n";

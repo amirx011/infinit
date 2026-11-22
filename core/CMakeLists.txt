@@ -29,6 +29,7 @@ set(ODE_SOURCES
     src/topics.cpp
     src/series_solutions.cpp
     src/linear_systems.cpp
+    src/linalg.cpp
     src/dynamical_systems.cpp
     src/bvp.cpp
     src/special_functions.cpp

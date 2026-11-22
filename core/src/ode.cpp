@@ -2044,23 +2044,40 @@ static Ex particularForTerm(const std::vector<Ex>& a, const Ex& k, const Ex& b, 
     Ex trigArg = Mul(b, X);
 
     const Ex expFactor = k->isZero() ? Num(1) : expOf(Mul(k, X));
-    const std::string expLabel = k->isZero() ? "" : "e^(" + toPretty(k) + "·x)*";
+    // `e^(1·x)` reads worse than `e^x`, so fold the unit exponent.
+    std::string expLabel;
+    if (!k->isZero()) {
+        const std::string arg = toPretty(Mul(k, X));
+        expLabel = (arg == "x" ? "e^x" : "e^(" + arg + ")") + "*";
+    }
     std::vector<Ex> basis;
     std::vector<std::string> labels;
+    // The unknowns of the ansatz are named A1, A2, ... so the coefficient
+    // system printed later can refer to the same letters and never collides
+    // with the integration constants C, C2.
+    auto powerText = [](int j) {
+        if (j == 0) return std::string();
+        if (j == 1) return std::string("x");
+        return "x^" + std::to_string(j);
+    };
+    auto coefName = [](int i) { return "A" + std::to_string(i + 1); };
     for (int j = s; j <= s + d; ++j) {
         Ex xj = Pow(X, Num(j));
+        const std::string pw = powerText(j);
+        const std::string mult = pw.empty() ? "" : "*" + pw;
         if (b->isZero()) {
             basis.push_back(xj);
-            labels.push_back(expLabel + "x^" + std::to_string(j));
+            labels.push_back(expLabel + coefName((int)labels.size()) + mult);
         } else {
             basis.push_back(Mul(xj, Fn("cos", {trigArg})));
-            labels.push_back(expLabel + "x^" + std::to_string(j) + "*cos(" + toPretty(trigArg) + ")");
+            labels.push_back(expLabel + coefName((int)labels.size()) + mult +
+                             "*cos(" + toPretty(trigArg) + ")");
             basis.push_back(Mul(xj, Fn("sin", {trigArg})));
-            labels.push_back(expLabel + "x^" + std::to_string(j) + "*sin(" + toPretty(trigArg) + ")");
+            labels.push_back(expLabel + coefName((int)labels.size()) + mult +
+                             "*sin(" + toPretty(trigArg) + ")");
         }
     }
     if (basis.empty()) return nullptr;
-
     const int ncol = (int)basis.size();
     const int nrow = b->isZero() ? (maxDeg + 1) : (2 * (maxDeg + 1));
     std::vector<std::vector<Ex>> M(nrow, std::vector<Ex>(ncol, Num(0)));
@@ -2104,7 +2121,53 @@ static Ex particularForTerm(const std::vector<Ex>& a, const Ex& k, const Ex& b, 
     }
     bld.step("ode.t.forcing_ansatz", poly, "ode.n.forcing_ansatz",
              pjson({{"mult", std::to_string(s)}, {"ansatz", ansatz}}));
-    bld.step("ode.t.solve_coefficients", part, "ode.n.solve_coefficients");
+
+    // Write the coefficient system that matching like terms produces, then its
+    // solution.  Without these two steps the reader only sees the ansatz and
+    // the finished particular solution, with no way to check the arithmetic.
+    auto coefficientText = [](const Ex& c) {
+        return c->isNum() ? rationalToString(c->num) : toPlain(c);
+    };
+    std::string equations;
+    for (int r = 0; r < nrow; ++r) {
+        std::string row;
+        bool any = false;
+        for (int j = 0; j < ncol; ++j) {
+            Ex c = simplify(M[r][j]);
+            if (c->isZero()) continue;
+            const std::string cs = coefficientText(c);
+            std::string term;
+            const std::string name = "A" + std::to_string(j + 1);
+            if (cs == "1") term = name;
+            else if (cs == "-1") term = "-" + name;
+            else term = cs + "*" + name;
+            if (any) {
+                if (term[0] == '-') {
+                    row += " - " + term.substr(1);
+                } else {
+                    row += " + " + term;
+                }
+            } else {
+                row += term;
+            }
+            any = true;
+        }
+        if (!any) continue;
+        row += " = " + coefficientText(simplify(rhs[r]));
+        if (!equations.empty()) equations += ",  ";
+        equations += row;
+    }
+    if (!equations.empty())
+        bld.step("step.title.write_the_system", Sym(equations),
+                 "step.note.solve_the_linear_system_for_the_constants");
+
+    std::string values;
+    for (int i = 0; i < ncol; ++i) {
+        if (i) values += ",  ";
+        values += "A" + std::to_string(i + 1) + " = " + coefficientText(coef[i]);
+    }
+    bld.step("ode.t.solve_coefficients", Sym(values), "ode.n.solve_coefficients");
+    bld.step("step.title.particular_solution", part);
     return part;
 }
 
@@ -2324,6 +2387,45 @@ static Ex particularSolution(const std::vector<Ex>& a, const Ex& rhs, const std:
         total = Add(total, part);
     }
     return simplify(expand(total));
+}
+
+// Order reduction is the first match for equations that miss y (or x), even
+// when they are also linear with constant coefficients.  In that case the
+// reader can use a direct method; say so, but only while the direct method is
+// not longer than the reduction that was actually used.
+static void suggestDirectMethod(Builder& b, const Ex& F, int order) {
+    if (order < 2) return;
+    std::vector<Ex> a;
+    Ex rhs;
+    if (!extractLinearODE(F, b.y, b.x, a, rhs)) return;
+    if (!rhs || rhs->isZero()) return;
+    if (a.empty()) return;
+    for (auto& c : a)
+        if (!c || !c->isNum()) return;
+    if (a.back()->isZero()) return;
+
+    Ex expanded = expand(expandHyperbolic(rhs));
+    std::vector<Ex> terms =
+        expanded->isAdd() ? expanded->args : std::vector<Ex>{expanded};
+    bool undetermined = order <= 3;
+    for (auto& term : terms) {
+        Ex k, bb, poly;
+        int trig = 0;
+        if (!decomposeForcingTerm(term, b.x, k, bb, trig, poly)) {
+            undetermined = false;
+            break;
+        }
+        std::vector<Ex> pc;
+        if (!polyCoeffs(poly, b.x, pc) || pc.size() > 5) undetermined = false;
+    }
+    if (undetermined) {
+        b.warn("ode.w.alt_undetermined");
+    } else if (order == 2) {
+        // Variation of parameters handles any continuous forcing, but for a
+        // third-order equation the Wronskian and the three integrals are
+        // usually longer than the reduction, so only mention it for order 2.
+        b.warn("ode.w.alt_variation");
+    }
 }
 
 // A short symbol that does not occur in F, used for the reduction variable.
@@ -2659,6 +2761,7 @@ static bool solveMissingDependent(Builder& b, const Ex& F, int order) {
         setSolution(b.r, typeId, rel, false, nullptr);
         b.r.normalized = F;
         b.r.checks.clear();
+        suggestDirectMethod(b, F, order);
         return true;
     }
 
@@ -2671,6 +2774,7 @@ static bool solveMissingDependent(Builder& b, const Ex& F, int order) {
     b.r.normalized = F;
     b.r.checks.clear();
     verifyExplicit(b.r, F, y, b.x, b.y, b.en);
+    suggestDirectMethod(b, F, order);
     return true;
 }
 
@@ -2745,6 +2849,7 @@ static bool solveMissingIndependent(Builder& b, const Ex& F, int order) {
         addCheckKey(b.r, "ode.c_implicit", good,
                     good ? "ode.c_implicit_ok" : "ode.c_implicit_fail");
     }
+    suggestDirectMethod(b, F, order);
     return true;
 }
 
