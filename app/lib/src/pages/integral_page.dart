@@ -16,35 +16,61 @@ class IntegralPage extends StatefulWidget {
     required this.engine,
     required this.l10n,
     this.engineError,
+    this.initial,
   });
 
   final NativeEngine? engine;
   final String? engineError;
   final L10n l10n;
 
+  /// Prefilled fields from a scanner reading (integrand, variable, lower,
+  /// upper). A scanned definite integral opens in definite mode.
+  final Map<String, String>? initial;
+
   @override
   State<IntegralPage> createState() => _IntegralPageState();
 }
 
 class _IntegralPageState extends State<IntegralPage> {
-  final _input = TextEditingController(text: '2*x*cos(x^2)');
-  final _xv = TextEditingController(text: 'x');
+  late final TextEditingController _input;
+  late final TextEditingController _xv;
   final _resultKey = GlobalKey();
-  final _lo = <String, TextEditingController>{
-    'x': TextEditingController(text: '0'),
-    'y': TextEditingController(text: '0'),
-    'z': TextEditingController(text: '0'),
-  };
-  final _hi = <String, TextEditingController>{
-    'x': TextEditingController(text: '1'),
-    'y': TextEditingController(text: '1'),
-    'z': TextEditingController(text: '1'),
-  };
+  late final Map<String, TextEditingController> _lo;
+  late final Map<String, TextEditingController> _hi;
   SolveResult? _result;
   String? _error;
   bool _busy = false;
   int _dimension = 1;
   bool _definite = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _input = TextEditingController(
+      text: initial?['integrand'] ?? '2*x*cos(x^2)',
+    );
+    _xv = TextEditingController(text: initial?['variable'] ?? 'x');
+    _lo = {
+      for (final variable in const ['x', 'y', 'z'])
+        variable: TextEditingController(
+          text: variable == 'x'
+              ? (initial?['lower'] ?? '0')
+              : '0',
+        ),
+    };
+    _hi = {
+      for (final variable in const ['x', 'y', 'z'])
+        variable: TextEditingController(
+          text: variable == 'x'
+              ? (initial?['upper'] ?? '1')
+              : '1',
+        ),
+    };
+    if (initial?['lower'] != null || initial?['upper'] != null) {
+      _definite = true;
+    }
+  }
 
   static const _examples = <int, List<String>>{
     1: [

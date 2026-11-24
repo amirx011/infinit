@@ -41,32 +41,29 @@ character when editing.
 
 ## Images
 
-Six PNG files, 1080x1920 (9:16), in `/home/RooTx/Desktop/myket/`:
+Four PNG files, 1080x1920 (9:16), in `/home/RooTx/Desktop/myket/`:
 
 | File | Shows |
 |---|---|
-| `myket-00-hero.png` | Title card: what the lab does, one formula |
-| `myket-01-home.png` | Home screen and module groups |
-| `myket-02-field.png` | A first-order equation solved, type and field |
-| `myket-03-steps.png` | The step list of a solution |
-| `myket-04-laplace.png` | Laplace workbench with the transform |
-| `myket-05-topics.png` | The topic catalogue |
+| `myket-00-hero.png` | Title card: the whole workbench, with the home screen |
+| `myket-01-derivative.png` | A derivative: function and slope side by side |
+| `myket-02-integral.png` | A definite integral and its plot |
+| `myket-03-modules.png` | The module drawer: every workbench in one list |
 
-The cards were composed from phone screenshots with a local HTML + headless
-Chrome pipeline that is not part of this repository, and the source captures are
-no longer on disk. Rebuilding a card therefore starts with a fresh screenshot
-from the app: a 16:9 phone capture, cropped to the app window, then fed to the
-same layout.
-
-`myket-03-steps.png` was captured before the math-rendering fix and still shows
-one note as ASCII text, so it is the one card worth replacing first.
+The cards are composed from real phone captures of the Persian build. The
+capture test drives the app in a widget test at 1080x2340, the compose script
+frames each screenshot and draws the Persian headline and subtitle with
+Pillow. Both tools are local-only and stay out of the repository; the working
+copies live in `/tmp/opencode/promo-tool/` and `/tmp/opencode/make_promo.py`.
+Rebuilding a card therefore starts with a fresh capture from the app, then a
+re-run of the compose script.
 
 ## Before pressing publish
 
 1. `scripts/build_android.sh`, and the local-only Persian build
 2. `scripts/verify_apk_signature.sh` on both APKs
 3. Install the Persian APK on a phone and open a few workbenches
-4. Upload the APK, both text files, and the six images
+4. Upload the APK, both text files, and the four images
 
 The **Release builds** workflow builds and signs the public APKs on a runner and
 attaches them to the run. The Persian-default file for Myket is built only on

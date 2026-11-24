@@ -128,6 +128,11 @@ val buildOdeCoreAndroid by tasks.registering {
     inputs.files(fileTree(coreDir) {
         include("CMakeLists.txt", "include/**", "src/**")
     })
+    // The classical scanner lives outside core/ but is compiled into the same
+    // library, so its sources must invalidate this task too.
+    inputs.files(fileTree(rootProject.file("../../scanner")) {
+        include("src/**")
+    })
     inputs.property("abis", odeCoreAbis)
     outputs.dir(jniDir)
 

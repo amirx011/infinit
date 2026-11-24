@@ -1101,9 +1101,11 @@ class ResultView extends StatelessWidget {
       );
     }
     if (result.timeMs > 0) {
+      // The badge sits in an RTL row, so isolate the number and unit as one
+      // left-to-right run; otherwise Persian layout prints "ms 1".
       badges.add(
         TypeBadge(
-          '${result.timeMs} ms',
+          '\u2066${result.timeMs} ms\u2069',
           icon: Icons.bolt_rounded,
           tone: c.muted,
         ),

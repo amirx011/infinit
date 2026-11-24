@@ -1,7 +1,7 @@
 name: infinit
 description: "Infinit Lab: exact symbolic differential equations, calculus and linear algebra"
 publish_to: 'none'
-version: 1.0.5+105
+version: 1.0.6+106
 environment:
   sdk: ^3.13.7
 
@@ -13,6 +13,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   ffi: ^2.1.4
   flutter_math_fork: ^0.7.4
+  file_selector: ^1.1.0
 
 dev_dependencies:
   flutter_test:
@@ -25,6 +26,7 @@ flutter:
     - assets/fonts/
     - assets/branding/
     - assets/i18n/
+    - assets/scanner/
   fonts:
     - family: Vazirmatn
       fonts:

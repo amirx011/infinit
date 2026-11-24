@@ -24,13 +24,13 @@ BRANDING = APP / "assets" / "branding"
 # Foreground mark colours taken from OdePalette in lib/src/theme.dart.
 PALETTES = {
     "ocean": ("#5CC8FF", "#5EEAD4"),
-    "indigo": ("#818CF8", "#C084FC"),
+    "indigo": ("#4F8DF7", "#8B8CF9"),
     "emerald": ("#34D399", "#2DD4BF"),
     "amber": ("#FBBF24", "#FB923C"),
     "rose": ("#FB7185", "#F0ABFC"),
     "graphite": ("#A8B6CC", "#7DD3FC"),
 }
-DEFAULT = "rose"
+DEFAULT = "indigo"
 
 DENSITIES = {
     "mdpi": 48,
@@ -133,10 +133,17 @@ def main() -> None:
     source_foreground = Image.open(RES / "drawable-xxxhdpi" / "ic_launcher_foreground.png").convert("RGBA")
     monochrome = Image.open(RES / "drawable-xxxhdpi" / "ic_launcher_monochrome.png").convert("RGBA")
 
+    # An adaptive foreground is 108dp square, so it is 2.25x the legacy size.
+    def foreground_size(legacy: int) -> int:
+        return round(legacy * 2.25)
+
     # Per-density foregrounds for every palette.
     for density, size in DENSITIES.items():
         src_path = RES / f"drawable-{density}" / "ic_launcher_foreground.png"
         src = Image.open(src_path).convert("RGBA")
+        target = (foreground_size(size), foreground_size(size))
+        if src.size != target:
+            src = src.resize(target, Image.LANCZOS)
         for palette, (accent, alt) in PALETTES.items():
             recolor(src, accent, alt).save(
                 RES / f"drawable-{density}" / f"ic_launcher_foreground_{palette}.png"
@@ -166,18 +173,22 @@ def main() -> None:
                 RES / f"mipmap-{density}" / f"ic_launcher_{palette}_round.png"
             )
 
-    # Make rose the packaged default everywhere.
-    rose_fg = recolor(source_foreground, *PALETTES[DEFAULT])
+    # Make the default palette the packaged icon everywhere.
+    default_fg = recolor(source_foreground, *PALETTES[DEFAULT])
     for density, size in DENSITIES.items():
-        rose_fg.save(RES / f"drawable-{density}" / "ic_launcher_foreground.png")
-        legacy_icon(rose_fg, size, False).save(RES / f"mipmap-{density}" / "ic_launcher.png")
-        legacy_icon(rose_fg, size, True).save(RES / f"mipmap-{density}" / "ic_launcher_round.png")
+        target = (foreground_size(size), foreground_size(size))
+        fg = default_fg if default_fg.size == target else default_fg.resize(
+            target, Image.LANCZOS
+        )
+        fg.save(RES / f"drawable-{density}" / "ic_launcher_foreground.png")
+        legacy_icon(default_fg, size, False).save(RES / f"mipmap-{density}" / "ic_launcher.png")
+        legacy_icon(default_fg, size, True).save(RES / f"mipmap-{density}" / "ic_launcher_round.png")
     monochrome.save(RES / "drawable-xxxhdpi" / "ic_launcher_monochrome.png")
 
     # The splash logo and the Linux/window icon follow the default palette.
-    legacy_icon(rose_fg, 512, False).save(RES / "drawable-nodpi" / "launch_logo.png")
+    legacy_icon(default_fg, 512, False).save(RES / "drawable-nodpi" / "launch_logo.png")
     for size in DESKTOP_SIZES:
-        icon = desktop_icon(rose_fg, size)
+        icon = desktop_icon(default_fg, size)
         icon.save(BRANDING / f"infinit-icon-{size}.png")
         if size == 1024:
             icon.save(

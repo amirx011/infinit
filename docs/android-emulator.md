@@ -66,11 +66,11 @@ renders the app as disabled or greyed out.
 Every alias except the boot alias has `enabled="false"` in the manifest, so
 resetting it with `COMPONENT_ENABLED_STATE_DEFAULT` hides it without an explicit
 disable, which is the request Android treats as a package change. Only the first
-switch, away from `LauncherRose`, sends an explicit `DISABLED`, because that
+switch, away from `LauncherIndigo`, sends an explicit `DISABLED`, because that
 alias has to start enabled for a fresh install to have an icon at all.
 
-`LauncherRoseAlt` is an identical twin of the boot icon used when the user
-returns to rose: `LauncherRose` stays disabled after the first switch.
+`LauncherIndigoAlt` is an identical twin of the boot icon used when the user
+returns to indigo: `LauncherIndigo` stays disabled after the first switch.
 
 To check the active alias:
 

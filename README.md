@@ -33,6 +33,8 @@ The same engine and the same interface run on Linux, Windows and Android.
 
 **Workbenches.** Linear systems and phase portraits, critical points and stability, Lotka-Volterra, Laplace and inverse Laplace transforms, discontinuous forcing and impulses, convolution, Fourier series and transform, Euler, Heun, RK4 and Adams-Bashforth methods with error and convergence, growth and decay, Newton cooling, logistic growth, mixing, spring-mass systems, damped oscillation, circuits, free fall, and a partial differential equations group covering transport, characteristics, classification, separation of variables, and the heat, wave and Laplace equations on a rectangle.
 
+**Math scanner.** A photo of a printed expression is read on the device by a classical pipeline: illumination flattening, deskew, connected components, a 236-template glyph bank, and a geometric structure pass for fractions, roots, powers, sums, integrals, limits and two-equation systems. The reading shows its confidence and named parts, and can open the series, integral or limit workbench with the fields already filled in. No machine learning and no network call is involved.
+
 **Study library.** Nineteen self-contained articles with key ideas, the full explanation, two worked examples and a list of common mistakes. Each article links to the workbench that puts the method to use.
 
 **Interface.** Dark, light and system themes with six accent palettes, high-contrast mode, reduced motion and four text sizes. Twelve languages, with Persian and Arabic switching the whole layout to right-to-left. Keyboard shortcuts and a command palette on desktop, touch-first layout on phones. Fully offline: preferences stay on the device and nothing is sent anywhere.

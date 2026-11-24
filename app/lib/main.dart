@@ -38,6 +38,7 @@ import 'src/study_articles.dart';
 import 'src/pages/taylor_page.dart';
 import 'src/pages/integral_apps_page.dart';
 import 'src/pages/partial_page.dart';
+import 'src/pages/scanner_page.dart';
 import 'src/pages/series_page.dart';
 import 'src/theme.dart';
 import 'src/widgets.dart';
@@ -49,7 +50,7 @@ import 'src/widgets.dart';
 /// explanations library, 126 is the Gauss/Cramer linear-system workbench,
 /// 127–130 are the linear-algebra workbenches and 131–136 are the
 /// vector-space workbenches.
-const int _lastPageIndex = 162;
+const int _lastPageIndex = 200;
 
 /// Curriculum slots that still render the shared coming-soon page.
 ///
@@ -257,6 +258,8 @@ class HomeScreenState extends State<HomeScreen> {
   final _scroll = ScrollController();
   int _index = 0;
   String? _odeSeed;
+  /// Fields a scanner reading wants prefilled in the target workbench.
+  Map<String, String>? _scanFields;
   NativeEngine? _engine;
   String? _engineError;
   String _version = '';
@@ -273,7 +276,7 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _open(int index, {String? seed}) {
+  void _open(int index, {String? seed, Map<String, String>? fields}) {
     if (widget.settings.haptics && _isMobilePlatform) {
       HapticFeedback.selectionClick();
     }
@@ -281,6 +284,8 @@ class HomeScreenState extends State<HomeScreen> {
     setState(() {
       _index = index;
       if (seed != null) _odeSeed = seed;
+      // A plain navigation must not keep an old scan in the next workbench.
+      _scanFields = fields;
     });
     // A new page must start at its own top, never at the previous offset.
     if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -444,17 +449,19 @@ class HomeScreenState extends State<HomeScreen> {
         );
       case 6:
         return IntegralPage(
-          key: const ValueKey('integral'),
+          key: ValueKey('integral-${_scanFields?.hashCode ?? 0}'),
           engine: _engine,
           engineError: _engineError,
           l10n: l10n,
+          initial: _scanFields,
         );
       case 7:
         return LimitPage(
-          key: const ValueKey('limit'),
+          key: ValueKey('limit-${_scanFields?.hashCode ?? 0}'),
           engine: _engine,
           engineError: _engineError,
           l10n: l10n,
+          initial: _scanFields,
         );
       case 8:
         return ContinuityPage(
@@ -592,10 +599,17 @@ class HomeScreenState extends State<HomeScreen> {
         );
       case 26:
         return SeriesPage(
-          key: const ValueKey('series'),
+          key: ValueKey('series-${_scanFields?.hashCode ?? 0}'),
           engine: _engine,
           engineError: _engineError,
           l10n: l10n,
+          initial: _scanFields,
+        );
+      case 200:
+        return ScannerPage(
+          key: const ValueKey('scanner'),
+          l10n: l10n,
+          onOpen: (page, fields) => _open(page, fields: fields),
         );
       default:
         return _HomePage(l10n: l10n, onOpen: _open);
@@ -1904,6 +1918,12 @@ List<_DrawerEntry> _navSections(L10n l10n) {
       label: l10n.t('ui.differential_integral'),
       hint: l10n.t('ui.limits_derivatives_integrals'),
       children: [
+        _DrawerEntry.link(
+          index: 200,
+          icon: Icons.document_scanner_rounded,
+          label: l10n.t('ui.scanner'),
+          hint: l10n.t('ui.scanner_subtitle'),
+        ),
         _DrawerEntry.group(
           icon: Icons.category_rounded,
           label: l10n.t('nav.group.calculus_foundations'),
@@ -2763,6 +2783,58 @@ class _HomePageState extends State<_HomePage> {
           ],
         ),
         const SizedBox(height: 28),
+        const SizedBox(height: 32),
+        SectionLabel(l.t('ui.more_sections')),
+        const SizedBox(height: 12),
+        _topicCards(context, l),
+        const SizedBox(height: 32),
+        SectionLabel(l.t('ui.analysis_tools')),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final wide = constraints.maxWidth >= 620;
+            final cards = [
+              _WideCard(
+                icon: Icons.grid_on_rounded,
+                title: l.t('ui.wronskian'),
+                subtitle: l.t('ui.linear_independence_of_a_set_of_functions'),
+                onTap: () => widget.onOpen(3),
+              ),
+              _WideCard(
+                icon: Icons.join_inner_rounded,
+                title: l.t('ui.envelope_trajectories'),
+                subtitle: l.t(
+                  'ui.envelopes_of_a_family_orthogonal_trajectories_an',
+                ),
+                onTap: () => widget.onOpen(4),
+              ),
+            ];
+            if (!wide) {
+              return Column(
+                children: [
+                  for (var i = 0; i < cards.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    cards[i],
+                  ],
+                ],
+              );
+            }
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: 10),
+                  Expanded(child: cards[1]),
+                ],
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 32),
+        SectionLabel(l.t('ui.calculus_tools')),
+        const SizedBox(height: 12),
+        _calculusRow(context, l),
         SoftCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2837,58 +2909,6 @@ class _HomePageState extends State<_HomePage> {
           ),
         ),
         const SizedBox(height: 32),
-        SectionLabel(l.t('ui.more_sections')),
-        const SizedBox(height: 12),
-        _topicCards(context, l),
-        const SizedBox(height: 32),
-        SectionLabel(l.t('ui.analysis_tools')),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 620;
-            final cards = [
-              _WideCard(
-                icon: Icons.grid_on_rounded,
-                title: l.t('ui.wronskian'),
-                subtitle: l.t('ui.linear_independence_of_a_set_of_functions'),
-                onTap: () => widget.onOpen(3),
-              ),
-              _WideCard(
-                icon: Icons.join_inner_rounded,
-                title: l.t('ui.envelope_trajectories'),
-                subtitle: l.t(
-                  'ui.envelopes_of_a_family_orthogonal_trajectories_an',
-                ),
-                onTap: () => widget.onOpen(4),
-              ),
-            ];
-            if (!wide) {
-              return Column(
-                children: [
-                  for (var i = 0; i < cards.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 10),
-                    cards[i],
-                  ],
-                ],
-              );
-            }
-            return IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: cards[0]),
-                  const SizedBox(width: 10),
-                  Expanded(child: cards[1]),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 32),
-        SectionLabel(l.t('ui.calculus_tools')),
-        const SizedBox(height: 12),
-        _calculusRow(context, l),
-        const SizedBox(height: 32),
         Center(
           child: Text(
             l.t('ui.see_the_steps_not_just_the_answer'),
@@ -2910,7 +2930,7 @@ class _HomePageState extends State<_HomePage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          l.t('ui.every_problem_has_a_shape'),
+          l.t('ui.mathematics_workbench'),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontSize: 27,
             fontWeight: FontWeight.w700,
@@ -2923,11 +2943,52 @@ class _HomePageState extends State<_HomePage> {
           l.t('ui.type_any_problem_from_any_section_and_read_the'),
           style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.65),
         ),
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: () => widget.onOpen(2, seed: "y' + y/x = x^2"),
-          icon: const Icon(Icons.play_arrow_rounded, size: 20),
-          label: Text(l.t('ui.solve_an_equation_2')),
+        const SizedBox(height: 18),
+        // Equal-weight entry points: the app is a workbench, not an ODE
+        // solver with extras, so no single area gets the primary button.
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final entry in [
+              (
+                icon: Icons.functions_rounded,
+                label: l.t('ui.differential_equations'),
+                index: 2,
+              ),
+              (
+                icon: Icons.integration_instructions_rounded,
+                label: l.t('ui.integral'),
+                index: 6,
+              ),
+              (
+                icon: Icons.drive_file_rename_outline_rounded,
+                label: l.t('ui.derivative'),
+                index: 5,
+              ),
+              (
+                icon: Icons.grid_on_rounded,
+                label: l.t('ui.linear_algebra'),
+                index: 1,
+              ),
+            ])
+              FilledButton.tonalIcon(
+                onPressed: () => widget.onOpen(entry.index),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 11,
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Vazirmatn',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                icon: Icon(entry.icon, size: 17),
+                label: Text(entry.label),
+              ),
+          ],
         ),
         const SizedBox(height: 18),
         Wrap(
@@ -3141,6 +3202,30 @@ class _HeroPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    // One short formula from each area, so the preview reads as a map of the
+    // workbench instead of a single solved equation.
+    final items = <(IconData, String, String)>[
+      (
+        Icons.drive_file_rename_outline_rounded,
+        l10n.t('ui.derivative'),
+        r"\frac{d}{dx}\sin x = \cos x",
+      ),
+      (
+        Icons.integration_instructions_rounded,
+        l10n.t('ui.integral'),
+        r"\int x\,e^{x}\,dx = e^{x}(x-1)",
+      ),
+      (
+        Icons.linear_scale_rounded,
+        l10n.t('ui.limit'),
+        r"\lim_{x\to 0}\frac{\sin x}{x} = 1",
+      ),
+      (
+        Icons.grid_on_rounded,
+        l10n.t('ui.linear_algebra'),
+        r"A\mathbf{x} = \mathbf{b}",
+      ),
+    ];
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
@@ -3154,11 +3239,11 @@ class _HeroPreview extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.functions_rounded, size: 15, color: c.accent),
+              Icon(Icons.explore_rounded, size: 15, color: c.accent),
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  l10n.t('ui.worked_example'),
+                  l10n.t('ui.quick_tour'),
                   style: TextStyle(
                     fontFamily: 'Vazirmatn',
                     fontSize: 11.5,
@@ -3170,120 +3255,46 @@ class _HeroPreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          _MathLine(
-            latex: r"y' + \frac{y}{x} = x^2",
-            color: c.text,
-            fontSize: 17,
-          ),
-          const SizedBox(height: 12),
-          Divider(height: 1, color: c.line),
-          const SizedBox(height: 12),
-          _SolutionStep(
-            index: '1',
-            label: l10n.t('ui.linear_first_order'),
-            latex: r"y' + P(x)\,y = Q(x)",
-          ),
-          const SizedBox(height: 10),
-          _SolutionStep(
-            index: '2',
-            label: l10n.t('ui.integrating_factor'),
-            latex: r"\mu(x) = x",
-          ),
-          const SizedBox(height: 10),
-          _SolutionStep(
-            index: '3',
-            label: l10n.t('ui.substitute_back'),
-            latex: r"y = \frac{x^3}{4} + \frac{C}{x}",
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: c.successSoft,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
+          for (var i = 0; i < items.length; i++) ...[
+            const SizedBox(height: 9),
+            Row(
               children: [
-                Icon(Icons.check_circle_rounded, size: 14, color: c.success),
-                const SizedBox(width: 6),
+                Icon(items[i].$1, size: 14, color: c.muted),
+                const SizedBox(width: 7),
+                Text(
+                  items[i].$2,
+                  style: TextStyle(
+                    fontFamily: 'Vazirmatn',
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: c.muted,
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    l10n.t('ui.validate_the_answer'),
-                    style: TextStyle(
-                      fontFamily: 'Vazirmatn',
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: c.success,
-                    ),
+                  child: _MathLine(
+                    latex: items[i].$3,
+                    color: c.text,
+                    fontSize: 13,
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SolutionStep extends StatelessWidget {
-  const _SolutionStep({
-    required this.index,
-    required this.label,
-    required this.latex,
-  });
-
-  final String index;
-  final String label;
-  final String latex;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 20,
-          height: 20,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: c.accent.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            index,
-            textDirection: TextDirection.ltr,
+          ],
+          const SizedBox(height: 12),
+          Divider(height: 1, color: c.line),
+          const SizedBox(height: 10),
+          Text(
+            l10n.t('ui.and_dozens_more'),
             style: TextStyle(
-              fontFamily: 'SpaceGrotesk',
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontFamily: 'Vazirmatn',
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
               color: c.accent,
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'Vazirmatn',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: c.text,
-                ),
-              ),
-              const SizedBox(height: 3),
-              _MathLine(latex: latex, color: c.muted, fontSize: 13),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -15,20 +15,24 @@ class LimitPage extends StatefulWidget {
     required this.engine,
     required this.l10n,
     this.engineError,
+    this.initial,
   });
 
   final NativeEngine? engine;
   final String? engineError;
   final L10n l10n;
 
+  /// Prefilled fields from a scanner reading (expression, variable, point).
+  final Map<String, String>? initial;
+
   @override
   State<LimitPage> createState() => _LimitPageState();
 }
 
 class _LimitPageState extends State<LimitPage> {
-  final _input = TextEditingController(text: 'sin(x)/x');
-  final _xv = TextEditingController(text: 'x');
-  final _point = TextEditingController(text: '0');
+  late final TextEditingController _input;
+  late final TextEditingController _xv;
+  late final TextEditingController _point;
   final _resultKey = GlobalKey();
   SolveResult? _result;
   String? _error;
@@ -37,6 +41,17 @@ class _LimitPageState extends State<LimitPage> {
   String? _plottedExpr;
   String _plottedVar = 'x';
   String _plottedPoint = '0';
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _input = TextEditingController(
+      text: initial?['expression'] ?? 'sin(x)/x',
+    );
+    _xv = TextEditingController(text: initial?['variable'] ?? 'x');
+    _point = TextEditingController(text: initial?['point'] ?? '0');
+  }
 
   static const _examples = <(String, String)>[
     ('sin(x)/x', '0'),

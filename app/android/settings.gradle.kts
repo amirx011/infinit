@@ -24,3 +24,25 @@ plugins {
 }
 
 include(":app")
+
+// Some Flutter plugins pin their own Android Gradle Plugin and AndroidX
+// versions.  file_selector_android asks for AGP 8.13.1 and annotation 1.10.0,
+// but the project uses AGP 9.1.0 and this machine resolves artifacts from the
+// local Gradle cache only (Google Maven and Flutter's artifact host answer 403
+// here).  Pin those requests to versions the app already resolves so a plugin
+// cannot drag in an artifact that is not cached.
+fun org.gradle.api.artifacts.ResolutionStrategy.pinLocalVersions() {
+    eachDependency {
+        if (requested.group == "com.android.tools.build" && requested.name == "gradle") {
+            useVersion("9.1.0")
+        }
+        if (requested.group == "androidx.annotation" && requested.name == "annotation") {
+            useVersion("1.8.1")
+        }
+    }
+}
+
+gradle.beforeProject {
+    buildscript.configurations.configureEach { resolutionStrategy.pinLocalVersions() }
+    configurations.configureEach { resolutionStrategy.pinLocalVersions() }
+}

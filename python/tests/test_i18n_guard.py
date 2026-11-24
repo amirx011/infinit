@@ -44,6 +44,7 @@ SKIP_DIRS = {
     ".cxx",
     "__pycache__",
     "build",
+    "dist",
     "node_modules",
 }
 

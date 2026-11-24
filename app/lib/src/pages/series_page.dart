@@ -17,24 +17,37 @@ class SeriesPage extends StatefulWidget {
     required this.engine,
     required this.l10n,
     this.engineError,
+    this.initial,
   });
 
   final NativeEngine? engine;
   final String? engineError;
   final L10n l10n;
 
+  /// Prefilled fields from a scanner reading (term, index, start).
+  final Map<String, String>? initial;
+
   @override
   State<SeriesPage> createState() => _SeriesPageState();
 }
 
 class _SeriesPageState extends State<SeriesPage> {
-  final _input = TextEditingController(text: '1/n^2');
-  final _nv = TextEditingController(text: 'n');
-  final _start = TextEditingController(text: '1');
+  late final TextEditingController _input;
+  late final TextEditingController _nv;
+  late final TextEditingController _start;
   final _resultKey = GlobalKey();
   SolveResult? _result;
   String? _error;
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _input = TextEditingController(text: initial?['term'] ?? '1/n^2');
+    _nv = TextEditingController(text: initial?['index'] ?? 'n');
+    _start = TextEditingController(text: initial?['start'] ?? '1');
+  }
 
   static const _examples = <String>[
     '1/n^2',

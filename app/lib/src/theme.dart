@@ -45,10 +45,10 @@ class OdePalette {
   static const indigo = OdePalette(
     id: 'indigo',
     labelKey: 'ui.palette.indigo',
-    darkAccent: Color(0xFF818CF8),
-    lightAccent: Color(0xFF4F46E5),
-    darkAlt: Color(0xFFC084FC),
-    lightAlt: Color(0xFF7E22CE),
+    darkAccent: Color(0xFF4F8DF7),
+    lightAccent: Color(0xFF2563EB),
+    darkAlt: Color(0xFF8B8CF9),
+    lightAlt: Color(0xFF4338CA),
     darkInfo: Color(0xFF38BDF8),
     lightInfo: Color(0xFF0369A1),
     darkCreative: Color(0xFFF0ABFC),
@@ -117,7 +117,7 @@ class OdePalette {
   ];
 
   static OdePalette byId(String id) =>
-      all.firstWhere((p) => p.id == id, orElse: () => rose);
+      all.firstWhere((p) => p.id == id, orElse: () => indigo);
 }
 
 @immutable

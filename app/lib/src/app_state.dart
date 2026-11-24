@@ -37,7 +37,7 @@ class AppSettings extends ChangeNotifier {
   Locale _locale = defaultLocale();
   double _textScale = 1.0;
   bool _reduceMotion = false;
-  String _palette = 'rose';
+  String _palette = 'indigo';
   bool _highContrast = false;
   bool _compact = false;
   int _startPage = 0;
@@ -138,7 +138,7 @@ class AppSettings extends ChangeNotifier {
 
   static String _knownPalette(String? raw) => switch (raw) {
     'ocean' || 'indigo' || 'emerald' || 'amber' || 'rose' || 'graphite' => raw!,
-    _ => 'rose',
+    _ => 'indigo',
   };
 
   static int _readDecimalPlaces(String? raw) {
@@ -294,7 +294,7 @@ class AppSettings extends ChangeNotifier {
     _locale = defaultLocale();
     _textScale = 1.0;
     _reduceMotion = false;
-    _palette = 'rose';
+    _palette = 'indigo';
     _highContrast = false;
     _compact = false;
     _startPage = 0;

@@ -36,22 +36,22 @@
             launcher icon at runtime, so the app enables the alias whose icon
             matches the palette chosen in settings.
 
-            LauncherRose is the only alias enabled in the manifest, so a fresh
-            install still has a launcher entry.  Every alias targets the
+            LauncherIndigo is the only alias enabled in the manifest, so a
+            fresh install shows the default icon.  Every alias targets the
             LauncherActivity trampoline instead of MainActivity: the task then
             never belongs to an alias, so an alias can be switched while the
-            app is in front without closing the task.  LauncherRoseAlt is an
+            app is in front without closing the task.  LauncherIndigoAlt is an
             identical copy used after the first switch, so the manifest default
-            for LauncherRose can stay "enabled" and still be turned off at
+            for LauncherIndigo can stay "enabled" and still be turned off at
             runtime.
         -->
         <activity-alias
-            android:name=".LauncherRose"
+            android:name=".LauncherIndigo"
             android:targetActivity=".LauncherActivity"
             android:exported="true"
             android:enabled="true"
-            android:icon="@mipmap/ic_launcher_rose"
-            android:roundIcon="@mipmap/ic_launcher_rose_round"
+            android:icon="@mipmap/ic_launcher_indigo"
+            android:roundIcon="@mipmap/ic_launcher_indigo_round"
             android:label="Infinit Lab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -59,7 +59,20 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
-            android:name=".LauncherRoseAlt"
+            android:name=".LauncherIndigoAlt"
+            android:targetActivity=".LauncherActivity"
+            android:exported="true"
+            android:enabled="false"
+            android:icon="@mipmap/ic_launcher_indigo"
+            android:roundIcon="@mipmap/ic_launcher_indigo_round"
+            android:label="Infinit Lab">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".LauncherRose"
             android:targetActivity=".LauncherActivity"
             android:exported="true"
             android:enabled="false"
@@ -78,19 +91,6 @@
             android:enabled="false"
             android:icon="@mipmap/ic_launcher_ocean"
             android:roundIcon="@mipmap/ic_launcher_ocean_round"
-            android:label="Infinit Lab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity-alias>
-        <activity-alias
-            android:name=".LauncherIndigo"
-            android:targetActivity=".LauncherActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@mipmap/ic_launcher_indigo"
-            android:roundIcon="@mipmap/ic_launcher_indigo_round"
             android:label="Infinit Lab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

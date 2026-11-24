@@ -14,25 +14,26 @@ class MainActivity : FlutterActivity() {
     private val channelName = "ir.infinit/settings"
     private val prefsName = "infinit_settings"
 
-    // LauncherRose is the only alias enabled in the manifest so a fresh install
-    // has an icon.  Every other alias starts disabled and is enabled at
-    // runtime.  LauncherRoseAlt is a runtime copy of the rose icon: the boot
-    // alias is disabled on the first switch and stays that way, so returning to
-    // rose uses the copy.  Aliases target the LauncherActivity trampoline, so
-    // switching one never closes the running task and can happen at once.
-    private val bootAlias = "ir.infinit.LauncherRose"
-    private val roseAlias = "ir.infinit.LauncherRoseAlt"
+    // LauncherIndigo is the only alias enabled in the manifest so a fresh
+    // install has the default icon.  Every other alias starts disabled and is
+    // enabled at runtime.  LauncherIndigoAlt is a runtime copy of the indigo
+    // icon: the boot alias is disabled on the first switch and stays that way,
+    // so returning to indigo uses the copy.  Aliases target the LauncherActivity
+    // trampoline, so switching one never closes the running task and can happen
+    // at once.
+    private val bootAlias = "ir.infinit.LauncherIndigo"
+    private val indigoAlias = "ir.infinit.LauncherIndigoAlt"
     private val runtimeAliases = listOf(
-        roseAlias,
+        indigoAlias,
+        "ir.infinit.LauncherRose",
         "ir.infinit.LauncherOcean",
-        "ir.infinit.LauncherIndigo",
         "ir.infinit.LauncherEmerald",
         "ir.infinit.LauncherAmber",
         "ir.infinit.LauncherGraphite",
     )
     private val paletteAliases = mapOf(
+        "rose" to "ir.infinit.LauncherRose",
         "ocean" to "ir.infinit.LauncherOcean",
-        "indigo" to "ir.infinit.LauncherIndigo",
         "emerald" to "ir.infinit.LauncherEmerald",
         "amber" to "ir.infinit.LauncherAmber",
         "graphite" to "ir.infinit.LauncherGraphite",
@@ -110,7 +111,7 @@ class MainActivity : FlutterActivity() {
         if (previous != null && previous != target) {
             // A runtime alias's manifest default is disabled, so restoring that
             // default turns it off without an explicit disable request.  Only
-            // LauncherRose, which is enabled in the manifest, needs an
+            // LauncherIndigo, which is enabled in the manifest, needs an
             // explicit disable.
             val state = if (previous == bootAlias) {
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED
@@ -127,10 +128,11 @@ class MainActivity : FlutterActivity() {
     private fun targetAlias(palette: String): String {
         val alias = paletteAliases[palette]
         if (alias != null) return alias
-        // Any unknown value, including "rose", falls back to rose.  Once the
-        // boot alias has been disabled it must stay disabled, so use the copy.
+        // Any unknown value, including "indigo", falls back to indigo.  Once
+        // the boot alias has been disabled it must stay disabled, so use the
+        // copy.
         return if (componentState(bootAlias) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED) {
-            roseAlias
+            indigoAlias
         } else {
             bootAlias
         }

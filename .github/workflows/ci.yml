@@ -22,6 +22,12 @@ jobs:
       - name: Test
         run: ctest --test-dir core/build --output-on-failure
 
+      - name: Build and test the scanner
+        run: |
+          cmake -S scanner -B scanner/build
+          cmake --build scanner/build --parallel
+          ctest --test-dir scanner/build --output-on-failure
+
   python:
     name: SymPy oracle and cross-check
     runs-on: ubuntu-latest

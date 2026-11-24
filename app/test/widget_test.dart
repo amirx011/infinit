@@ -6,6 +6,7 @@ import 'package:infinit/main.dart';
 import 'package:infinit/src/app_state.dart';
 import 'package:infinit/src/i18n/catalog.dart';
 import 'package:infinit/src/settings_store.dart';
+import 'package:infinit/src/theme.dart';
 
 Future<AppSettings> _settings() async {
   final settings = AppSettings(persistence: MemorySettingsPersistence());
@@ -118,14 +119,14 @@ void main() {
     final settings = await _settings();
     expect(settings.themeMode, ThemeMode.dark);
     expect(settings.locale.languageCode, 'en');
-    expect(settings.palette, 'rose');
+    expect(settings.palette, 'indigo');
 
     await tester.pumpWidget(InfinitApp(settings: settings));
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Infinit Lab'), findsOneWidget);
-    expect(find.text('Every problem has a shape'), findsOneWidget);
-    expect(find.text('Derivative'), findsOneWidget);
+    expect(find.text('Mathematics workbench'), findsOneWidget);
+    expect(find.text('Derivative'), findsWidgets);
     expect(find.text('Integral'), findsWidgets);
     expect(find.text('Differential equation forms'), findsOneWidget);
     expect(find.text('Study note'), findsOneWidget);
@@ -140,7 +141,7 @@ void main() {
     await settings.setLocale(const Locale('fa'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Infinit Lab'), findsOneWidget);
-    expect(find.text('\u0645\u0634\u062a\u0642'), findsOneWidget);
+    expect(find.text('\u0645\u0634\u062a\u0642'), findsWidgets);
 
     await settings.setLocale(const Locale('en'));
     await tester.pump(const Duration(milliseconds: 300));
@@ -186,7 +187,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Differential equations'));
+    await tester.tap(find.text('Differential equations').last);
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Applications');
     await _drawerTap(tester, 'Orthogonal trajectories');
@@ -212,7 +213,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Differential equations'));
+    await tester.tap(find.text('Differential equations').last);
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Applications');
 
@@ -383,7 +384,7 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.menu_rounded).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Differential equations'));
+    await tester.tap(find.text('Differential equations').last);
     await tester.pumpAndSettle();
     await _drawerTap(tester, 'Second-order linear equations');
     await _drawerTap(tester, 'Wronskian');
@@ -1493,24 +1494,33 @@ void main() {
     final persistence = _RecordingPersistence();
     final settings = AppSettings(persistence: persistence);
     await settings.load();
-    expect(settings.palette, 'rose');
-    expect(persistence.launcherPalette, 'rose');
+    expect(settings.palette, 'indigo');
+    expect(persistence.launcherPalette, 'indigo');
 
     await settings.setPalette('emerald');
     expect(settings.palette, 'emerald');
     expect(persistence.launcherPalette, 'emerald');
 
     await settings.resetDefaults();
-    expect(settings.palette, 'rose');
-    expect(persistence.launcherPalette, 'rose');
+    expect(settings.palette, 'indigo');
+    expect(persistence.launcherPalette, 'indigo');
   });
 
-  test('an unknown stored palette falls back to rose', () async {
+  test('an unknown stored palette falls back to indigo', () async {
     final settings = AppSettings(
       persistence: MemorySettingsPersistence({'palette': 'unknown'}),
     );
     await settings.load();
-    expect(settings.palette, 'rose');
+    expect(settings.palette, 'indigo');
+  });
+
+  testWidgets('the default accent is the Indigo palette', (tester) async {
+    final settings = await _settings();
+    await tester.pumpWidget(InfinitApp(settings: settings));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final context = tester.element(find.text('Mathematics workbench'));
+    expect(context.colors.accent, OdePalette.indigo.darkAccent);
   });
 
   testWidgets('changes the accent palette from settings', (tester) async {
@@ -1523,6 +1533,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.settings_rounded).first);
     await tester.pumpAndSettle();
     expect(find.text('Accent palette'), findsOneWidget);
+    expect(find.text('Indigo'), findsOneWidget);
+    expect(settings.palette, 'indigo');
 
     await tester.ensureVisible(find.text('Emerald'));
     await tester.pumpAndSettle();
