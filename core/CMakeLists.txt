@@ -43,10 +43,14 @@ set(ODE_SOURCES
 set(INFINIT_SCANNER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../scanner)
 set(ODE_SCANNER_INCLUDE "")
 set(INFINIT_SCANNER_OPENCV OFF)
+# OpenCV is optional so every platform can still build the engine. Linux and
+# Android install it (libopencv-dev / opencv-mobile) and get the scanner; a
+# toolchain without it builds the same engine without the scanner, and the app
+# reports "scanner unavailable" instead of failing to start.
 if(EXISTS ${INFINIT_SCANNER_DIR}/src/scanner_api.cpp)
-  # The scanner links OpenCV core+imgproc. Android builds point OpenCV_DIR at
-  # third_party/opencv-mobile/sdk/native/jni.
-  find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+  find_package(OpenCV QUIET COMPONENTS core imgproc)
+endif()
+if(OpenCV_FOUND)
   set(INFINIT_SCANNER_OPENCV ON)
   list(APPEND ODE_SOURCES
       ${INFINIT_SCANNER_DIR}/src/image.cpp
@@ -65,6 +69,11 @@ if(EXISTS ${INFINIT_SCANNER_DIR}/src/scanner_api.cpp)
       ${INFINIT_SCANNER_DIR}/src/ndk_compat.cpp
   )
   set(ODE_SCANNER_INCLUDE ${INFINIT_SCANNER_DIR}/src)
+  message(STATUS "Scanner: ON (OpenCV ${OpenCV_VERSION})")
+elseif(EXISTS ${INFINIT_SCANNER_DIR}/src/scanner_api.cpp)
+  message(WARNING
+      "Scanner: OFF (OpenCV core+imgproc not found). Install libopencv-dev, or "
+      "set OpenCV_DIR, to build the math scanner into the engine.")
 endif()
 
 option(ODE_BUILD_TESTS "Build native test executables" ON)

@@ -102,7 +102,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev rpm
+            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev rpm \
+            libopencv-dev
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -243,6 +244,23 @@ jobs:
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
+
+      # Best effort: the scanner needs OpenCV, and the engine builds without it.
+      # A failed install degrades the Windows build to "no scanner" instead of
+      # killing the release, so the installer still ships.
+      - name: Install OpenCV (optional)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          choco install opencv --no-progress -y
+          $root = 'C:\tools\opencv'
+          if (Test-Path $root) {
+            $config = Get-ChildItem -Path $root -Filter OpenCVConfig.cmake -Recurse |
+              Select-Object -First 1
+            if ($config) {
+              "OpenCV_DIR=$($config.DirectoryName)" | Out-File -Encoding ascii -Append $env:GITHUB_ENV
+            }
+          }
 
       # -NoBootstrap keeps the script from installing tools the image already
       # has (Visual Studio C++, CMake).  Flutter comes from the action above.

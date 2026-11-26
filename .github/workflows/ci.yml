@@ -13,6 +13,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The scanner links OpenCV core+imgproc, and it ships inside libodecore.
+      # Without the dev package the engine still builds, but the scanner tests
+      # would have nothing to load.
+      - name: Install OpenCV
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libopencv-dev
+
       - name: Configure
         run: cmake -S core -B core/build -DODE_BUILD_TESTS=ON -DODE_BUILD_STATIC=ON
 
