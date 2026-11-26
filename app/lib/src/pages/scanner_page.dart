@@ -1,11 +1,16 @@
 // Photo → expression. The classical scanner (no ML) runs inside libodecore;
 // this page only picks an image, shows the reading and routes it to the
 // matching workbench.
+import 'dart:io' show File, Platform;
+
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n.dart';
+import '../scanner/lab_page.dart';
+import '../scanner/normalize.dart';
 import '../scanner_engine.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -24,9 +29,27 @@ class ScannerPage extends StatefulWidget {
 }
 
 class _ScannerPageState extends State<ScannerPage> {
+  /// Native desktop import: OS drag-and-drop and clipboard paste. The runner
+  /// owns the channel; on Android/iOS no handler is registered and every
+  /// call fails as a MissingPluginException, which the paste path tolerates.
+  static const _importChannel = MethodChannel('infinit/import');
+  static bool get _desktop =>
+      !kIsWeb && (Platform.isLinux || Platform.isWindows || Platform.isMacOS);
+
   static const _imageTypes = XTypeGroup(
     label: 'images',
-    extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tif', 'tiff'],
+    extensions: [
+      'png',
+      'jpg',
+      'jpeg',
+      'webp',
+      'bmp',
+      'gif',
+      'tif',
+      'tiff',
+      'heic',
+      'heif',
+    ],
   );
 
   ScannerEngine? _scanner;
@@ -39,7 +62,87 @@ class _ScannerPageState extends State<ScannerPage> {
   @override
   void initState() {
     super.initState();
+    if (_desktop) {
+      _importChannel.setMethodCallHandler(_onImportCall);
+    }
     _loadScanner();
+  }
+
+  @override
+  void dispose() {
+    if (_desktop) {
+      _importChannel.setMethodCallHandler(null);
+    }
+    super.dispose();
+  }
+
+  Future<dynamic> _onImportCall(MethodCall call) async {
+    if (call.method == 'drop' || call.method == 'paste') {
+      final path = call.arguments;
+      if (path is String && path.isNotEmpty) {
+        await _importPath(path);
+      }
+    }
+    return null;
+  }
+
+  /// Reads a path handed over by the desktop runner: a dropped file, a pasted
+  /// image saved to temp, or a copied file path.
+  Future<void> _importPath(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) {
+        throw const FormatException('the selected file no longer exists');
+      }
+      final bytes = await normalizeForScanner(await file.readAsBytes());
+      // A clipboard image was written to the temp folder by the runner; the
+      // working copy above is in memory, so the file can go now.
+      if (path.contains('infinit-paste')) {
+        try {
+          await file.delete();
+        } catch (_) {
+          // The OS reclaims the temp folder eventually.
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _image = bytes;
+        _imageName = path.split(Platform.pathSeparator).last;
+        _result = null;
+        _error = null;
+      });
+      await _read();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = widget.l10n.t('ui.scanner_failed', {'error': '$error'});
+      });
+    }
+  }
+
+  Future<void> _pasteImage() async {
+    if (!_desktop) return;
+    try {
+      final path = await _importChannel.invokeMethod<String>('paste');
+      if (path != null && path.isNotEmpty) {
+        await _importPath(path);
+        return;
+      }
+    } on MissingPluginException {
+      // Old runner without the channel: try the text clipboard below.
+    } catch (_) {
+      // A clipboard that cannot produce an image is not fatal.
+    }
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text?.trim();
+    if (text != null && text.isNotEmpty && File(text).existsSync()) {
+      await _importPath(text);
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(widget.l10n.t('scan.import.empty'))),
+    );
   }
 
   Future<void> _loadScanner() async {
@@ -61,7 +164,10 @@ class _ScannerPageState extends State<ScannerPage> {
     try {
       final file = await openFile(acceptedTypeGroups: const [_imageTypes]);
       if (file == null) return;
-      final bytes = await file.readAsBytes();
+      // Decode through the platform codec: HEIC/HEIF has no native decoder in
+      // the classical pipeline, and the re-encode also applies EXIF rotation
+      // and caps the working size.
+      final bytes = await normalizeForScanner(await file.readAsBytes());
       if (!mounted) return;
       setState(() {
         _image = bytes;
@@ -161,7 +267,15 @@ class _ScannerPageState extends State<ScannerPage> {
     final result = _result;
     final target = _targetPage;
 
-    return SoftCard(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyV, control: true):
+            _pasteImage,
+        const SingleActivator(LogicalKeyboardKey.keyV, meta: true): _pasteImage,
+      },
+      child: Focus(
+        autofocus: _desktop,
+        child: SoftCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -188,8 +302,29 @@ class _ScannerPageState extends State<ScannerPage> {
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: Text(l10n.t('ui.scan_again')),
                 ),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ScannerLabPage(
+                      l10n: l10n,
+                      initialImage: _image,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.science_outlined, size: 18),
+                label: Text(l10n.t('scan.lab.open')),
+              ),
             ],
           ),
+          if (_desktop) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.t('scan.import.drop_hint'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: c.muted,
+              ),
+            ),
+          ],
           if (_imageName != null) ...[
             const SizedBox(height: 10),
             Text(
@@ -318,6 +453,8 @@ class _ScannerPageState extends State<ScannerPage> {
             ),
           ],
         ],
+      ),
+        ),
       ),
     );
   }

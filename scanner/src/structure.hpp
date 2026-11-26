@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -8,7 +9,17 @@
 
 namespace infinit::scan {
 
-enum class NodeKind { Row, Atom, Fraction, Power, Radical, Sum, Integral, Limit };
+enum class NodeKind {
+  Row,
+  Atom,
+  Fraction,
+  Power,
+  Radical,
+  Sum,
+  Integral,
+  Limit,
+  Matrix,
+};
 
 /// Structure tree over the glyphs of one image.
 ///
@@ -20,6 +31,7 @@ enum class NodeKind { Row, Atom, Fraction, Power, Radical, Sum, Integral, Limit 
 /// Sum      children = {body, index, start, upper}
 /// Integral children = {body, variable, lower, upper}
 /// Limit    children = {body, variable, point}
+/// Matrix   children = rows; each row is a Row of cell nodes
 ///
 /// A missing bound is an empty Row, so the renderer can leave it out instead
 /// of printing a placeholder.
@@ -32,6 +44,25 @@ struct Node {
   double confidence = 1.0;
 
   bool isAtom() const { return kind == NodeKind::Atom; }
+};
+
+/// Manual relation switches from the review screen. Auto keeps the geometric
+/// rules; the other values force one reading of an ambiguous pair.
+enum class ScriptRelation { Auto, Superscript, Inline };
+enum class BarRelation { Auto, Fraction, Minus };
+
+struct StructureOverrides {
+  std::map<int, ScriptRelation> scripts;
+  std::map<int, BarRelation> bars;
+
+  ScriptRelation scriptFor(int id) const {
+    const auto it = scripts.find(id);
+    return it == scripts.end() ? ScriptRelation::Auto : it->second;
+  }
+  BarRelation barFor(int id) const {
+    const auto it = bars.find(id);
+    return it == bars.end() ? BarRelation::Auto : it->second;
+  }
 };
 
 struct StructureOptions {
@@ -54,6 +85,8 @@ struct StructureOptions {
   /// Maximum horizontal gap between a base and its superscript, relative to the
   /// base width.
   double superscriptGap = 0.50;
+  /// Manual script/bar overrides from the correction UI.
+  StructureOverrides overrides;
 };
 
 /// Builds the structure tree from the classifier's per-symbol matches. The
@@ -64,5 +97,15 @@ Node buildStructure(const Segmentation& segmentation,
 
 /// Renders the tree as an expression the core parser accepts.
 std::string renderStructure(const Node& node);
+
+/// Renders the tree as LaTeX for the preview in the app.
+std::string renderLatex(const Node& node);
+
+/// True when the tree contains a matrix somewhere below it.
+bool containsMatrix(const Node& node);
+
+/// The first matrix in the tree, or nullptr. Used to route a reading into a
+/// matrix workbench.
+const Node* firstMatrix(const Node& node);
 
 }  // namespace infinit::scan

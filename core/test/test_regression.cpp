@@ -1,4 +1,5 @@
 #include "odecore.h"
+#include "expr.hpp"
 #include "calculus_apps.hpp"
 #include "numeric.hpp"
 #include "solver.hpp"
@@ -2075,6 +2076,28 @@ int main() {
         expect(r.ok, "y' = sqrt(x + y) is solved");
         expect(r.typeId == "linear_sub", "y' = sqrt(x + y) is a linear substitution");
         expect(r.verified, "the linear-substitution answer is verified");
+    }
+
+    // Malformed expressions must be rejected, never read out of bounds. The
+    // scanner's repair stage feeds exactly this kind of string to the parser,
+    // and `sqrt()` used to index an empty argument list and crash the process.
+    {
+        const std::vector<std::string> junk = {
+            "sqrt()", "sqrt()2+9)=)-1", "sin()", "log()", "deriv()",
+            "x^)", "(", "2+", "((x)", "x**", "x^", "|x", "",
+        };
+        int rejected = 0;
+        for (const std::string& text : junk) {
+            try {
+                (void)parseODEExpr(text, "x");
+            } catch (...) {
+                ++rejected;
+            }
+        }
+        expect(rejected == static_cast<int>(junk.size()),
+               "malformed expressions are rejected, not read out of bounds (" +
+                   std::to_string(rejected) + "/" +
+                   std::to_string(junk.size()) + ")");
     }
 
     if (failures == 0) {

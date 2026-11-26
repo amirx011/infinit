@@ -1,8 +1,13 @@
 package ir.infinit
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -12,7 +17,15 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val channelName = "ir.infinit/settings"
+    private val scannerChannelName = "ir.infinit/scanner"
     private val prefsName = "infinit_settings"
+    private val samplesKey = "scanner_samples"
+
+    private val inkSamplesKey = "ink_samples"
+    private val captureRequest = 4127
+    private var pendingCapture: MethodChannel.Result? = null
+    private var captureFile: java.io.File? = null
+    private var cameraPreview: CameraPreviewController? = null
 
     // LauncherIndigo is the only alias enabled in the manifest so a fresh
     // install has the default icon.  Every other alias starts disabled and is
@@ -65,6 +78,40 @@ class MainActivity : FlutterActivity() {
                         editor.apply()
                         result.success(null)
                     }
+                    "load_samples" -> {
+                        result.success(prefs.getString(samplesKey, null))
+                    }
+                    "save_samples" -> {
+                        val data = (call.arguments as? Map<*, *>)?.get("data") as? String
+                        if (data == null) {
+                            result.error("bad_args", "Expected base64 data", null)
+                        } else {
+                            prefs.edit().putString(samplesKey, data).apply()
+                            result.success(null)
+                        }
+                    }
+                    "clear_samples" -> {
+                        prefs.edit().remove(samplesKey).apply()
+                        result.success(null)
+                    }
+                    // Personal stroke prototypes for the handwriting path are a
+                    // separate bank (§12A.5), so they get their own key.
+                    "load_ink_samples" -> {
+                        result.success(prefs.getString(inkSamplesKey, null))
+                    }
+                    "save_ink_samples" -> {
+                        val data = (call.arguments as? Map<*, *>)?.get("data") as? String
+                        if (data == null) {
+                            result.error("bad_args", "Expected base64 data", null)
+                        } else {
+                            prefs.edit().putString(inkSamplesKey, data).apply()
+                            result.success(null)
+                        }
+                    }
+                    "clear_ink_samples" -> {
+                        prefs.edit().remove(inkSamplesKey).apply()
+                        result.success(null)
+                    }
                     "set_desktop_mode" -> {
                         applyDesktopMode(call.arguments as? Boolean ?: false)
                         result.success(null)
@@ -80,6 +127,80 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // The in-app preview lives in CameraPreviewController; the intent
+        // below stays as the fallback for devices where Camera2 cannot start.
+        cameraPreview = CameraPreviewController(this, flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, scannerChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "capturePhoto" -> capturePhoto(result)
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        cameraPreview?.onPermissionResult(requestCode, grantResults)
+    }
+
+    override fun onDestroy() {
+        cameraPreview?.dispose()
+        cameraPreview = null
+        super.onDestroy()
+    }
+
+    private fun capturePhoto(result: MethodChannel.Result) {
+        if (pendingCapture != null) {
+            result.error("busy", "A photo capture is already running", null)
+            return
+        }
+        val file = java.io.File(
+            cacheDir,
+            "scan-" + System.currentTimeMillis() + ".jpg",
+        )
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            }
+            pendingCapture = result
+            captureFile = file
+            startActivityForResult(intent, captureRequest)
+        } catch (error: ActivityNotFoundException) {
+            pendingCapture = null
+            captureFile = null
+            result.error("no_camera", "No camera app is available", null)
+        } catch (error: Exception) {
+            pendingCapture = null
+            captureFile = null
+            result.error("no_camera", error.message ?: "Camera unavailable", null)
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != captureRequest) return
+        val pending = pendingCapture
+        val file = captureFile
+        pendingCapture = null
+        captureFile = null
+        if (pending == null) return
+        if (resultCode == Activity.RESULT_OK && file != null) {
+            // The Dart side reads this file and deletes it once the bytes are
+            // in memory. Return a real filesystem path, not the content URI:
+            // FileProvider URIs are not readable with dart:io File.
+            pending.success(file.absolutePath)
+        } else {
+            file?.delete()
+            pending.success(null)
+        }
     }
 
     /// Desktop mode is a full-window view, so the status bar only steals taps

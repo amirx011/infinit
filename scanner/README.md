@@ -14,16 +14,21 @@ the input, everything else is hand-written.
 | Decode (PNG/JPEG/BMP/TGA/GIF) | done |
 | Illumination flattening, Otsu + Sauvola, skew search | done |
 | 8-connected components, symbol grouping, line grouping | done |
-| Template bank (4 fonts, 58 classes, 236 templates) | done |
+| Template bank (9 faces including math italics, 65 classes, 342 templates) | done |
 | Glyph classification (cosine kNN, margin rejection) | done |
 | Structure: fractions, powers, radicals | done |
 | Sums, integrals, limits, systems | done |
+| Matrices (bracketed grid, rows/columns) | done |
+| LaTeX printer from the same tree | done |
+| Top-k alternatives and label overrides (repair) | done |
 | Expression text and named parts for the app | done |
-| Flutter screen (image import, routing) | done |
-| Camera, crop and symbol-correction UI | later |
+| Flutter flow: in-app Camera2 preview, gallery, board, 4-corner crop | done |
+| Matrix grid for every matrix field in the app | done |
+| Symbol overlay, correction sheet, merge/split, relation toggles | done |
+| Per-line review cards for multi-line pages | done |
 
-Accuracy on the committed samples, clean and rotated/blurred/noisy alike: 26 of
-26 expressions read exactly, at 0.54–0.93 confidence. Covered inputs:
+Accuracy on the committed samples, clean and rotated/blurred/noisy alike: 28 of
+28 expressions read exactly, at 0.54–0.98 confidence. Covered inputs:
 
 ```
 3x + 5 = 2x - 7              -> 3x+5=2x-7
@@ -39,43 +44,86 @@ sum 1/n^2, n=1..inf          -> sum(1/(n^2), n=1, inf)
 integral x^2 dx, 0..1        -> integral(x^2, x, 0, 1)
 lim sin(x)/x, x->0           -> lim(sin(x)/x, x->0)
 2x+y=5, x-y=1                -> 2x+y=5,x-y=1
+[[1,2],[3,4]]                -> matrix 1, 2; 3, 4    (2x2, clean and photo)
 ```
 
-Known limits: matrices are not structured yet; italic `f` is not in the bank;
-two glyphs that touch in the scan become one blob and are reported as `?`.
+Known limits: two glyphs that touch in the scan become one blob and are reported
+as `?`; tilted matrices where a row is not horizontally aligned can lose a cell,
+and the correction sheet is there for exactly that case.
 
 ## App integration
 
 The scanner is compiled into the same `libodecore.so` the rest of the app uses,
-so there is no second native library to ship. Four C entry points are exported:
+so there is no second native library to ship. The exported C entry points are:
 
 ```c
-int  scanner_load_templates(const unsigned char* data, size_t size);
-char* scanner_read(const unsigned char* data, size_t size);  /* caller frees */
-void scanner_free(char* text);
+int      scanner_load_templates(const unsigned char* data, size_t size);
+char*    scanner_read(const unsigned char* data, size_t size);  /* caller frees */
+char*    scanner_read_with_overrides(const unsigned char* data, size_t size,
+                                     const char* overrides_json);
+char*    scanner_read_ink(const unsigned char* data, size_t size);
+char*    scanner_read_ink_with_overrides(const unsigned char* data, size_t size,
+                                         const char* overrides_json);
+uint64_t scanner_open_session(const unsigned char* data, size_t size);
+uint64_t scanner_open_ink_session(const unsigned char* data, size_t size);
+char*    scanner_session_read(uint64_t session);
+char*    scanner_session_relabel(uint64_t session, const char* overrides_json);
+char*    scanner_session_merge(uint64_t session, int first, int second);
+char*    scanner_session_split(uint64_t session, int symbol);
+char*    scanner_session_relation(uint64_t session, int symbol,
+                                  const char* kind, const char* value);
+void     scanner_close_session(uint64_t session);
+void     scanner_free(char* text);
 const char* scanner_version(void);
 ```
+
+`scanner_session_relation` takes `kind = "script"` with `value` `auto`,
+`superscript` or `inline`, or `kind = "bar"` with `auto`, `fraction` or
+`minus`. It rebuilds only structure/emit/repair and returns the same contract,
+which is what the review chips call.
+
+`scanner_open_session` decodes, binarises and segments once and keeps the result
+under a session id. `scanner_session_read` builds the full reading from that
+cache, and `scanner_session_relabel` takes a JSON object such as
+`{"3": "1", "7": "l"}` and rebuilds only the reading with those labels. The app
+uses this for the correction sheet, so a symbol fix never repeats the vision
+stages. A new session replaces the previous one, and an old id is rejected; the
+stateless entry points stay for callers that only need one reading.
 
 `scanner_read` decodes the image, runs the whole pipeline and returns JSON:
 
 ```json
 {
   "ok": true,
+  "session": 7,
   "expression": "sum(1/(n^2), n=1, inf)",
+  "latex": "\\sum_{n=1}^{\\infty} \\frac{1}{n^{2}}",
   "kind": "sum",
   "parts": {"term": "1/(n^2)", "index": "n", "start": "1", "end": "inf"},
   "confidence": 0.83,
   "symbols": 9,
   "lines": ["sum(1/(n^2), n=1, inf)"],
-  "glyphs": [{"label": "n", "score": 0.93, "margin": 0.21, "box": [x0,y0,x1,y1]}]
+  "glyphs": [{
+    "id": 4,
+    "label": "n",
+    "score": 0.93,
+    "margin": 0.21,
+    "box": [x0,y0,x1,y1],
+    "alternatives": [{"glyph": "n", "score": 0.93}, {"glyph": "h", "score": 0.71}]
+  }]
 }
 ```
 
-`kind` is `expression`, `sum`, `integral`, `limit` or `system`. The Flutter side
+`kind` is `expression`, `sum`, `integral`, `limit`, `system` or `matrix`. A
+matrix reading carries `parts.matrix` in the core's field syntax (`1, 2; 3, 4`),
+plus `parts.rows` and `parts.columns`. The Flutter side
 (`app/lib/src/scanner_engine.dart`) loads `assets/scanner/glyph_templates.bin`
-once, runs `scanner_read` in a background isolate and hands the result to the
-Scanner page, which can open the series, integral or limit workbench with the
-detected `parts` already filled in.
+once, runs the reading in a background isolate, and retries with the
+classifier's second choice when the core parser rejects the first reading.
+`app/lib/src/scanner/` holds the shared flow: source sheet, four-corner crop,
+result/correction screen and the handwriting board. Any expression field can open
+it, and every matrix field in the curriculum renders a rows × columns grid
+instead of asking for semicolons.
 
 The bank must stay in sync with the C++ side: after
 `tools/build_glyph_templates.py` changes `data/glyph_templates.bin`, copy it to
@@ -120,6 +168,24 @@ python3 tools/make_samples.py              # samples with real math layout (need
 16×16 grid, ink fitted into 14×14 and centred; the C++ side reproduces that
 normalisation for the input, so the bank is never compared against a differently
 scaled glyph.
+
+## Prior art
+
+Checked before writing the structure stage, since a maintained classical engine
+would have been preferable to a new one:
+
+| Project | Model | Why not adopted |
+|---|---|---|
+| [Seshat](https://github.com/falvaro/seshat) | C++, but symbol recognition uses RNNLIB (a neural net); GPL-3.0 | The core requirement is no ML, and GPL-3.0 is incompatible with this Apache-2.0 project |
+| [LaTeX-OCR / pix2tex](https://github.com/lukas-blecher/LaTeX-OCR), [texify](https://github.com/VikParuchuri/texify), [UniMERNet](https://github.com/opendatalab/UniMERNet) | Transformer/ViT | Neural, large model files, nothing classical to reuse |
+| Tesseract | LSTM line recogniser | Neural since v4, and it has no math structure model |
+| InftyReader | Classical, closed source | Proprietary; cannot ship or inspect |
+
+So the pipeline in this directory is original code: connected components,
+integral-image binarisation, template cosine matching, geometric structure
+analysis, and a LaTeX/Infinit printer over the same tree. The only external code
+is `stb_image` (public domain, vendored) and OpenCV in the optional cross-check
+test.
 
 ## Why no OpenCV in the pipeline
 

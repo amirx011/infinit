@@ -4,6 +4,7 @@ import '../charts.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
+import '../scanner/scan_button.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -46,9 +47,7 @@ class _LimitPageState extends State<LimitPage> {
   void initState() {
     super.initState();
     final initial = widget.initial;
-    _input = TextEditingController(
-      text: initial?['expression'] ?? 'sin(x)/x',
-    );
+    _input = TextEditingController(text: initial?['expression'] ?? 'sin(x)/x');
     _xv = TextEditingController(text: initial?['variable'] ?? 'x');
     _point = TextEditingController(text: initial?['point'] ?? '0');
   }
@@ -183,6 +182,7 @@ class _LimitPageState extends State<LimitPage> {
                     size: 20,
                     color: c.muted,
                   ),
+                  suffixIcon: ScanFieldButton(controller: _input),
                 ),
                 onSubmitted: (_) => _compute(),
               ),

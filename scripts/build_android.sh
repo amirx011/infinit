@@ -46,6 +46,13 @@ if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1; the
 fi
 
 echo "Using NDK: $NDK"
+
+OPENCV_MOBILE="$ROOT/third_party/opencv-mobile/sdk/native/jni"
+if [[ ! -f "$OPENCV_MOBILE/OpenCVConfig.cmake" ]]; then
+  echo "OpenCV mobile not found; fetching it..."
+  "$ROOT/scripts/fetch_opencv_mobile.sh"
+fi
+
 ABIS=(${ABIS:-arm64-v8a armeabi-v7a x86_64})
 API="${ANDROID_API:-21}"
 
@@ -59,6 +66,7 @@ for abi in "${ABIS[@]}"; do
     -DANDROID_PLATFORM="android-$API" \
     -DANDROID_STL=c++_static \
     -DCMAKE_BUILD_TYPE=Release \
+    -DOpenCV_DIR="$OPENCV_MOBILE" \
     -DODE_BUILD_TESTS=OFF \
     -DODE_BUILD_STATIC=OFF
   cmake --build "$build" -j "${JOBS:-$(nproc)}"
@@ -66,6 +74,12 @@ for abi in "${ABIS[@]}"; do
   dest="$ROOT/app/android/app/src/main/jniLibs/$abi"
   mkdir -p "$dest"
   cp "$build/lib/libodecore.so" "$dest/libodecore.so"
+  # OpenCV's static archives carry debug info. Strip locals but keep the
+  # dynamic scanner/ODE exports the FFI bridge needs.
+  STRIP="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip"
+  if [[ -x "$STRIP" ]]; then
+    "$STRIP" --strip-unneeded "$dest/libodecore.so"
+  fi
   echo "  -> $dest/libodecore.so"
 done
 

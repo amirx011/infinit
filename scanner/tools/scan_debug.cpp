@@ -30,6 +30,9 @@ void usage() {
                "  --no-deskew         keep the original rotation\n"
                "  --symbols           print every symbol box as JSON\n"
                "  --read              classify glyphs and print the reading\n"
+               "  --no-clahe          skip the low-contrast CLAHE pass\n"
+               "  --no-lines          keep ruled notebook lines\n"
+               "  --max-skew N        deskew search limit in degrees (default 8)\n"
                "  --bank PATH         template bank (default "
             << SCANNER_DATA_DIR << "/glyph_templates.bin)\n";
 }
@@ -68,6 +71,12 @@ int main(int argc, char** argv) {
       readGlyphs = true;
     } else if (arg == "--no-deskew") {
       pre.maxDeskewDegrees = 0.0;
+    } else if (arg == "--no-clahe") {
+      pre.applyClahe = false;
+    } else if (arg == "--no-lines") {
+      pre.removeRuledLines = false;
+    } else if (arg == "--max-skew" && i + 1 < argc) {
+      pre.maxDeskewDegrees = std::atof(argv[++i]);
     } else if (arg == "--help" || arg == "-h") {
       usage();
       return 0;
@@ -103,6 +112,7 @@ int main(int argc, char** argv) {
   savePng(pre_.normalized, join(outdir, "02-normalized.png"));
   savePng(pre_.binaryOtsu, join(outdir, "03-otsu.png"));
   savePng(pre_.binarySauvola, join(outdir, "04-sauvola.png"));
+  savePng(pre_.binaryAdaptive, join(outdir, "04b-adaptive.png"));
   savePng(pre_.binary, join(outdir, "05-binary.png"));
   savePng(renderSegmentation(pre_.binary, segmentation), join(outdir, "06-symbols.png"));
 
@@ -120,6 +130,10 @@ int main(int argc, char** argv) {
   std::cout << "  \"working\": [" << pre_.gray.width << ", " << pre_.gray.height << "],\n";
   std::cout << "  \"inverted\": " << (pre_.inverted ? "true" : "false") << ",\n";
   std::cout << "  \"skewDegrees\": " << pre_.skewDegrees << ",\n";
+  std::cout << "  \"skewEstimates\": {\"baseline\": " << pre_.baselineDegrees
+            << ", \"projection\": " << pre_.projectionDegrees
+            << ", \"rectangle\": " << pre_.rectangleDegrees
+            << ", \"hough\": " << pre_.houghDegrees << "},\n";
   std::cout << "  \"otsuThreshold\": " << pre_.otsuThreshold << ",\n";
   std::cout << "  \"binarization\": \"" << pre_.chosen << "\",\n";
   std::cout << "  \"components\": " << segmentation.components.size() << ",\n";
@@ -138,7 +152,9 @@ int main(int argc, char** argv) {
     std::cout << "],\n";
   }
   if (readGlyphs) {
-    const ExpressionReading expression = readExpression(pre_.binary, segmentation, bank);
+    const TemplateClassifier classifier(bank);
+    const ExpressionReading expression =
+        readExpression(pre_.binary, segmentation, classifier);
     std::cout << "  \"expression\": \"" << expression.text << "\",\n";
     std::cout << "  \"kind\": \"" << expression.kind << "\",\n";
     std::cout << "  \"confidence\": " << expression.confidence << ",\n";

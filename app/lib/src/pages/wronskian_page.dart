@@ -5,6 +5,7 @@ import '../charts.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
+import '../scanner/scan_button.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -176,6 +177,10 @@ class _WronskianPageState extends State<WronskianPage> {
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 14,
                             vertical: 13,
+                          ),
+                          suffixIcon: ScanFieldButton(
+                            controller: _functions[i],
+                            iconSize: 18,
                           ),
                         ),
                         onSubmitted: (_) => _solve(),

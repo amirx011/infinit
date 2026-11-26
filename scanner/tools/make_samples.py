@@ -55,6 +55,47 @@ def render(tex: str, dpi: int) -> Image.Image:
     return canvas.convert("L")
 
 
+MATRIX_FONT = "/usr/share/fonts/stix-fonts/STIXTwoMath-Regular.otf"
+
+
+def render_matrix(scale: float = 1.0) -> Image.Image:
+    """A bracketed 2x2 matrix.
+
+    matplotlib's mathtext has no matrix environment, so the grid is drawn
+    directly: that also keeps the bracket height and the cell spacing under our
+    control, which is what the structure stage keys on.
+    """
+    from PIL import ImageDraw, ImageFont
+
+    width, height = int(760 * scale), int(460 * scale)
+    canvas = Image.new("L", (width, height), 255)
+    draw = ImageDraw.Draw(canvas)
+    bracket_font = ImageFont.truetype(MATRIX_FONT, int(300 * scale))
+    digit_font = ImageFont.truetype(MATRIX_FONT, int(120 * scale))
+    rows = [int(150 * scale), int(310 * scale)]
+    cols = [int(300 * scale), int(500 * scale)]
+    for r, y in enumerate(rows):
+        for c, x in enumerate(cols):
+            draw.text(
+                (x, y), str(r * 2 + c + 1), font=digit_font, fill=0, anchor="mm"
+            )
+    draw.text(
+        (int(120 * scale), int(230 * scale)),
+        "[",
+        font=bracket_font,
+        fill=0,
+        anchor="lm",
+    )
+    draw.text(
+        (int(660 * scale), int(230 * scale)),
+        "]",
+        font=bracket_font,
+        fill=0,
+        anchor="rm",
+    )
+    return canvas
+
+
 def degrade(image: Image.Image, seed: int) -> Image.Image:
     rng = np.random.default_rng(seed)
     out = image.rotate(2.5, resample=Image.BICUBIC, fillcolor=255, expand=True)
@@ -85,6 +126,13 @@ def main() -> int:
         clean = render(tex, args.dpi)
         clean.save(outdir / f"{name}.png")
         degrade(clean, seed=len(name)).save(outdir / f"{name}_photo.png")
+        written += 2
+    if (args.only is None or args.only == "matrix") and pathlib.Path(
+        MATRIX_FONT
+    ).exists():
+        clean = render_matrix(args.dpi / 200)
+        clean.save(outdir / "matrix.png")
+        degrade(clean, seed=len("matrix")).save(outdir / "matrix_photo.png")
         written += 2
     print(f"wrote {written} images to {outdir}")
     return 0

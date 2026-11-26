@@ -256,6 +256,15 @@ struct Parser {
                     while (accept(Tok::Comma)) args.push_back(sum());
                 }
                 expect(Tok::RParen, "')'");
+                // `sqrt()` and friends: an empty argument list is a malformed
+                // expression, not a reason to read args[0] out of bounds. The
+                // scanner's repair stage feeds exactly these strings to the
+                // parser, so a crash here would take the whole app down.
+                if (args.empty()) {
+                    throw EngineError("missing_argument",
+                                      "this function needs an argument",
+                                      "missing argument for " + name);
+                }
                 if (lower == "sqrt") out = Sqrt(args[0]);
                 else if (lower == "log") out = Fn("ln", args);
                 else if (lower == "deriv" && args.size() == 3) {

@@ -1,6 +1,7 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <gtk/gtk.h>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
@@ -275,6 +276,87 @@ static GtkHeaderBar* my_application_build_header_bar(GtkWindow* window) {
   return header_bar;
 }
 
+// One method channel for desktop import: OS drag-and-drop pushes a path down to
+// Dart, and Ctrl+V asks this process for an image or a file path from the
+// clipboard. Keeping it here means no extra plugin and no network.
+static FlMethodChannel* g_import_channel = nullptr;
+
+// Saves the clipboard image as a temporary PNG and returns its path. Falls back
+// to a pasted file path or file:// URI, which is what file managers put on the
+// clipboard for a copied image file.
+static gchar* clipboard_import_path(void) {
+  GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+  GdkPixbuf* pixbuf = gtk_clipboard_wait_for_image(clipboard);
+  if (pixbuf != nullptr) {
+    gchar* directory = g_build_filename(g_get_tmp_dir(), "infinit-paste", nullptr);
+    g_mkdir_with_parents(directory, 0700);
+    gchar* name = g_strdup_printf("paste-%" G_GINT64_FORMAT ".png",
+                                  g_get_real_time());
+    gchar* path = g_build_filename(directory, name, nullptr);
+    gboolean saved = FALSE;
+    g_autoptr(GError) error = nullptr;
+    if (gdk_pixbuf_save(pixbuf, path, "png", &error, nullptr)) {
+      saved = TRUE;
+    } else if (error != nullptr) {
+      g_warning("Failed to save clipboard image: %s", error->message);
+    }
+    g_object_unref(pixbuf);
+    g_free(name);
+    g_free(directory);
+    if (saved) return path;
+    g_free(path);
+    return nullptr;
+  }
+
+  gchar* text = gtk_clipboard_wait_for_text(clipboard);
+  if (text == nullptr) return nullptr;
+  gchar* path = nullptr;
+  if (g_str_has_prefix(text, "file://")) {
+    path = g_filename_from_uri(text, nullptr, nullptr);
+  } else if (g_file_test(text, G_FILE_TEST_IS_REGULAR)) {
+    path = g_strdup(text);
+  }
+  g_free(text);
+  return path;
+}
+
+static void import_method_call_cb(FlMethodChannel* channel,
+                                  FlMethodCall* method_call,
+                                  gpointer user_data) {
+  const gchar* method = fl_method_call_get_name(method_call);
+  g_autoptr(FlMethodResponse) response = nullptr;
+  if (g_strcmp0(method, "paste") == 0) {
+    g_autofree gchar* path = clipboard_import_path();
+    g_autoptr(FlValue) result =
+        path == nullptr ? fl_value_new_null() : fl_value_new_string(path);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+  g_autoptr(GError) error = nullptr;
+  if (!fl_method_call_respond(method_call, response, &error)) {
+    g_warning("Failed to respond to import call: %s", error->message);
+  }
+}
+
+static void drag_data_received_cb(GtkWidget* widget, GdkDragContext* context,
+                                  gint x, gint y, GtkSelectionData* data,
+                                  guint info, guint time, gpointer user_data) {
+  gboolean handled = FALSE;
+  gchar** uris = gtk_selection_data_get_uris(data);
+  if (uris != nullptr && uris[0] != nullptr && g_import_channel != nullptr) {
+    g_autofree gchar* path = g_filename_from_uri(uris[0], nullptr, nullptr);
+    if (path != nullptr) {
+      g_autoptr(FlValue) arguments = fl_value_new_string(path);
+      fl_method_channel_invoke_method(g_import_channel, "drop", arguments,
+                                      nullptr, nullptr, nullptr);
+      handled = TRUE;
+    }
+    g_strfreev(uris);
+  }
+  gtk_drag_finish(context, handled, FALSE, time);
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -317,6 +399,21 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+
+  // Desktop import: a drop zone on the whole window and a clipboard reader for
+  // Ctrl+V. Both reach Dart as paths to normalised images.
+  g_autoptr(FlStandardMethodCodec) import_codec = fl_standard_method_codec_new();
+  g_import_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "infinit/import", FL_METHOD_CODEC(import_codec));
+  fl_method_channel_set_method_call_handler(g_import_channel,
+                                            import_method_call_cb, nullptr,
+                                            nullptr);
+  gtk_drag_dest_set(GTK_WIDGET(window), GTK_DEST_DEFAULT_ALL, nullptr, 0,
+                    GDK_ACTION_COPY);
+  gtk_drag_dest_add_uri_targets(GTK_WIDGET(window));
+  g_signal_connect(window, "drag-data-received",
+                   G_CALLBACK(drag_data_received_cb), nullptr);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

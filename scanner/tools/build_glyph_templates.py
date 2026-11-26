@@ -34,6 +34,24 @@ FONTS = [
     ("free-sans", "/usr/share/fonts/gnu-free/FreeSans.ttf"),
 ]
 
+# Printed math sets variables in *italic* and everything else upright, so a bank
+# built only from upright fonts answers "x" with "?", "'" or "m" on real pages.
+# These faces are used for the letter classes only; digits and operators stay
+# upright, which is how textbooks set them.
+# Italic faces for the letters. Computer Modern was tried as well and measurably
+# hurt (top-1 0.889 -> 0.861 on the 12-image set): its hairlines pulled the
+# correlation away from every other face, so it is deliberately not included.
+ITALIC_FONTS = [
+    ("stix-italic", "/usr/share/fonts/stix-fonts/STIXTwoText-Italic.otf"),
+    ("dejavu-italic", "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Oblique.ttf"),
+    ("liberation-serif-italic", "/usr/share/fonts/liberation-serif-fonts/LiberationSerif-Italic.ttf"),
+    ("free-serif-italic", "/usr/share/fonts/gnu-free/FreeSerifItalic.ttf"),
+]
+
+# Classes that a math renderer italicises. Same labels, extra faces: the score
+# takes the best entry per label, so this only adds evidence.
+ITALIC_CLASSES = set("xyzabcnmtesuvwdfghjklrpqio")
+
 # label -> characters that all mean the same class
 CLASSES = {
     "0": "0", "1": "1", "2": "2", "3": "3", "4": "4",
@@ -47,6 +65,10 @@ CLASSES = {
     "(": "(", ")": ")", "[": "[", "]": "]",
     "/": "/", ".": ".", ",": ",", "<": "<", ">": ">",
     "|": "|", "^": "^", "!": "!", "'": "'",
+    # Comparison and arithmetic signs the plan's §5.4 lists. The bank had only
+    # "<" and ">", so a printed "≤" had no class to land on.
+    "×": "×", "÷": "÷", "≤": "≤", "≥": "≥",
+    "≠": "≠", "±": "±", "%": "%",
     # Big operators and the symbols that appear in their bounds.  These labels
     # are structural: the reader turns them into sum/integral/limit nodes
     # instead of passing the raw character to the expression.
@@ -105,6 +127,23 @@ def main() -> int:
                     out = pathlib.Path(args.preview) / f"{font_index}_{ord(char):04x}_{label}.png"
                     out.parent.mkdir(parents=True, exist_ok=True)
                     grid.resize((GRID * 8, GRID * 8), Image.NEAREST).save(out)
+
+    # Italic faces, letters only: this is what printed math actually looks like.
+    for offset, (font_name, font_path) in enumerate(ITALIC_FONTS):
+        if not pathlib.Path(font_path).exists():
+            print(f"skip missing font: {font_path}")
+            continue
+        font_index = len(FONTS) + offset
+        for label, chars in CLASSES.items():
+            if label not in ITALIC_CLASSES:
+                continue
+            for char in chars:
+                crop = render(char, font_path)
+                if crop is None:
+                    continue
+                grid = normalise(crop)
+                entries.append((label, font_index, grid))
+                report.append(f"{label}\t{font_name}\t{crop.size[0]}x{crop.size[1]}")
 
     out_path = pathlib.Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

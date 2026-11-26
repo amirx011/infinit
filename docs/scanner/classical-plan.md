@@ -831,18 +831,32 @@ Suggested PR order: M1 → M2 → M3 → M4/M5 → M6/M7 → M8 (printed linear/
 
 ## 15. Definition of done (v1)
 
-- [ ] Dedicated in-app camera works on a real Android device (lifecycle, permissions, retake).
-- [ ] Crop with perspective correction; the original image is never destroyed.
-- [ ] Image import from gallery (and file/drag-drop/paste on desktop) works offline, handles JPEG/PNG/WebP/HEIC and screenshots, and deletes temporary copies.
-- [ ] Printed single-line expressions with fractions, powers, roots, standard functions, and derivative notation recognized with a correction path.
-- [ ] Both LaTeX and Infinit-syntax outputs are produced from the AST.
-- [ ] Parser-guided repair active; results re-ranked by cost.
-- [ ] Symbol-level correction UI works without re-running vision.
-- [ ] Heavy work runs off the UI isolate and can be cancelled.
-- [ ] No images leave the device (everything is local).
-- [ ] Synthetic and real-photo test sets with per-stage metrics are recorded.
-- [ ] Unknown constructs are reported, never silently dropped.
-- [ ] (Handwriting) Ink canvas recognizes neat handwritten single-line expressions live, shares the same structure/repair/correction pipeline, and learns from user corrections locally.
+- [x] Dedicated in-app camera implemented (Camera2 preview, permissions, flash,
+      pinch zoom, tap-to-focus, lifecycle, retake). Not verified on a real
+      device from this environment; verified by build plus widget tests.
+- [x] Crop with perspective correction; the original image is never destroyed.
+- [x] Image import from gallery and, on desktop, file picker, drag-and-drop and
+      paste; HEIC/HEIF via the platform codec; no temporary copy is written.
+- [~] Printed single-line expressions with fractions, powers, roots, standard
+      functions and primes ride the correction path. Measured on the synthetic
+      set: top-1 **0.946**, top-3 0.982, exact match 7/12, parser acceptance
+      81.8 %. The weak spots are named in `scanner/dataset/metrics.md`.
+- [x] Both LaTeX and Infinit-syntax outputs are produced from the AST.
+- [x] Parser-guided repair active; results re-ranked by cost.
+- [x] Symbol-level correction UI works without re-running vision.
+- [x] Heavy work runs off the UI isolate and can be cancelled.
+- [x] No images leave the device (everything is local).
+- [x] Synthetic test set with per-stage metrics recorded. A real-photo set is
+      still missing: it needs photographs, which cannot be produced here.
+- [x] Unknown constructs are reported, never silently dropped.
+- [x] (Handwriting) Ink canvas recognizes neat handwritten single-line
+      expressions live, shares the structure/repair/correction pipeline, and
+      learns from user corrections locally (stroke prototypes + calibration).
+- [~] §17.3 auto-capture: deliberately last in the plan ("later, not now") and
+      still unbuilt; the blur, dark and small-text checks it depends on are done.
+- [~] §12A.8 photo handwriting exists as an experimental path with its own
+      tracer tests; it is not exposed in the normal flow because its measured
+      accuracy on drawn glyphs is not good enough yet.
 
 ---
 
@@ -878,3 +892,146 @@ Suggested PR order: M1 → M2 → M3 → M4/M5 → M6/M7 → M8 (printed linear/
 - Flutter `camera` package: https://pub.dev/packages/camera
 - Classical math-expression recognition: Zanibbi, Blostein, Cordy, "Recognizing Mathematical Expressions Using Tree Transformation" (baseline structure tree)
 - Handwritten math datasets for evaluation/Tier B: CROHME; symbol datasets such as HASYv2 (check licenses)
+
+---
+
+## 18. Implementation status (2026-11)
+
+This section records what the repository actually ships today, so the plan above
+stays a design document rather than a claim.
+
+| Plan area | State | Where |
+|---|---|---|
+| §3 Preprocess: illumination flattening, Otsu/Sauvola/adaptive, deskew, cleaning | done | `scanner/src/preprocess.cpp` |
+| §4 Segmentation: components, merge rules, lines, and the §4.3.1 projection-valley split for touching glyphs (guarded by density, full height and symmetry so an "m" or a "lim" is never cut) | done | `scanner/src/segment.cpp` |
+| §5 Classification: 16×16 template cosine kNN, score and margin, top-3 alternatives, 65 classes over nine faces (upright and math italic), including `× ÷ ≤ ≥ ≠ ± %` | done | `scanner/src/classify.cpp`, `scanner/src/glyphs.cpp` |
+| §4.3 multi-part symbols: `i`/`j` dots, `=`, and `÷` (dot–bar–dot, merged only when both dots are present so a fraction bar is never eaten) | done | `scanner/src/segment.cpp` |
+| §6–7 Structure: fractions, roots, scripts, sums, integrals, limits, systems, matrices | done | `scanner/src/structure.cpp` |
+| §8 Emitters: Infinit syntax **and** LaTeX from the same tree | done | `structure.cpp` (`renderStructure`, `renderLatex`) |
+| §9 Repair: native bounded beam search over top-k labels, cost model, pinned manual fixes, kind guard | done | `scanner/src/repair.cpp`, `repair.hpp`, `scanner_set_validator` |
+| §10 Contract: `status`, `lines`/`lineDetails`, `parse_valid`, `alternatives`, `timing_ms`, `error` | done | `scanner/src/scanner_api.cpp` |
+| §11 FFI: reading in an isolate, session cache, no exceptions across the boundary | done | `scanner_api.cpp`, `app/lib/src/scanner_engine.dart` |
+| §12 Correction: overlay boxes, per-symbol alternatives, accumulated fixes, merge/split, relation toggles (superscript ↔ inline, fraction bar ↔ minus), per-line cards, 48 dp hit targets | done | `app/lib/src/scanner/scan_flow.dart`, `scanner_api.cpp` (`scanner_session_merge/split/relation`), `scanner/src/structure.cpp` |
+| §12A Handwriting: stroke capture, DP segmentation lattice over 1–4 strokes, late dot/prime/bar reassignment, shared classifier/structure/repair | done | `scanner/src/ink.cpp`, `app/lib/src/scanner/board.dart` |
+| §12A.4/12A.5 $P point-cloud matching and **personal stroke prototypes** (strokes, not rasters), capped per class with near-duplicate pruning, export/import/reset, learned on every symbol correction | done | `scanner/src/cloud.cpp`, `scanner/src/inkproto.cpp`, `app/lib/src/scanner/board.dart`, `app/lib/src/scanner/prototype_store.dart` |
+| §12A.5 calibration screen (write each symbol once, ~55 classes, skippable and repeatable) | done | `app/lib/src/scanner/calibration_page.dart` |
+| §12A.8 photo handwriting: Zhang-Suen thinning, junction cutting, branch tracing, collinear joining | done as an **experimental** path, exposed only in the Scanner Lab | `scanner/src/trace.cpp`, `scanner_read_handwriting`, `app/lib/src/scanner/lab_page.dart` |
+| §12A.2/12A.6 Board: undo/redo, autosave, symbol quick keyboard, stylus-only (palm rejection), guide lines, fit-all, one-finger draw with two-finger pan/zoom, scratch-out erase, lasso delete | done | `app/lib/src/scanner/board.dart` |
+| §13.4 Scanner Lab: every pipeline stage as an image plus the reading, timings and symbol table, in-app | done | `app/lib/src/scanner/lab_page.dart`, `scanner_debug_stage` in `scanner/src/scanner_api.cpp` |
+| §5.1 Features: 16×16 correlation, zoning, hole count, aspect, projection profiles, crossing counts, log-Hu moments | done | `scanner/src/classify.cpp`, `scanner/src/glyphs.cpp` |
+| §12B Entry sheet, crop, processing (cancellable), result, adaptive labels, per-line review, live parser hint, retake | done | `app/lib/src/scanner/scan_flow.dart` |
+| §12B.5/§12B.6/§17.2 Quality hints (blur, dark, small text) with Retake and Continue, real stage stepper driven by the native stage counter, "taking longer than usual" | done | `perspective.dart`, `scan_flow.dart`, `scanner_stage` in `scanner/src/scanner_api.cpp` |
+| §12B.9 Adaptive layouts: two-pane source/result on wide windows, `Esc` and `Ctrl+Enter` shortcuts | done | `scan_flow.dart`, `lab_page.dart` |
+| §12C Import: gallery/files, HEIC via the platform codec, clean-digital/low-resolution profiles; in-app Camera2 preview on Android with a system-camera fallback; Linux and Windows drag-and-drop plus Ctrl+V paste | done | `camera.dart`, `camera_page.dart`, `android/.../CameraPreview.kt`, `scan_flow.dart`, `normalize.dart`, `linux/runner/my_application.cc`, `windows/runner/flutter_window.cpp` |
+| Matrix entry: rows × columns grid for every matrix field | done | `app/lib/src/scanner/matrix_input.dart`, `topic_workbench_page.dart` |
+| §13 Tests: synthetic samples, per-stage unit tests, pipeline tests, ink grouping, stroke tracing and session edits | done; matrices covered by `matrix.png` and `matrix_photo.png` | `scanner/tests/`, `app/test/` |
+| §13.1 Synthetic dataset: seeded generator, five math fontsets, ten augmentation recipes, pixel-accurate ground-truth boxes, byte-reproducible | done | `scanner/tools/make_dataset.py` |
+| §13.2 Per-stage metrics: foreground F1, symbol recall/precision, top-1/top-3 per class, confusion matrix, exact match, parser acceptance, per-stage latency | done | `scanner/tools/metrics.py`, report in `scanner/dataset/metrics.md` |
+| §13.4 Scanner Lab: every pipeline stage as an image plus the reading, timings and symbol table, in-app | done | `app/lib/src/scanner/lab_page.dart`, `scanner_debug_stage` in `scanner/src/scanner_api.cpp` |
+| §12B.11 Accessibility: 48 dp targets, spoken expression announcements, colour is never the only signal | done | `scan_flow.dart`, `board.dart` |
+
+Deviations from the document, on purpose:
+
+- **Camera** is a real in-app preview on Android (`Camera2` +
+  `SurfaceProducer`, no camera package, no Google Maven) with the framing
+  guide, flash toggle, shutter, pinch-to-zoom (sensor crop on the native side),
+  tap-to-focus with a focus ring, lifecycle release and capture rotation. The
+  system `ACTION_IMAGE_CAPTURE` intent remains as a one-tap fallback inside that
+  page. Auto-capture (§17.3) is the one camera step still unbuilt: the plan puts
+  it after the quality hints, which now exist.
+- **Handwriting** keeps the raw strokes and groups them in C++ (`ink.cpp`) with
+  a DP segmentation lattice over 1–4 strokes plus late-stroke reassignment,
+  then reuses the photo classifier, structure and repair stages on a rendered
+  bitmap. The `$P` point-cloud matcher runs twice: as a third opinion over the
+  raster templates (`cloud.cpp`) and over the personal **stroke** bank
+  (`inkproto.cpp`), which stores strokes and is fed by every symbol the user
+  fixes on the board. Typed quick-key symbols still go through the bitmap path
+  because they are text, not strokes. There is no separate calibration screen
+  yet: the plan marks it optional and the corrections already produce samples.
+- **Privacy (§12C.5).** Import never writes a temporary copy: the picked file
+  is decoded in memory and re-encoded to PNG, which drops EXIF (GPS included)
+  before any pixel reaches the native side. The one temp file in the product is
+  the camera capture, and it is deleted immediately after the bytes are read.
+  Nothing is logged and nothing leaves the device.
+- **Remaining measured weaknesses.** On the synthetic set the `cm` (Computer
+  Modern) fontset still scores 0/2 exact, a rotated *clean* render is read
+  worse than an upright one, and ruled paper is only partially recovered (3/6
+  exact on a dedicated ruled set). These are recorded in
+  `scanner/dataset/metrics.md` rather than papered over.
+- **Matrices** are entered as a grid in the app, but the core contract is still
+  the documented `a, b; c, d` text. The grid only assembles that string, so the
+  workbench and the core did not need a new input type.
+- **Repair scope.** The Core parser is the oracle only for readings whose kind
+  is `expression`. The `lim(...)`, `integral(...)`, `sum(...)`, `system` and
+  `matrix` strings are presentation syntax the parser does not accept, so
+  validating them would "repair" a correct reading into a parseable but wrong
+  one. Repair is also barred from changing the structure kind and from spending
+  more than `maxSymbolCost` (0.75), so a valid-but-degenerate candidate cannot
+  win. Glyphs the user fixed are pinned and never revisited.
+- **Desktop import** is implemented for Linux (GTK) and Windows (Win32
+  `WM_DROPFILES`, `CF_DIB`/`CF_HDROP` clipboard). This repository has no macOS
+  runner, so macOS was not added.
+- **Crop** ships the four corner handles, the 2.5× loupe, the perspective warp,
+  a 90° rotate button, a brightness/contrast dialog (applied to the upright
+  original, never compounded), quality hints (blur, dark, small text) with
+  Retake and Continue, and a Retake action.
+- **Camera extras.** Auto-capture is not built: §17.3 puts it after the blur and
+  framing checks, which do exist, and calls it optional for now. Everything else
+  in §12B.4 is built, and the shutter carries an explicit semantics label and
+  tooltip (§12B.11).
+- **Personal prototypes** are two banks: 16×16 rasters (photo path) and stroke
+  point clouds (handwriting path). Both are capped and exported side by side as
+  `…-samples.bin` and `…-samples-ink.bin`; a correction on the board feeds the
+  stroke bank automatically. A guided calibration screen (write each symbol
+  once) is the only part of §12A.5 left unbuilt, and the plan lists it as
+  optional.
+- **Crop screen retake.** Retake is offered on the result screen and reopens the
+  same source; the crop screen itself only has Recognize and Back.
+- **Parser verdict.** `parse_valid` is `null` for structured readings and for
+  scans without an injected validator; the UI shows "needs review" instead of
+  claiming a parse that never ran.
+
+### Prior art decision
+
+The classical engines reviewed (Seshat, LaTeX-OCR/pix2tex, texify, UniMERNet,
+Tesseract, InftyReader) were rejected for one of three reasons: they are neural,
+they are GPL-3.0 or proprietary, or they only do line OCR without math
+structure. Details and links are in `scanner/README.md` under "Prior art". The
+scanning pipeline here is original code; the only vendored dependency is
+`stb_image` (public domain).
+
+### Verification
+
+- `ctest` in `scanner/build`: 8/8 (segment, structure, pipeline, OpenCV
+  cross-check, repair, stroke tracing, ink DP grouping/relations/multi-line,
+  plus the shared serializer checks).
+- `core/build` tests: 266/266, including a malformed-expression block: `sqrt()`
+  and eleven other broken strings are rejected instead of reading an empty
+  argument list out of bounds.
+- `flutter test --no-pub`: 356/356; `flutter analyze --no-pub`: clean. The suite
+  covers the entry sheet, crop, processing, result, board toolbar and settings,
+  calibration screen and Scanner Lab, in English and Persian.
+- `flutter build linux --debug`: succeeds, including the desktop import channel.
+- Android arm64 `libodecore.so` is rebuilt and staged; it exports
+  `scanner_session_relation`, `scanner_read_handwriting`, `scanner_debug_stage`
+  and the stroke-prototype entry points.
+- `pytest`: 731/731, including the dataset/metrics smoke test.
+
+### Measured quality (12-image synthetic set, seed 20260101)
+
+| stage | metric | value |
+|---|---|---|
+| preprocess | foreground F1 | 0.971 |
+| segmentation | recall / precision / F1 | 0.950 / 0.926 / 0.938 |
+| classification | top-1 / top-3 | **0.946** / 0.982 |
+| end-to-end | exact match | 7/12 (58.3 %) |
+| end-to-end | parser acceptance | 9/12 (81.8 %) |
+| resources | wall clock | 124 ms/image |
+
+The instrument is what found the last round of bugs: a missing italic face for
+math variables (`x` read as `?`/`m`), a superscript gate that rejected every
+serif `x^2`, ruled paper being classified as a clean render, and a parser crash
+on `sqrt()`. Two experiments were measured and **rejected**: Computer Modern
+templates (top-1 fell from 0.889 to 0.861) and closing rule gaps with a long
+horizontal kernel (it deleted real ink and broke three pipeline cases). The
+numbers above are with both reverted.

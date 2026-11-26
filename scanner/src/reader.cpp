@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 
 namespace infinit::scan {
 namespace {
@@ -33,6 +34,56 @@ void fixPunctuation(const Segmentation& segmentation,
         match.label = ",";
       } else if (match.label == "?" && match.runnerUp == "'" && high) {
         match.label = "'";
+      }
+    }
+  }
+}
+
+bool isDigitLabel(const std::string& label) {
+  return label.size() == 1 &&
+         std::isdigit(static_cast<unsigned char>(label[0])) != 0;
+}
+
+/// The plan's confusable classes, resolved by neighbours: a letter wedged
+/// between two digits is almost always the digit it resembles. The correction
+/// sheet still shows the original alternatives, so a wrong call is one tap
+/// away.
+void fixDigitNeighbours(const Segmentation& segmentation,
+                        std::vector<GlyphMatch>* matches) {
+  for (const TextLine& line : segmentation.lines) {
+    if (line.symbols.size() < 3) continue;
+    std::vector<int> ids = line.symbols;
+    std::sort(ids.begin(), ids.end(), [&segmentation](int a, int b) {
+      return segmentation.symbols[a].box.x0 < segmentation.symbols[b].box.x0;
+    });
+    const double scale = std::max(1.0, static_cast<double>(line.box.height()));
+    for (size_t i = 1; i + 1 < ids.size(); ++i) {
+      const Box& box = segmentation.symbols[ids[i]].box;
+      const Box& leftBox = segmentation.symbols[ids[i - 1]].box;
+      const Box& rightBox = segmentation.symbols[ids[i + 1]].box;
+      const bool sameLine =
+          std::abs(leftBox.centerY() - box.centerY()) <= 0.30 * scale &&
+          std::abs(rightBox.centerY() - box.centerY()) <= 0.30 * scale;
+      const bool close =
+          box.x0 - leftBox.x1 <= 0.40 * scale &&
+          rightBox.x0 - box.x1 <= 0.40 * scale;
+      if (!sameLine || !close) continue;
+      if (!isDigitLabel((*matches)[ids[i - 1]].label) ||
+          !isDigitLabel((*matches)[ids[i + 1]].label)) {
+        continue;
+      }
+
+      GlyphMatch& match = (*matches)[ids[i]];
+      const std::string& candidate =
+          match.label == "?" ? match.runnerUp : match.label;
+      if (candidate == "l" || candidate == "I" || candidate == "|") {
+        match.label = "1";
+      } else if (candidate == "O" || candidate == "o") {
+        match.label = "0";
+      } else if (candidate == "S") {
+        match.label = "5";
+      } else if (candidate == "z") {
+        match.label = "2";
       }
     }
   }
@@ -95,6 +146,31 @@ void describeReading(ExpressionReading* reading) {
   switch (node->kind) {
     // Every structured node carries fixed slots; a malformed tree falls back
     // to the plain expression instead of reading past the children.
+    case NodeKind::Matrix: {
+      reading->kind = "matrix";
+      const size_t rows = node->children.size();
+      size_t columns = 0;
+      for (const Node& row : node->children) {
+        columns = std::max(columns, row.children.size());
+      }
+      reading->parts.push_back(
+          ReadingPart{"rows", std::to_string(rows)});
+      reading->parts.push_back(
+          ReadingPart{"columns", std::to_string(columns)});
+      // The core's matrix fields take rows separated by ';' and cells by ','.
+      std::string cells;
+      for (size_t r = 0; r < rows; ++r) {
+        if (r) cells += "; ";
+        const Node& row = node->children[r];
+        for (size_t c = 0; c < row.children.size(); ++c) {
+          if (c) cells += ", ";
+          const Node& cell = row.children[c];
+          cells += isBlank(cell) ? "0" : renderStructure(cell);
+        }
+      }
+      reading->parts.push_back(ReadingPart{"matrix", cells});
+      return;
+    }
     case NodeKind::Sum:
       if (node->children.size() != 4) break;
       reading->kind = "sum";
@@ -122,6 +198,33 @@ void describeReading(ExpressionReading* reading) {
       break;
   }
 
+  if (containsMatrix(reading->root)) {
+    const Node* matrix = firstMatrix(reading->root);
+    if (matrix != nullptr && matrix->children.size() >= 2) {
+      const size_t rows = matrix->children.size();
+      size_t columns = 0;
+      for (const Node& row : matrix->children) {
+        columns = std::max(columns, row.children.size());
+      }
+      reading->kind = "matrix";
+      reading->parts.push_back(ReadingPart{"rows", std::to_string(rows)});
+      reading->parts.push_back(
+          ReadingPart{"columns", std::to_string(columns)});
+      std::string cells;
+      for (size_t r = 0; r < rows; ++r) {
+        if (r) cells += "; ";
+        const Node& row = matrix->children[r];
+        for (size_t c = 0; c < row.children.size(); ++c) {
+          if (c) cells += ", ";
+          const Node& cell = row.children[c];
+          cells += isBlank(cell) ? "0" : renderStructure(cell);
+        }
+      }
+      reading->parts.push_back(ReadingPart{"matrix", cells});
+      return;
+    }
+  }
+
   if (countTopLevel(reading->text, '=') < 2) return;
   const std::vector<std::string> equations = splitTopLevel(reading->text);
   if (equations.size() < 2) return;
@@ -136,10 +239,13 @@ void describeReading(ExpressionReading* reading) {
 
 std::vector<LineReading> readLines(const GrayImage& binary,
                                    const Segmentation& segmentation,
-                                   const TemplateBank& bank,
-                                   const ClassifyOptions& options) {
+                                   const ISymbolClassifier& classifier,
+                                   const std::vector<std::string>* labels) {
   std::vector<LineReading> readings;
   readings.reserve(segmentation.lines.size());
+
+  std::vector<GlyphMatch> matches =
+      classifySymbols(binary, segmentation, classifier, labels);
 
   for (const TextLine& line : segmentation.lines) {
     LineReading reading;
@@ -148,11 +254,10 @@ std::vector<LineReading> readLines(const GrayImage& binary,
     reading.text.reserve(line.symbols.size());
 
     for (int id : line.symbols) {
-      const Symbol& symbol = segmentation.symbols[id];
       SymbolReading glyph;
       glyph.symbol = id;
-      glyph.box = symbol.box;
-      glyph.match = classifyGlyph(binary, symbol.box, bank, options);
+      glyph.box = segmentation.symbols[id].box;
+      glyph.match = matches[id];
       reading.text += glyph.match.label.empty() ? "?" : glyph.match.label;
       reading.glyphs.push_back(std::move(glyph));
     }
@@ -161,20 +266,80 @@ std::vector<LineReading> readLines(const GrayImage& binary,
   return readings;
 }
 
-ExpressionReading readExpression(const GrayImage& binary,
-                                 const Segmentation& segmentation,
-                                 const TemplateBank& bank,
-                                 const ClassifyOptions& classifyOptions,
-                                 const StructureOptions& structureOptions) {
-  ExpressionReading reading;
-
+std::vector<GlyphMatch> classifySymbols(
+    const GrayImage& binary, const Segmentation& segmentation,
+    const ISymbolClassifier& classifier,
+    const std::vector<std::string>* labels) {
   std::vector<GlyphMatch> matches(segmentation.symbols.size());
   for (size_t i = 0; i < segmentation.symbols.size(); ++i) {
-    matches[i] = classifyGlyph(binary, segmentation.symbols[i].box, bank,
-                               classifyOptions);
+    matches[i] = classifier.classify(binary, segmentation.symbols[i].box);
+  }
+  if (labels != nullptr) {
+    for (size_t i = 0; i < matches.size() && i < labels->size(); ++i) {
+      if (!(*labels)[i].empty()) matches[i].label = (*labels)[i];
+    }
   }
   fixPunctuation(segmentation, &matches);
+  fixDigitNeighbours(segmentation, &matches);
+  return matches;
+}
 
+ExpressionReading readExpression(const GrayImage& binary,
+                                 const Segmentation& segmentation,
+                                 const ISymbolClassifier& classifier,
+                                 const StructureOptions& structureOptions,
+                                 const std::vector<std::string>* labels) {
+  return buildReading(segmentation,
+                      classifySymbols(binary, segmentation, classifier, labels),
+                      structureOptions);
+}
+
+ExpressionReading buildLineReading(const Segmentation& segmentation,
+                                   const std::vector<GlyphMatch>& matches,
+                                   int lineId,
+                                   const StructureOptions& structureOptions) {
+  const TextLine* source = nullptr;
+  for (const TextLine& line : segmentation.lines) {
+    if (line.id == lineId) {
+      source = &line;
+      break;
+    }
+  }
+  if (source == nullptr || source->symbols.empty()) return ExpressionReading{};
+
+  Segmentation single;
+  single.components = segmentation.components;
+  std::vector<int> remap(segmentation.symbols.size(), -1);
+  std::vector<GlyphMatch> subMatches;
+  subMatches.reserve(source->symbols.size());
+  for (int oldId : source->symbols) {
+    if (oldId < 0 || oldId >= static_cast<int>(segmentation.symbols.size())) {
+      continue;
+    }
+    Symbol symbol = segmentation.symbols[static_cast<size_t>(oldId)];
+    symbol.id = static_cast<int>(single.symbols.size());
+    remap[static_cast<size_t>(oldId)] = symbol.id;
+    single.symbols.push_back(std::move(symbol));
+    subMatches.push_back(matches[static_cast<size_t>(oldId)]);
+  }
+  if (single.symbols.empty()) return ExpressionReading{};
+
+  TextLine line = *source;
+  line.id = 0;
+  line.symbols.clear();
+  for (int oldId : source->symbols) {
+    if (oldId >= 0 && remap[static_cast<size_t>(oldId)] >= 0) {
+      line.symbols.push_back(remap[static_cast<size_t>(oldId)]);
+    }
+  }
+  single.lines.push_back(std::move(line));
+  return buildReading(single, std::move(subMatches), structureOptions);
+}
+
+ExpressionReading buildReading(const Segmentation& segmentation,
+                               std::vector<GlyphMatch> matches,
+                               const StructureOptions& structureOptions) {
+  ExpressionReading reading;
   for (const TextLine& line : segmentation.lines) {
     LineReading lineReading;
     lineReading.line = line.id;
@@ -192,6 +357,7 @@ ExpressionReading readExpression(const GrayImage& binary,
 
   reading.root = buildStructure(segmentation, matches, structureOptions);
   reading.text = renderStructure(reading.root);
+  reading.latex = renderLatex(reading.root);
   reading.confidence = reading.root.confidence;
   describeReading(&reading);
   return reading;

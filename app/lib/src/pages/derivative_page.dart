@@ -5,6 +5,7 @@ import '../charts.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
+import '../scanner/scan_button.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -182,6 +183,7 @@ class _DerivativePageState extends State<DerivativePage> {
                     size: 20,
                     color: c.muted,
                   ),
+                  suffixIcon: ScanFieldButton(controller: _input),
                 ),
                 onSubmitted: (_) => _compute(1),
               ),

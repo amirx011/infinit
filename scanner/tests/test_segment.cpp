@@ -198,15 +198,72 @@ void testDeskew() {
       for (int t = 0; t < 6; ++t) page.at(x, y + t) = 0;
     }
   }
-  const PreprocessResult result = preprocess(page, PreprocessOptions{});
+  PreprocessOptions photoOnly;
+  photoOnly.allowCleanDigital = false;
+  const PreprocessResult result = preprocess(page, photoOnly);
   check("deskew: detects rotation", std::abs(result.skewDegrees) > 3.0,
         "skew " + std::to_string(result.skewDegrees));
 }
 
 }  // namespace
 
+void testDivisionSignMerges() {
+  // "÷" is three parts: a dot, a bar, and a dot below. All three are one
+  // symbol, and the lower dot is the half the accent rule could not see.
+  const Segmentation seg = segment(ascii({
+      ".....###.....",
+      ".....###.....",
+      ".............",
+      "#############",
+      "#############",
+      ".............",
+      ".....###.....",
+      ".....###.....",
+  }));
+  checkCount("division sign: components", seg.components.size(), 3);
+  checkCount("division sign: symbols", seg.symbols.size(), 1);
+}
+
+void testTouchingPairSplits() {
+  // Three upright strokes of one width, then two strokes fused by a bridge:
+  // the fused pair is 2.1x wider than the median, which is what §4.3.1 asks
+  // the segmenter to try splitting.
+  const Segmentation seg = segment(ascii({
+      "#..#####..#####..#####..########..########",
+      "#..#####..#####..#####..########..########",
+      "#..#####..#####..#####..########..########",
+      "#..#####..#####..#####..########..########",
+      "#..#####..#####..#####..########..########",
+      "#..#####..#####..#####..########..########",
+      "#..#####..#####..#####..#######..#########",
+      "#..#####..#####..#####..########..########",
+  }));
+  // The fused component is split, so both the component list and the symbol
+  // list carry four glyphs plus the two halves.
+  checkCount("touching pair: components", seg.components.size(), 6);
+  checkCount("touching pair: symbols", seg.symbols.size(), 6);
+
+  // A thin wide glyph with a real valley ("m"-like) must not be split: the
+  // letters around it keep the median width small, but the density rule and the
+  // full-height rule reject the candidate.
+  const Segmentation letters = segment(ascii({
+      "#...#...#...#.....#",
+      "#...#...#...#.....#",
+      "###.#.#.###.#.#.#.#",
+      "#.#.###.#.#.#.#.#.#",
+      "#.#.#.#.#.#.#.#.#.#",
+      "#.#.#.#.#.#.#.#.#.#",
+      "#.#.#.#.#.#.#.#.#.#",
+  }));
+  check("letter group is not split apart",
+        letters.symbols.size() <= 5,
+        std::to_string(letters.symbols.size()) + " symbols");
+}
+
 int main() {
   testSingleBar();
+  testTouchingPairSplits();
+  testDivisionSignMerges();
   testEqualsMerges();
   testDottedI();
   testTwoGlyphsOneLine();

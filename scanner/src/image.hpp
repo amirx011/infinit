@@ -49,6 +49,11 @@ GrayImage decodeImage(const uint8_t* data, size_t size);
 void savePng(const GrayImage& image, const std::string& path);
 void savePng(const RgbImage& image, const std::string& path);
 
+/// Same encoders, but into memory. The Scanner Lab (plan 13.4) shows one image
+/// per stage inside the app, so it needs PNG bytes over FFI, not a file.
+std::vector<uint8_t> encodePng(const GrayImage& image);
+std::vector<uint8_t> encodePng(const RgbImage& image);
+
 /// Box-filter downscale that keeps the aspect ratio. Never upscales.
 GrayImage downscaleToLongSide(const GrayImage& image, int longSide);
 

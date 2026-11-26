@@ -10,6 +10,7 @@ import '../calc_widgets.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
+import '../scanner/matrix_input.dart';
 import '../theme.dart';
 import '../topic_catalog.dart';
 import '../widgets.dart';
@@ -147,7 +148,7 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
   };
 
   bool _wideField(TopicField field) =>
-      !field.numeric && _wideKeys.contains(field.key);
+      field.matrix || (!field.numeric && _wideKeys.contains(field.key));
 
   @override
   Widget build(BuildContext context) {
@@ -159,10 +160,7 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
     // typeset above the field instead of passed to InputDecoration as text.
     Widget fieldLabel(String key) => Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: MathText(
-        l.t(key),
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
+      child: MathText(l.t(key), style: Theme.of(context).textTheme.bodySmall),
     );
     Widget mathField(TopicField field, double width) => SizedBox(
       width: width,
@@ -170,13 +168,21 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           fieldLabel(field.labelKey),
-          LabelledField(
-            controller: _controllers[field.key]!,
-            label: '',
-            hint: field.hintKey.isEmpty ? null : l.t(field.hintKey),
-            width: width,
-            onSubmitted: _run,
-          ),
+          if (field.matrix)
+            MatrixInput(
+              controller: _controllers[field.key]!,
+              l10n: l,
+              width: width,
+            )
+          else
+            LabelledField(
+              controller: _controllers[field.key]!,
+              label: '',
+              hint: field.hintKey.isEmpty ? null : l.t(field.hintKey),
+              width: width,
+              scan: !field.numeric,
+              onSubmitted: _run,
+            ),
         ],
       ),
     );
@@ -217,10 +223,10 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
                               ],
                               selected: {
                                 field.choices.any(
-                                  (choice) =>
-                                      choice.value ==
-                                      _controllers[field.key]!.text,
-                                )
+                                      (choice) =>
+                                          choice.value ==
+                                          _controllers[field.key]!.text,
+                                    )
                                     ? _controllers[field.key]!.text
                                     : field.initial,
                               },
@@ -236,8 +242,9 @@ class _TopicWorkbenchPageState extends State<TopicWorkbenchPage> {
                     else if (_wideField(field))
                       mathField(
                         field,
-                        const {'f', 'F', 'g', 'matrix'}.contains(field.key)
-                            ? 360
+                        field.matrix ||
+                                const {'f', 'F', 'g'}.contains(field.key)
+                            ? 380
                             : 300,
                       )
                     else

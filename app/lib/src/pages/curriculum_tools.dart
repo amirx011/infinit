@@ -11,6 +11,7 @@ import '../curriculum_articles.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
+import '../scanner/scan_button.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -223,6 +224,7 @@ class _ClassificationState extends State<_Classification> {
             textDirection: TextDirection.ltr,
             decoration: InputDecoration(
               labelText: l.t('ui.differential_equation'),
+              suffixIcon: ScanFieldButton(controller: _input, iconSize: 20),
             ),
           ),
           const SizedBox(height: 12),
@@ -356,7 +358,10 @@ class _ExistenceState extends State<_Existence> {
                 child: TextField(
                   controller: _f,
                   textDirection: TextDirection.ltr,
-                  decoration: const InputDecoration(labelText: 'f(x, y)'),
+                  decoration: InputDecoration(
+                    labelText: 'f(x, y)',
+                    suffixIcon: ScanFieldButton(controller: _f, iconSize: 20),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),

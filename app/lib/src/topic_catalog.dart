@@ -17,6 +17,7 @@ class TopicField {
     this.initial = '',
     this.numeric = false,
     this.choices = const [],
+    this.matrix = false,
   });
 
   final String key;
@@ -28,6 +29,10 @@ class TopicField {
   /// When non-empty the field renders as a segmented selector instead of a
   /// free-text box.
   final List<TopicChoice> choices;
+
+  /// True for fields the core parses with `parseMatrixText`; those render as a
+  /// rows × columns grid instead of a text box.
+  final bool matrix;
 }
 
 /// A curriculum topic that the shared C++/Julia workbench can solve.
@@ -569,12 +574,14 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linear_solve.field.matrix.label',
         hintKey: 'topic.linear_solve.field.matrix.hint',
         initial: '2, 1; 1, -1',
+        matrix: true,
       ),
       TopicField(
         'rhs',
         labelKey: 'topic.linear_solve.field.rhs.label',
         hintKey: 'topic.linear_solve.field.rhs.hint',
         initial: '5; 1',
+        matrix: true,
       ),
       TopicField(
         'method',
@@ -601,6 +608,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '1, 2, 3; 2, 4, 6; 1, 1, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -618,6 +626,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_det.field.matrix.label',
         hintKey: 'topic.linalg_det.field.matrix.hint',
         initial: '1, 2; 3, 4',
+        matrix: true,
       ),
     ],
     examples: [
@@ -635,6 +644,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_inverse.field.matrix.label',
         hintKey: 'topic.linalg_inverse.field.matrix.hint',
         initial: '2, 1; 1, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -652,6 +662,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_lu.field.matrix.label',
         hintKey: 'topic.linalg_lu.field.matrix.hint',
         initial: '4, 3; 6, 3',
+        matrix: true,
       ),
     ],
     examples: [
@@ -669,6 +680,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_span.field.vectors.label',
         hintKey: 'topic.linalg_span.field.vectors.hint',
         initial: '1, 0; 0, 1',
+        matrix: true,
       ),
       TopicField(
         'target',
@@ -692,6 +704,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_independence.field.vectors.label',
         hintKey: 'topic.linalg_independence.field.vectors.hint',
         initial: '1, 2; 2, 4',
+        matrix: true,
       ),
     ],
     examples: [
@@ -709,6 +722,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_basis.field.vectors.label',
         hintKey: 'topic.linalg_basis.field.vectors.hint',
         initial: '1, 2, 3; 2, 4, 6; 1, 1, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -726,6 +740,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_coordinates.field.basis.label',
         hintKey: 'topic.linalg_coordinates.field.basis.hint',
         initial: '1, 1; 0, 1',
+        matrix: true,
       ),
       TopicField(
         'vector',
@@ -749,12 +764,14 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_change_basis.field.basis_b.label',
         hintKey: 'topic.linalg_change_basis.field.basis_b.hint',
         initial: '1, 0; 0, 1',
+        matrix: true,
       ),
       TopicField(
         'basis_c',
         labelKey: 'topic.linalg_change_basis.field.basis_c.label',
         hintKey: 'topic.linalg_change_basis.field.basis_c.hint',
         initial: '1, 1; 0, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -772,6 +789,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_subspace.field.vectors.label',
         hintKey: 'topic.linalg_subspace.field.vectors.hint',
         initial: '1, 0; 0, 1; 1, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -789,6 +807,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_projection.field.basis.label',
         hintKey: 'topic.linalg_projection.field.basis.hint',
         initial: '1, 0; 0, 1',
+        matrix: true,
       ),
       TopicField(
         'vector',
@@ -812,6 +831,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_gram_schmidt.field.vectors.label',
         hintKey: 'topic.linalg_gram_schmidt.field.vectors.hint',
         initial: '3, 4; 1, 0',
+        matrix: true,
       ),
     ],
     examples: [
@@ -829,6 +849,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_qr.field.matrix.label',
         hintKey: 'topic.linalg_qr.field.matrix.hint',
         initial: '1, 1; 1, 0; 0, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -846,12 +867,14 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_least_squares.field.matrix.label',
         hintKey: 'topic.linalg_least_squares.field.matrix.hint',
         initial: '1, 0; 0, 1; 1, 1',
+        matrix: true,
       ),
       TopicField(
         'rhs',
         labelKey: 'topic.linalg_least_squares.field.rhs.label',
         hintKey: 'topic.linalg_least_squares.field.rhs.hint',
         initial: '1; 2; 3',
+        matrix: true,
       ),
     ],
     examples: [
@@ -869,6 +892,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_diagonalize.field.matrix.label',
         hintKey: 'topic.linalg_diagonalize.field.matrix.hint',
         initial: '2, 1; 1, 2',
+        matrix: true,
       ),
     ],
     examples: [
@@ -886,6 +910,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_power.field.matrix.label',
         hintKey: 'topic.linalg_power.field.matrix.hint',
         initial: '2, 1; 1, 2',
+        matrix: true,
       ),
       TopicField(
         'power',
@@ -909,6 +934,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '1, 2; 2, 4; 3, 6',
+        matrix: true,
       ),
     ],
     examples: [
@@ -966,12 +992,14 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '1, 2; 3, 4',
+        matrix: true,
       ),
       TopicField(
         'change',
         labelKey: 'topic.linalg_similarity.field.change.label',
         hintKey: 'topic.linalg_similarity.field.change.hint',
         initial: '1, 1; 0, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -989,6 +1017,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '0, 1; -1, 0',
+        matrix: true,
       ),
     ],
     examples: [
@@ -1006,6 +1035,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '4, 2; 2, 3',
+        matrix: true,
       ),
     ],
     examples: [
@@ -1023,6 +1053,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '3, 0; 0, 2',
+        matrix: true,
       ),
     ],
     examples: [
@@ -1040,6 +1071,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '1, -2; 3, 4',
+        matrix: true,
       ),
     ],
     examples: [
@@ -1057,6 +1089,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '2, 1; 1, 2',
+        matrix: true,
       ),
       TopicField(
         'start',
@@ -1080,6 +1113,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '2, 1; 1, 2',
+        matrix: true,
       ),
     ],
     examples: [
@@ -1097,12 +1131,14 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '4, 1; 1, 3',
+        matrix: true,
       ),
       TopicField(
         'rhs',
         labelKey: 'topic.linalg_least_squares.field.rhs.label',
         hintKey: 'topic.linalg_least_squares.field.rhs.hint',
         initial: '1, 2',
+        matrix: true,
       ),
       TopicField(
         'method',
@@ -1138,6 +1174,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_lp.field.constraints.label',
         hintKey: 'topic.linalg_lp.field.constraints.hint',
         initial: '1, 1; 1, 0; 0, 1',
+        matrix: true,
       ),
       TopicField(
         'bounds',
@@ -1161,6 +1198,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '3, 0; 0, 2',
+        matrix: true,
       ),
     ],
     examples: [
@@ -1178,6 +1216,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.linalg_rank.field.matrix.label',
         hintKey: 'topic.linalg_rank.field.matrix.hint',
         initial: '2, 1; 1, 2',
+        matrix: true,
       ),
     ],
     examples: [
@@ -1195,6 +1234,7 @@ const kTopicCatalog = <String, TopicSpec>{
         labelKey: 'topic.matrix_eigen.field.matrix.label',
         hintKey: 'topic.matrix_eigen.field.matrix.hint',
         initial: '4, 1; 2, 3',
+        matrix: true,
       ),
     ],
     examples: [
@@ -2099,6 +2139,7 @@ const kTopicCatalog = <String, TopicSpec>{
         'matrix',
         labelKey: 'topic.system_theory.field.matrix.label',
         initial: '1, 1; 4, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -2114,6 +2155,7 @@ const kTopicCatalog = <String, TopicSpec>{
         'matrix',
         labelKey: 'topic.system_complex_eigen.field.matrix.label',
         initial: '1, -1; 1, 1',
+        matrix: true,
       ),
     ],
     examples: [
@@ -2129,6 +2171,7 @@ const kTopicCatalog = <String, TopicSpec>{
         'matrix',
         labelKey: 'topic.system_fundamental.field.matrix.label',
         initial: '0, 1; -2, -3',
+        matrix: true,
       ),
     ],
     examples: ['A = [[0, 1], [−2, −3]]  →  λ = −1, −2', 'A = [[1, 0], [0, 2]]'],
@@ -2141,6 +2184,7 @@ const kTopicCatalog = <String, TopicSpec>{
         'matrix',
         labelKey: 'topic.system_repeated.field.matrix.label',
         initial: '3, 1; 0, 3',
+        matrix: true,
       ),
     ],
     examples: [
@@ -2156,6 +2200,7 @@ const kTopicCatalog = <String, TopicSpec>{
         'matrix',
         labelKey: 'topic.system_nonhomogeneous.field.matrix.label',
         initial: '1, 0; 0, 2',
+        matrix: true,
       ),
       TopicField(
         'f',

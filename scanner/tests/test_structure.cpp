@@ -176,6 +176,42 @@ void testSystem() {
         "2x+y=5,x-y=1");
 }
 
+void testMatrix() {
+  const std::vector<Placement> matrix = {
+      {"[", {0, 20, 10, 160}},   {"1", {40, 40, 60, 70}},
+      {"2", {120, 40, 140, 70}}, {"3", {40, 100, 60, 130}},
+      {"4", {120, 100, 140, 130}}, {"]", {190, 20, 200, 160}},
+  };
+  check("matrix", build(matrix), "[[1,2],[3,4]]");
+  check("matrix on a right-hand side",
+        build({{"A", {0, 40, 24, 70}},
+               {"=", {30, 48, 66, 60}},
+               {"[", {80, 20, 90, 160}},
+               {"1", {110, 40, 130, 70}},
+               {"2", {180, 40, 200, 70}},
+               {"3", {110, 100, 130, 130}},
+               {"4", {180, 100, 200, 130}},
+               {"]", {240, 20, 250, 160}}}),
+        "A=[[1,2],[3,4]]");
+
+  Segmentation segmentation;
+  std::vector<GlyphMatch> matches;
+  int id = 0;
+  for (const Placement& placement : matrix) {
+    Symbol symbol;
+    symbol.id = id++;
+    symbol.box = placement.box;
+    segmentation.symbols.push_back(symbol);
+    GlyphMatch match;
+    match.label = placement.label;
+    match.score = 0.95;
+    matches.push_back(match);
+  }
+  const Node tree = buildStructure(segmentation, matches);
+  check("matrix latex", renderLatex(tree),
+        "\\begin{bmatrix}1 & 2 \\\\ 3 & 4\\end{bmatrix}");
+}
+
 void testPrecedence() {
   check("two times a fraction", build({{"2", {0, 40, 30, 80}},
                                        {"-", {36, 52, 96, 58}},
@@ -187,6 +223,32 @@ void testPrecedence() {
                                       {"y", {10, 62, 40, 90}},
                                       {"2", {66, 20, 88, 46}}}),
         "(x/y)^2");
+}
+
+void testLexing() {
+  // Longest dictionary match wins, so arcsin is one call and not "arc"+"sin".
+  check("arcsin call", build({{"a", {0, 40, 12, 70}},
+                              {"r", {14, 40, 26, 70}},
+                              {"c", {28, 40, 40, 70}},
+                              {"s", {42, 40, 54, 70}},
+                              {"i", {56, 40, 62, 70}},
+                              {"n", {64, 40, 78, 70}},
+                              {"x", {82, 40, 100, 70}}}),
+        "arcsin(x)");
+  check("sinh call", build({{"s", {0, 40, 12, 70}},
+                            {"i", {14, 40, 20, 70}},
+                            {"n", {22, 40, 36, 70}},
+                            {"h", {38, 40, 52, 70}},
+                            {"x", {56, 40, 74, 70}}}),
+        "sinh(x)");
+  // A wide gap breaks the word: three loose letters must stay separate
+  // variables instead of becoming a function call.
+  check("function word respects gaps",
+        build({{"s", {0, 40, 14, 70}},
+               {"i", {80, 40, 86, 70}},
+               {"n", {92, 40, 106, 70}},
+               {"x", {112, 40, 130, 70}}}),
+        "sinx");
 }
 
 }  // namespace
@@ -202,7 +264,9 @@ int main() {
   testFunctionPower();
   testLimit();
   testSystem();
+  testMatrix();
   testPrecedence();
+  testLexing();
 
   if (failures > 0) {
     std::cout << failures << " failure(s)\n";

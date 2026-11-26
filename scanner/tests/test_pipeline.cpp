@@ -1,6 +1,8 @@
 // End-to-end checks on the committed samples: decode, preprocess, segment,
 // classify, structure. The clean and the degraded ("_photo") render of every
 // sample must produce the same expression.
+#include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -10,6 +12,17 @@
 #include "preprocess.hpp"
 #include "reader.hpp"
 #include "segment.hpp"
+
+extern "C" {
+int scanner_load_templates(const unsigned char* data, std::size_t size);
+std::uint64_t scanner_open_session(const unsigned char* data, std::size_t size);
+char* scanner_session_read(std::uint64_t id);
+char* scanner_session_relabel(std::uint64_t id, const char* overrides_json);
+void scanner_close_session(std::uint64_t id);
+void scanner_free(char* text);
+char* scanner_read(const unsigned char* data, std::size_t size);
+void scanner_cancel();
+}
 
 #ifndef SCANNER_DATA_DIR
 #define SCANNER_DATA_DIR "data"
@@ -38,7 +51,8 @@ ExpressionReading readSampleReading(const std::string& name,
   const std::string path = std::string(SCANNER_SAMPLES_DIR) + "/" + name;
   const PreprocessResult pre = preprocess(loadImage(path));
   const Segmentation seg = segment(pre.binary);
-  return readExpression(pre.binary, seg, bank);
+  const TemplateClassifier classifier(bank);
+  return readExpression(pre.binary, seg, classifier);
 }
 
 std::string readSample(const std::string& name, const TemplateBank& bank,
@@ -53,6 +67,12 @@ std::string partOf(const ExpressionReading& reading, const std::string& name) {
     if (part.name == name) return part.value;
   }
   return "<missing>";
+}
+
+std::vector<unsigned char> readBytes(const std::string& path) {
+  std::ifstream stream(path, std::ios::binary);
+  return std::vector<unsigned char>(std::istreambuf_iterator<char>(stream),
+                                    std::istreambuf_iterator<char>());
 }
 
 }  // namespace
@@ -145,7 +165,92 @@ int main() {
           partOf(system, "equation1"));
     check("system second", partOf(system, "equation2") == "x-y=1",
           partOf(system, "equation2"));
+
+    // A bracketed grid on clean paper and on the degraded photo must both give
+    // the same cells: the shape is geometry, not pixel luck.
+    for (const char* sample : {"matrix.png", "matrix_photo.png"}) {
+      const ExpressionReading matrix = readSampleReading(sample, bank);
+      check(std::string("matrix kind ") + sample, matrix.kind == "matrix",
+            matrix.kind);
+      check(std::string("matrix cells ") + sample,
+            partOf(matrix, "matrix") == "1, 2; 3, 4",
+            partOf(matrix, "matrix"));
+      check(std::string("matrix shape ") + sample,
+            partOf(matrix, "rows") == "2" &&
+                partOf(matrix, "columns") == "2",
+            partOf(matrix, "rows") + "x" + partOf(matrix, "columns"));
+    }
   }
+
+  // The session API keeps the binarised image and the segmentation, so the
+  // correction sheet can rebuild a reading from a new label map alone.
+  const std::vector<unsigned char> bankBytes =
+      readBytes(std::string(SCANNER_DATA_DIR) + "/glyph_templates.bin");
+  const std::vector<unsigned char> imageBytes =
+      readBytes(std::string(SCANNER_SAMPLES_DIR) + "/quadratic.png");
+  check("session bank loads",
+        scanner_load_templates(bankBytes.data(), bankBytes.size()) == 1);
+  const std::uint64_t session =
+      scanner_open_session(imageBytes.data(), imageBytes.size());
+  check("session opens", session != 0);
+
+  char* raw = scanner_session_read(session);
+  const std::string first = raw == nullptr ? "" : raw;
+  scanner_free(raw);
+  check("session reads", first.find("\"ok\":true") != std::string::npos);
+  check("session id is in the json",
+        first.find("\"session\":" + std::to_string(session)) !=
+            std::string::npos);
+  check("session expression", first.find("x^2-5x+6=0") != std::string::npos,
+        first);
+
+  char* fixed = scanner_session_relabel(session, "{\"0\":\"z\"}");
+  const std::string changed = fixed == nullptr ? "" : fixed;
+  scanner_free(fixed);
+  check("relabel keeps the session",
+        changed.find("\"ok\":true") != std::string::npos, changed);
+  check("relabel changes the reading",
+        changed.find("\"expression\":\"x^2-5x+6=0\"") == std::string::npos,
+        changed);
+  check("relabel uses the new label", changed.find("z") != std::string::npos,
+        changed);
+
+  char* stale = scanner_session_relabel(session + 1, "{\"0\":\"z\"}");
+  check("stale session is rejected",
+        stale != nullptr &&
+            std::string(stale).find("\"ok\":false") != std::string::npos);
+  scanner_free(stale);
+  scanner_close_session(session);
+  char* closed = scanner_session_read(session);
+  check("closed session is rejected",
+        closed != nullptr &&
+            std::string(closed).find("\"ok\":false") != std::string::npos);
+  scanner_free(closed);
+
+  // The output contract: status, parse validity, per-stage timing and the
+  // structured line entry are all present even without an injected parser.
+  char* contract = scanner_read(imageBytes.data(), imageBytes.size());
+  const std::string document = contract == nullptr ? "" : contract;
+  scanner_free(contract);
+  check("contract has a status",
+        document.find("\"status\":\"ok\"") != std::string::npos);
+  check("contract has parse_valid",
+        document.find("\"parse_valid\":null") != std::string::npos);
+  check("contract has timing",
+        document.find("\"timing_ms\":{") != std::string::npos);
+  check("contract has line details",
+        document.find("\"lineDetails\":[") != std::string::npos);
+  check("contract has no error on success",
+        document.find("\"error\":null") != std::string::npos);
+
+  // A cancel request before a read is cleared by the next call, so a stale
+  // request can never poison a fresh scan.
+  scanner_cancel();
+  char* afterCancel = scanner_read(imageBytes.data(), imageBytes.size());
+  check("a fresh read clears a stale cancel",
+        afterCancel != nullptr &&
+            std::string(afterCancel).find("\"ok\":true") != std::string::npos);
+  scanner_free(afterCancel);
 
   if (failures > 0) {
     std::cout << failures << " failure(s)\n";

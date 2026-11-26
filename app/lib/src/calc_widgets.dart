@@ -12,6 +12,7 @@ import 'charts.dart';
 import 'i18n/sentence.dart';
 import 'l10n.dart';
 import 'models.dart';
+import 'scanner/scan_button.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -182,7 +183,8 @@ class MonotoneStrip extends StatelessWidget {
                   children: [
                     MathInline(
                       math: ExView(
-                        plain: '[${_short(pieces[i].lo)}, ${_short(pieces[i].hi)}]',
+                        plain:
+                            '[${_short(pieces[i].lo)}, ${_short(pieces[i].hi)}]',
                         pretty:
                             '[${_short(pieces[i].lo)}, ${_short(pieces[i].hi)}]',
                         latex: _intervalLatex(pieces[i].lo, pieces[i].hi),
@@ -310,6 +312,7 @@ class LabelledField extends StatelessWidget {
     this.hint,
     this.width = 130,
     this.onSubmitted,
+    this.scan = false,
   });
 
   final TextEditingController controller;
@@ -317,6 +320,10 @@ class LabelledField extends StatelessWidget {
   final String? hint;
   final double width;
   final VoidCallback? onSubmitted;
+
+  /// Shows the scanner button. Numeric side fields leave it off; expression
+  /// fields turn it on.
+  final bool scan;
 
   @override
   Widget build(BuildContext context) {
@@ -331,6 +338,9 @@ class LabelledField extends StatelessWidget {
           labelText: label,
           hintText: hint,
           isDense: true,
+          suffixIcon: scan
+              ? ScanFieldButton(controller: controller, iconSize: 18)
+              : null,
         ),
         onSubmitted: onSubmitted == null ? null : (_) => onSubmitted!(),
       ),
@@ -367,6 +377,7 @@ class ExpressionField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(Icons.edit_outlined, size: 20, color: c.muted),
+        suffixIcon: ScanFieldButton(controller: controller),
       ),
       onSubmitted: onSubmitted == null ? null : (_) => onSubmitted!(),
     );

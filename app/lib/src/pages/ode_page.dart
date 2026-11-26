@@ -5,6 +5,7 @@ import '../input_ambiguity.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../native_engine.dart';
+import '../scanner/scan_button.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -183,6 +184,7 @@ class _OdePageState extends State<OdePage> {
                     size: 20,
                     color: c.muted,
                   ),
+                  suffixIcon: ScanFieldButton(controller: _input),
                 ),
                 onSubmitted: (_) => _solve(),
               ),

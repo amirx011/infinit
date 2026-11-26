@@ -42,16 +42,27 @@ set(ODE_SOURCES
 # loads one .so and one set of symbols. Its sources are dependency-free C++17.
 set(INFINIT_SCANNER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../scanner)
 set(ODE_SCANNER_INCLUDE "")
+set(INFINIT_SCANNER_OPENCV OFF)
 if(EXISTS ${INFINIT_SCANNER_DIR}/src/scanner_api.cpp)
+  # The scanner links OpenCV core+imgproc. Android builds point OpenCV_DIR at
+  # third_party/opencv-mobile/sdk/native/jni.
+  find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+  set(INFINIT_SCANNER_OPENCV ON)
   list(APPEND ODE_SOURCES
       ${INFINIT_SCANNER_DIR}/src/image.cpp
+      ${INFINIT_SCANNER_DIR}/src/ink.cpp
+      ${INFINIT_SCANNER_DIR}/src/inkproto.cpp
+      ${INFINIT_SCANNER_DIR}/src/trace.cpp
       ${INFINIT_SCANNER_DIR}/src/preprocess.cpp
       ${INFINIT_SCANNER_DIR}/src/segment.cpp
       ${INFINIT_SCANNER_DIR}/src/glyphs.cpp
       ${INFINIT_SCANNER_DIR}/src/classify.cpp
+      ${INFINIT_SCANNER_DIR}/src/cloud.cpp
       ${INFINIT_SCANNER_DIR}/src/structure.cpp
       ${INFINIT_SCANNER_DIR}/src/reader.cpp
+      ${INFINIT_SCANNER_DIR}/src/repair.cpp
       ${INFINIT_SCANNER_DIR}/src/scanner_api.cpp
+      ${INFINIT_SCANNER_DIR}/src/ndk_compat.cpp
   )
   set(ODE_SCANNER_INCLUDE ${INFINIT_SCANNER_DIR}/src)
 endif()
@@ -72,11 +83,19 @@ endif()
 if(ODE_BUILD_STATIC)
   add_library(odecore STATIC ${ODE_SOURCES})
   target_include_directories(odecore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${ODE_SCANNER_INCLUDE})
+  if(INFINIT_SCANNER_OPENCV)
+    target_include_directories(odecore PUBLIC ${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(odecore PUBLIC ${OpenCV_LIBS})
+  endif()
 endif()
 
 add_library(odecore_shared SHARED ${ODE_SOURCES})
 set_target_properties(odecore_shared PROPERTIES OUTPUT_NAME odecore)
 target_include_directories(odecore_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${ODE_SCANNER_INCLUDE})
+if(INFINIT_SCANNER_OPENCV)
+  target_include_directories(odecore_shared PUBLIC ${OpenCV_INCLUDE_DIRS})
+  target_link_libraries(odecore_shared PUBLIC ${OpenCV_LIBS})
+endif()
 set_target_properties(odecore_shared PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib
