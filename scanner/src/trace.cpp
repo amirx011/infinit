@@ -8,6 +8,9 @@
 namespace infinit::scan {
 namespace {
 
+/// pi without <cmath>'s M_PI, which MSVC does not define unless asked.
+constexpr double kPi = 3.14159265358979323846;
+
 inline bool ink(const GrayImage& image, int x, int y) {
   return x >= 0 && y >= 0 && x < image.width && y < image.height &&
          image.at(x, y) > 127;
@@ -94,8 +97,8 @@ double directionOf(const std::vector<std::pair<int, int>>& points, bool atEnd) {
 
 double angleBetween(double a, double b) {
   double delta = std::fabs(a - b);
-  while (delta > M_PI) delta = std::fabs(delta - 2.0 * M_PI);
-  return delta * 180.0 / M_PI;
+  while (delta > kPi) delta = std::fabs(delta - 2.0 * kPi);
+  return delta * 180.0 / kPi;
 }
 
 }  // namespace
@@ -250,7 +253,7 @@ std::vector<InkStroke> traceStrokes(const GrayImage& binary,
         const double nb = std::hypot(bx, by);
         if (na < 2.0 || nb < 2.0) continue;
         const double cosine = (ax * bx + ay * by) / (na * nb);
-        const double turn = std::acos(std::max(-1.0, std::min(1.0, cosine))) * 180.0 / M_PI;
+        const double turn = std::acos(std::max(-1.0, std::min(1.0, cosine))) * 180.0 / kPi;
         if (turn < 75.0) continue;
         if (i - segmentStart >= 6) {
           branches.emplace_back(

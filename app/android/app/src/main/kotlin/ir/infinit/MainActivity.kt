@@ -203,9 +203,9 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    /// Desktop mode is a full-window view, so the status bar only steals taps
-    /// from the scaled desktop header.  The legacy Flutter flags are ignored
-    /// on Android 15+, so use the insets controller directly.
+    // Desktop mode is a full-window view, so the status bar only steals taps
+    // from the scaled desktop header.  The legacy Flutter flags are ignored
+    // on Android 15+, so use the insets controller directly.
     private fun applyDesktopMode(enabled: Boolean) {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.systemBarsBehavior =

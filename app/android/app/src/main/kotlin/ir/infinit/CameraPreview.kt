@@ -33,10 +33,10 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.abs
 
-/// In-app camera preview built on Camera2 and a Flutter SurfaceProducer. No
-/// third-party camera package: the system framework already provides the
-/// preview surface, still capture and torch control. The Dart side shows the
-/// texture and calls `previewCapture`.
+// In-app camera preview built on Camera2 and a Flutter SurfaceProducer. No
+// third-party camera package: the system framework already provides the
+// preview surface, still capture and torch control. The Dart side shows the
+// texture and calls `previewCapture`.
 class CameraPreviewController(
     private val activity: Activity,
     engine: FlutterEngine,
@@ -104,8 +104,8 @@ class CameraPreviewController(
         openPreview(result)
     }
 
-    /// MainActivity forwards the permission result here. A denied request is a
-    /// normal answer, not an exception: the page offers the system camera.
+    // MainActivity forwards the permission result here. A denied request is a
+    // normal answer, not an exception: the page offers the system camera.
     fun onPermissionResult(requestCode: Int, grantResults: IntArray) {
         if (requestCode != permissionRequest) return
         val pending = pendingStart ?: return
@@ -279,9 +279,9 @@ class CameraPreviewController(
         }
     }
 
-    /// Rotates the JPEG into display orientation before writing it, so the Dart
-    /// crop screen and the native scanner agree on the pixels. The capture is
-    /// capped at 2000 px on the long side to keep this copy small.
+    // Rotates the JPEG into display orientation before writing it, so the Dart
+    // crop screen and the native scanner agree on the pixels. The capture is
+    // capped at 2000 px on the long side to keep this copy small.
     private fun saveCapture(bytes: ByteArray) {
         val pending = pendingCapture
         pendingCapture = null
@@ -306,8 +306,8 @@ class CameraPreviewController(
         }
     }
 
-    /// Digital zoom is a crop of the sensor's active array. Flutter sends the
-    /// pinch ratio; the value is clamped to what the camera advertises.
+    // Digital zoom is a crop of the sensor's active array. Flutter sends the
+    // pinch ratio; the value is clamped to what the camera advertises.
     private fun setZoom(value: Float, result: MethodChannel.Result) {
         val builder = request
         val configured = session
@@ -348,8 +348,8 @@ class CameraPreviewController(
         )
     }
 
-    /// Tap-to-focus/expose. The Dart point is normalised in the *display*
-    /// orientation, so it is rotated into sensor coordinates first.
+    // Tap-to-focus/expose. The Dart point is normalised in the *display*
+    // orientation, so it is rotated into sensor coordinates first.
     private fun focus(x: Double, y: Double, result: MethodChannel.Result) {
         val camera = device
         val builder = request
@@ -443,8 +443,8 @@ class CameraPreviewController(
         return ids.firstOrNull()
     }
 
-    /// Largest output whose long side stays under `limit`; falls back to the
-    /// smallest size when every option is bigger.
+    // Largest output whose long side stays under `limit`; falls back to the
+    // smallest size when every option is bigger.
     private fun chooseSize(sizes: Array<Size>?, limit: Int): Size? {
         if (sizes == null || sizes.isEmpty()) return null
         val within = sizes.filter { maxOf(it.width, it.height) <= limit }
