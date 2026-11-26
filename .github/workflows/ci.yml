@@ -87,6 +87,14 @@ jobs:
         working-directory: app
         run: flutter analyze
 
+      # The scanner now lives in the same library, and the widget suite reads
+      # through it. Without OpenCV the engine still builds, but the scanner
+      # tests have nothing to load, so the dev package is required here.
+      - name: Install OpenCV for the scanner
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libopencv-dev
+
       - name: Build native core for FFI tests
         run: |
           cmake -S core -B core/build -DODE_BUILD_TESTS=OFF -DODE_BUILD_STATIC=ON
