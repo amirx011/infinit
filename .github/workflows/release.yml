@@ -196,8 +196,21 @@ jobs:
           } > app/android/key.properties
           echo "The release key is in place."
 
+      # Keep the build log in a file so a failure can be surfaced as workflow
+      # annotations: the step log itself needs an authenticated token to read.
       - name: Build the universal APK
-        run: ./scripts/build_android.sh
+        run: |
+          set -o pipefail
+          ./scripts/build_android.sh 2>&1 | tee /tmp/apk.log
+
+      - name: Surface the Android failure
+        if: failure()
+        run: |
+          if [[ -f /tmp/apk.log ]]; then
+            tail -40 /tmp/apk.log | while IFS= read -r line; do
+              echo "::error title=Android build::$line"
+            done
+          fi
 
       - name: Build one APK per phone architecture
         run: ./scripts/build_android_apks.sh
