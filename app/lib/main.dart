@@ -38,7 +38,6 @@ import 'src/study_articles.dart';
 import 'src/pages/taylor_page.dart';
 import 'src/pages/integral_apps_page.dart';
 import 'src/pages/partial_page.dart';
-import 'src/pages/scanner_page.dart';
 import 'src/pages/series_page.dart';
 import 'src/theme.dart';
 import 'src/widgets.dart';
@@ -50,7 +49,7 @@ import 'src/widgets.dart';
 /// explanations library, 126 is the Gauss/Cramer linear-system workbench,
 /// 127–130 are the linear-algebra workbenches and 131–136 are the
 /// vector-space workbenches.
-const int _lastPageIndex = 200;
+const int _lastPageIndex = 162;
 
 /// Curriculum slots that still render the shared coming-soon page.
 ///
@@ -604,12 +603,6 @@ class HomeScreenState extends State<HomeScreen> {
           engineError: _engineError,
           l10n: l10n,
           initial: _scanFields,
-        );
-      case 200:
-        return ScannerPage(
-          key: const ValueKey('scanner'),
-          l10n: l10n,
-          onOpen: (page, fields) => _open(page, fields: fields),
         );
       default:
         return _HomePage(l10n: l10n, onOpen: _open);
@@ -1918,12 +1911,6 @@ List<_DrawerEntry> _navSections(L10n l10n) {
       label: l10n.t('ui.differential_integral'),
       hint: l10n.t('ui.limits_derivatives_integrals'),
       children: [
-        _DrawerEntry.link(
-          index: 200,
-          icon: Icons.document_scanner_rounded,
-          label: l10n.t('ui.scanner'),
-          hint: l10n.t('ui.scanner_subtitle'),
-        ),
         _DrawerEntry.group(
           icon: Icons.category_rounded,
           label: l10n.t('nav.group.calculus_foundations'),

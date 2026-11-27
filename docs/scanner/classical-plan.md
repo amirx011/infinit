@@ -840,10 +840,10 @@ Suggested PR order: M1 → M2 → M3 → M4/M5 → M6/M7 → M8 (printed linear/
       paste; HEIC/HEIF via the platform codec; no temporary copy is written.
 - [~] Printed single-line expressions with fractions, powers, roots, standard
       functions and primes ride the correction path. Measured on the 12-image
-      synthetic set: top-1 **0.965**, exact match 9/12, parser acceptance
+      synthetic set: top-1 **0.973**, exact match 10/12, parser acceptance
       90.9 %. On the larger 72-image set (each expression in four
-      augmentations): top-1 **0.990**, top-3 0.999, exact match 65/72
-      (90.3 %), parser acceptance 97.9 %. The weak spots are named in the
+      augmentations): top-1 **0.996**, top-3 0.999, exact match 71/72
+      (98.6 %), parser acceptance 97.9 %. The weak spots are named in the
       generated `scanner/dataset/metrics.md` (gitignored).
 - [x] Both LaTeX and Infinit-syntax outputs are produced from the AST.
 - [x] Parser-guided repair active; results re-ranked by cost.
@@ -956,15 +956,18 @@ Deviations from the document, on purpose:
   before any pixel reaches the native side. The one temp file in the product is
   the camera capture, and it is deleted immediately after the bytes are read.
   Nothing is logged and nothing leaves the device.
-- **Remaining measured weaknesses.** On the 72-image set 65/72 read exactly.
-  The seven misses are: four on ruled paper (a numeral cut by the rule, an
-  integral whose lower bound is read as `g`, a summation whose lower `=` is a
-  weak `?`, and a `sin` whose parentheses collapse), one rotated `y` read as
-  `l`, one `f` read as `r` under heavy lighting, and one rotated sum whose
-  `inf` bound merges into the sigma. The `cm` fontset is no longer a weak spot
-  (10/14 exact, up from 5/14), and ruled paper is 10/14 (up from 5/14). These
-  are recorded in the generated, gitignored `scanner/dataset/metrics.md` rather
-  than papered over.
+- **Remaining measured weaknesses.** On the 72-image set 71/72 read exactly.
+  The single miss is a nested fraction on ruled paper, where the rule cuts the
+  inner fraction bar and the outer numerator loses its grouping. The 12-image
+  set misses two deliberately harsh renders: a nested fraction under
+  rotation+blur+noise, and a `f'(x)` that blur+noise smear until the prime and
+  the parentheses merge. Symbol confusions that used to dominate the list are
+  gone: the derivative fraction pins `d?/dx` to `y`, an ascender-height prior
+  turns a tall `r` back into `f`, a big-operator bound column prefers a digit
+  over a free letter, and a rotated `inf` no longer merges into `sum`. The
+  `cm` fontset is no longer a weak spot (13/14 exact, up from 5/14), and ruled
+  paper is 13/14 (up from 5/14). These are recorded in the generated,
+  gitignored `scanner/dataset/metrics.md` rather than papered over.
 - **Matrices** are entered as a grid in the app, but the core contract is still
   the documented `a, b; c, d` text. The grid only assembles that string, so the
   workbench and the core did not need a new input type.
@@ -1035,11 +1038,11 @@ build on Android); OpenCV is not used for classification or structure.
 | stage | metric | 12 images | 72 images |
 |---|---|---|---|
 | preprocess | foreground F1 | 0.971 | 0.982 |
-| segmentation | recall / precision / F1 | 0.958 / 0.919 / 0.938 | 0.990 / 0.984 / 0.987 |
-| classification | top-1 / top-3 | 0.965 / 0.965 | **0.990** / 0.999 |
-| end-to-end | exact match | 9/12 (75.0 %) | 65/72 (90.3 %) |
+| segmentation | recall / precision / F1 | 0.958 / 0.919 / 0.938 | 0.991 / 0.986 / 0.989 |
+| classification | top-1 / top-3 | 0.973 / 0.973 | **0.996** / 0.999 |
+| end-to-end | exact match | 10/12 (83.3 %) | 71/72 (98.6 %) |
 | end-to-end | parser acceptance | 90.9 % | 97.9 % |
-| resources | wall clock | 120 ms/image | 103 ms/image |
+| resources | wall clock | 43 ms/image | 33 ms/image |
 
 The instrument is what found the last rounds of bugs: a missing italic face for
 math variables (`x` read as `?`/`m`), a superscript gate that rejected every

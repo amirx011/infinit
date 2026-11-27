@@ -382,6 +382,25 @@ bool removeRuledLines(GrayImage& binary) {
   return true;
 }
 
+/// True when the page carries a light horizontal rule across most of its
+/// width. Such a rule is the strongest level cue a page has, and a skew
+/// estimate taken from slanted italic strokes must not overrule it.
+bool hasLightRuleRows(const GrayImage& gray) {
+  if (gray.empty()) return false;
+  int rows = 0;
+  for (int y = 1; y + 1 < gray.height; ++y) {
+    int light = 0;
+    int dark = 0;
+    for (int x = 0; x < gray.width; ++x) {
+      const int value = gray.at(x, y);
+      if (value >= 150 && value <= 245) ++light;
+      else if (value < 120) ++dark;
+    }
+    if (light * 100 >= gray.width * 45 && dark * 4 <= gray.width) ++rows;
+  }
+  return rows >= 2;
+}
+
 /// A light notebook rule drawn over the ink erases a one- or two-pixel slice of
 /// every glyph it crosses, and the threshold then has nothing to keep there. The
 /// rules themselves are background in the binary, so `removeRuledLines` never
@@ -408,6 +427,8 @@ void bridgeLightRules(const GrayImage& gray, GrayImage& binary) {
       if (binary.at(x, y) != 0) continue;
       bool above = false;
       bool below = false;
+      // A slanted stroke shifts sideways as it crosses the rule, so the ink
+      // just above and just below can sit a few columns apart.
       for (int dx = -2; dx <= 2 && !(above && below); ++dx) {
         for (int dy = 1; dy <= 4; ++dy) {
           if (!above && hasInk(x + dx, y - dy)) above = true;
@@ -638,6 +659,14 @@ PreprocessResult preprocess(const GrayImage& input,
     // A rendered page is usually already upright, and rotating by half a
     // degree only smears the glyphs. Clean-digital pages therefore rotate only
     // for a real tilt; a photo keeps the 0.5 degree floor.
+    // Notebook rules are drawn horizontal, so if the page still shows them and
+    // the Hough estimator did not see a tilt, the italic lean of the glyphs is
+    // what the baseline/rectangle estimators measured. Rotating by that angle
+    // would tilt an upright page and break symbols like "=" and "inf".
+    if (std::abs(bestAngle) >= 4.0 && std::abs(hough) < 0.5 &&
+        hasLightRuleRows(result.normalized)) {
+      bestAngle = 0.0;
+    }
     const double floor = cleanDigital ? 1.5 : 0.5;
     if (std::abs(bestAngle) < floor) bestAngle = 0.0;
 

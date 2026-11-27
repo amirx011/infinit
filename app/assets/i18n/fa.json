@@ -3989,6 +3989,7 @@
  "scan.processing": "در حال تشخیص…",
  "scan.processing.slow": "این بار بیشتر از حد معمول طول می‌کشد.",
  "scan.button.tooltip": "اسکن عبارت",
+ "scan.button.label": "اسکن",
  "scan.matrix.title": "ماتریس",
  "scan.matrix.hint": "تعداد سطر و ستون را انتخاب کن و خانه‌ها را پر کن.",
  "scan.matrix.rows": "سطرها",

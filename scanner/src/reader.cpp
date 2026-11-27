@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstring>
 
 namespace infinit::scan {
 namespace {
@@ -270,6 +271,124 @@ void fixDotlessI(const Segmentation& segmentation,
   }
 }
 
+/// Letters that live between the baseline and the x-height, and letters with an
+/// ascender. The raster bank scales every glyph into the same 14x14 square, so
+/// it cannot tell a tall "f" from an "r" — but the printed page can.
+bool inSet(const char* set, const std::string& label) {
+  return label.size() == 1 && std::strchr(set, label[0]) != nullptr;
+}
+
+bool isXHeightLetter(const std::string& label) {
+  return inSet("acemnorsuvwxz", label);
+}
+
+bool isAscenderLetter(const std::string& label) {
+  return inSet("bdfhklt", label);
+}
+
+/// An x-height letter drawn at ascender height is the ascender the classifier
+/// ranked second. This is how a flood-lit "f" reads as "r": same bowl, same
+/// width, but the raster bank sees only the ink box.
+void fixTallLetter(const Segmentation& segmentation,
+                   std::vector<GlyphMatch>* matches) {
+  std::vector<int> xHeights;
+  for (size_t i = 0; i < segmentation.symbols.size(); ++i) {
+    const std::string& label = (*matches)[i].label;
+    if (!isXHeightLetter(label)) continue;
+    const int height = segmentation.symbols[i].box.height();
+    if (height >= 6) xHeights.push_back(height);
+  }
+  if (xHeights.size() < 2) return;
+  // Lower median: one shrunken glyph must not move the x-height floor.
+  const size_t mid = (xHeights.size() - 1) / 2;
+  std::nth_element(xHeights.begin(), xHeights.begin() + mid, xHeights.end());
+  const double floor = 1.25 * xHeights[mid];
+  for (size_t i = 0; i < segmentation.symbols.size(); ++i) {
+    GlyphMatch& match = (*matches)[i];
+    if (!isXHeightLetter(match.label)) continue;
+    if (!isAscenderLetter(match.runnerUp)) continue;
+    if (segmentation.symbols[i].box.height() < floor) continue;
+    const std::string tall = match.runnerUp;
+    match.runnerUp = match.label;
+    match.label = tall;
+    match.alternatives.clear();
+    match.alternatives.emplace_back(tall, match.score);
+  }
+}
+
+/// A lowercase letter that merely edges out a digit by a hair, sitting alone in
+/// the bound column of a big operator, is that digit: the bound of an integral
+/// is a number far more often than a free letter.
+void fixOperatorBounds(const Segmentation& segmentation,
+                       std::vector<GlyphMatch>* matches) {
+  for (size_t i = 0; i < segmentation.symbols.size(); ++i) {
+    const std::string& operatorLabel = (*matches)[i].label;
+    if (operatorLabel != "integral" && operatorLabel != "sum") continue;
+    const Box& op = segmentation.symbols[i].box;
+    if (op.height() <= 0) continue;
+    for (size_t j = 0; j < segmentation.symbols.size(); ++j) {
+      if (i == j) continue;
+      GlyphMatch& match = (*matches)[j];
+      if (!isAlphaLabel(match.label) || !isDigitLabel(match.runnerUp)) continue;
+      if (match.margin > 0.08) continue;
+      const Box& box = segmentation.symbols[j].box;
+      const bool inColumn = box.centerX() >= op.x0 &&
+                            box.centerX() <= op.x1 + 0.10 * op.width();
+      if (!inColumn) continue;
+      const int lowerTop = op.y0 + static_cast<int>(0.55 * op.height());
+      const int upperBottom = op.y0 + static_cast<int>(0.45 * op.height());
+      const bool inBound = box.y0 >= lowerTop || box.y1 <= upperBottom;
+      if (!inBound) continue;
+      const std::string digit = match.runnerUp;
+      match.runnerUp = match.label;
+      match.label = digit;
+      match.alternatives.clear();
+      match.alternatives.emplace_back(digit, match.score);
+    }
+  }
+}
+
+/// Two glyphs with the same size and vertical place in one line are the same
+/// class. A blurred "y" reads as a wide "1"; its twin earlier in the line is
+/// still recognised, and a "1" is never that wide.
+void fixTwinGlyph(const Segmentation& segmentation,
+                  std::vector<GlyphMatch>* matches) {
+  for (const TextLine& line : segmentation.lines) {
+    for (int id : line.symbols) {
+      GlyphMatch& match = (*matches)[id];
+      const std::string candidate = match.label == "?" ? match.runnerUp
+                                                       : match.label;
+      if (candidate != "1" && candidate != "l" && candidate != "I") continue;
+      const Box& box = segmentation.symbols[id].box;
+      if (box.height() <= 0 || box.width() < 0.70 * box.height()) continue;
+      for (int other : line.symbols) {
+        if (other == id) continue;
+        const GlyphMatch& twin = (*matches)[other];
+        const std::string& label = twin.label;
+        if (label != "y" && label != "g" && label != "p" && label != "q" &&
+            label != "j") {
+          continue;
+        }
+        if (twin.score < 0.55) continue;
+        const Box& twinBox = segmentation.symbols[other].box;
+        const double widthRatio =
+            static_cast<double>(std::min(box.width(), twinBox.width())) /
+            std::max(1, std::max(box.width(), twinBox.width()));
+        const double heightRatio =
+            static_cast<double>(std::min(box.height(), twinBox.height())) /
+            std::max(1, std::max(box.height(), twinBox.height()));
+        if (widthRatio < 0.80 || heightRatio < 0.85) continue;
+        if (std::abs(box.y0 - twinBox.y0) > 0.15 * line.box.height()) continue;
+        match.runnerUp = match.label;
+        match.label = label;
+        match.alternatives.clear();
+        match.alternatives.emplace_back(label, match.score);
+        break;
+      }
+    }
+  }
+}
+
 std::string trim(const std::string& text) {
   size_t begin = 0;
   size_t end = text.size();
@@ -465,6 +584,9 @@ std::vector<GlyphMatch> classifySymbols(
   fixDigitNeighbours(segmentation, &matches);
   fixAmbiguousOne(segmentation, &matches);
   fixDotlessI(segmentation, &matches);
+  fixTallLetter(segmentation, &matches);
+  fixOperatorBounds(segmentation, &matches);
+  fixTwinGlyph(segmentation, &matches);
   fixMultiplicationDots(segmentation, &matches);
   return matches;
 }

@@ -3989,6 +3989,7 @@
  "scan.processing": "Recognizing…",
  "scan.processing.slow": "Это занимает больше времени, чем обычно.",
  "scan.button.tooltip": "Scan an expression",
+ "scan.button.label": "Сканировать",
  "scan.matrix.title": "Matrix",
  "scan.matrix.hint": "Choose the number of rows and columns, then fill the cells.",
  "scan.matrix.rows": "Rows",

@@ -40,6 +40,29 @@ bool isBarLike(const Context& ctx, int id) {
   return box.height() <= ctx.options.barAspect * box.width();
 }
 
+/// `d?/dx` is the derivative notation: the second symbol of the numerator is
+/// the variable, and a small italic "y" often fits "l" or "1" better than "y"
+/// in the raster bank. The denominator pins the intended letter.
+void fixDerivativeFraction(Node* fraction) {
+  if (fraction == nullptr || fraction->children.size() != 2) return;
+  Node& numerator = fraction->children[0];
+  Node& denominator = fraction->children[1];
+  if (numerator.children.size() != 2 || denominator.children.size() != 2) {
+    return;
+  }
+  const Node& d = numerator.children[0];
+  const Node& dd = denominator.children[0];
+  const Node& dx = denominator.children[1];
+  if (!d.isAtom() || !dd.isAtom() || !dx.isAtom()) return;
+  if (d.text != "d" || dd.text != "d" || dx.text != "x") return;
+  Node& variable = numerator.children[1];
+  if (!variable.isAtom()) return;
+  const std::string& text = variable.text;
+  if (text == "?" || text == "l" || text == "1" || text == "v") {
+    variable.text = "y";
+  }
+}
+
 /// Collects the symbols that sit directly above (or below) a bar and belong to
 /// the same visual cluster, so a nested fraction keeps its own bar.
 std::vector<int> clusterAlong(const Context& ctx, const std::vector<int>& ids,
@@ -942,6 +965,7 @@ std::vector<Item> parseRegion(const Context& ctx, std::vector<int> ids,
         if (!part.box.empty()) frame.include(part.box);
       }
       frac.box = frame;
+      fixDerivativeFraction(&frac);
       child = std::move(frac);
       structured = true;
     } else if (container >= 0) {

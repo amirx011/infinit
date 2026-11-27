@@ -53,15 +53,21 @@ bool isDiacriticOf(const Box& small, const Box& big) {
   // diacritic; merging it hid the upper limit and turned the sum into "±".
   // A dot drawn wide and flat (the synthetic dotted-i case) is still a dot when
   // it is as wide as the stem it caps.
-  const bool dotLike = small.width() <= 1.6 * small.height();
+  // A dot is round; an infinity sign is half again as wide as it is tall and
+  // must stay a symbol of its own so the summation keeps its upper bound.
+  const bool dotLike = small.width() <= 1.25 * small.height();
   const bool flatCap = small.width() >= 0.80 * big.width() &&
                        small.height() <= 0.25 * big.height();
   if (!dotLike && !flatCap) return false;
   // A dot can be narrower than half of a wide stem (the dot of an italic "i"
   // sits on a slanted stroke), so the ratio is looser than the old 0.5.
   if (small.width() < 0.30 * big.width()) return false;
+  // A ruled line or a rotation nudges the dot of an "i" a few rows higher than
+  // the tight gap most accents have; a round dot is still a dot.
+  const bool roundDot =
+      dotLike && small.height() <= 0.25 * big.height() && small.width() > 0;
   const int gap = big.y0 - small.y1;
-  if (gap < 0 || gap > 0.30 * big.height()) return false;
+  if (gap < 0 || gap > (roundDot ? 0.50 : 0.30) * big.height()) return false;
   return small.centerX() >= big.x0 - big.width() * 0.1 &&
          small.centerX() <= big.x1 + big.width() * 0.1;
 }
