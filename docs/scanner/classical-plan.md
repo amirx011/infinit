@@ -566,6 +566,26 @@ Board: Drawing → Recognizing → Result(...)
 - Permission states: first request (explain why), denied (explain + "Open settings"), permanently denied (settings only), camera unavailable (use Gallery or Handwrite instead).
 - Lifecycle: release camera on pause, reinitialize on resume with a visible preview-loading state.
 
+**Implemented deviation (v1.0.7).** The shutter does not jump straight to the
+review screen. It captures, reads the frame, and opens a **confirmation card**
+with the rendered expression: *Insert*, *Review*, *Retake*. A weak reading
+(low score, rejected parse, or an unresolved `?`) leads with *Review* so the
+primary tap never inserts an uncertain string. *Review* pushes the usual
+crop/correction flow and returning to the card keeps the reading. The same
+camera is now available on Linux and Windows: the scanner library owns an
+OpenCV `videoio` grab thread and the page polls its newest JPEG frame, so the
+experience is identical on all three shipped platforms. When a build has no
+`videoio` (or no device) the page says so and points back to Gallery/Handwrite.
+
+### 12B.4a S2.5 — Confirm the reading
+
+- Show the captured thumbnail, the rendered LaTeX and the plain text reading.
+- *Insert* returns the text to the caller; nothing reaches a field before it.
+- *Review* opens the crop and per-symbol editor; *Retake* closes the card and
+  keeps the preview open.
+- Never auto-insert, even with a high score: the plan's "recognition can be
+  wrong" warning applies to every reading.
+
 ### 12B.5 S3 — Review & Crop
 
 - Shows the captured image fitted to screen, with **four draggable corner handles** (hit target at least 48 dp, visible dot smaller) and a connecting quadrilateral; the outside area is dimmed.
@@ -831,10 +851,13 @@ Suggested PR order: M1 → M2 → M3 → M4/M5 → M6/M7 → M8 (printed linear/
 
 ## 15. Definition of done (v1)
 
-- [x] Dedicated in-app camera implemented (Camera2 preview, permissions, flash,
-      pinch zoom, tap-to-focus, lifecycle, retake). Not verified on a real
-      device from this environment; the Kotlin side compiles, the Dart flow is
-      covered by widget tests, and the APK build runs in CI.
+- [x] Dedicated in-app camera implemented on Android, Linux and Windows
+      (Camera2 preview on Android, OpenCV `videoio` frame feed on desktop;
+      permissions, flash where supported, pinch zoom, tap-to-focus, lifecycle,
+      retake). The shutter reads the expression and asks before inserting it.
+      Not verified on a physical camera from this environment; the native
+      handles are covered by `scanner/tests/test_camera.cpp`, the Dart flow by
+      widget tests, and the desktop feed was exercised against `/dev/video0`.
 - [x] Crop with perspective correction; the original image is never destroyed.
 - [x] Image import from gallery and, on desktop, file picker, drag-and-drop and
       paste; HEIC/HEIF via the platform codec; no temporary copy is written.
@@ -926,7 +949,7 @@ stays a design document rather than a claim.
 | §12B Entry sheet, crop, processing (cancellable), result, adaptive labels, per-line review, live parser hint, retake | done | `app/lib/src/scanner/scan_flow.dart` |
 | §12B.5/§12B.6/§17.2 Quality hints (blur, dark, small text) with Retake and Continue, real stage stepper driven by the native stage counter, "taking longer than usual" | done | `perspective.dart`, `scan_flow.dart`, `scanner_stage` in `scanner/src/scanner_api.cpp` |
 | §12B.9 Adaptive layouts: two-pane source/result on wide windows, `Esc` and `Ctrl+Enter` shortcuts | done | `scan_flow.dart`, `lab_page.dart` |
-| §12C Import: gallery/files, HEIC via the platform codec, clean-digital/low-resolution profiles; in-app Camera2 preview on Android with a system-camera fallback; Linux and Windows drag-and-drop plus Ctrl+V paste | done | `camera.dart`, `camera_page.dart`, `android/.../CameraPreview.kt`, `scan_flow.dart`, `normalize.dart`, `linux/runner/my_application.cc`, `windows/runner/flutter_window.cpp` |
+| §12C Import: gallery/files, HEIC via the platform codec, clean-digital/low-resolution profiles; in-app camera on Android (Camera2), Linux and Windows (OpenCV `videoio`), with detect-then-confirm; Linux and Windows drag-and-drop plus Ctrl+V paste | done | `camera_page.dart`, `desktop_camera.dart`, `scan_confirm.dart`, `scanner/src/camera.cpp`, `android/.../CameraPreview.kt`, `scan_flow.dart`, `normalize.dart`, `linux/runner/my_application.cc`, `windows/runner/flutter_window.cpp` |
 | Matrix entry: rows × columns grid for every matrix field | done | `app/lib/src/scanner/matrix_input.dart`, `topic_workbench_page.dart` |
 | §13 Tests: synthetic samples, per-stage unit tests, pipeline tests, ink grouping, stroke tracing and session edits | done; matrices covered by `matrix.png` and `matrix_photo.png` | `scanner/tests/`, `app/test/` |
 | §13.1 Synthetic dataset: seeded generator, five math fontsets, ten augmentation recipes, pixel-accurate ground-truth boxes, byte-reproducible | done | `scanner/tools/make_dataset.py` |
@@ -935,13 +958,16 @@ stays a design document rather than a claim.
 
 Deviations from the document, on purpose:
 
-- **Camera** is a real in-app preview on Android (`Camera2` +
-  `SurfaceProducer`, no camera package, no Google Maven) with the framing
-  guide, flash toggle, shutter, pinch-to-zoom (sensor crop on the native side),
-  tap-to-focus with a focus ring, lifecycle release and capture rotation. The
-  system `ACTION_IMAGE_CAPTURE` intent remains as a one-tap fallback inside that
-  page. Auto-capture (§17.3) is the one camera step still unbuilt: the plan puts
-  it after the quality hints, which now exist.
+- **Camera** is a real in-app preview on all shipped platforms. Android uses
+  `Camera2` + `SurfaceProducer` (no camera package, no Google Maven) with the
+  framing guide, flash toggle, shutter, pinch-to-zoom (sensor crop on the
+  native side), tap-to-focus with a focus ring, lifecycle release and capture
+  rotation. Linux and Windows use an OpenCV `videoio` grab thread inside the
+  scanner library and poll its newest JPEG frame, so no extra plugin is
+  required. The system `ACTION_IMAGE_CAPTURE` intent and the shared
+  `camera.dart` shim were removed: the app never leaves itself for a photo.
+  Auto-capture (§17.3) is the one camera step still unbuilt: the plan puts it
+  after the quality hints, which now exist.
 - **Handwriting** keeps the raw strokes and groups them in C++ (`ink.cpp`) with
   a DP segmentation lattice over 1–4 strokes plus late-stroke reassignment,
   then reuses the photo classifier, structure and repair stages on a rendered

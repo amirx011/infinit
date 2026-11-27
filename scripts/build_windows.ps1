@@ -219,6 +219,34 @@ try {
     }
     Copy-Item $dll (Join-Path $bundle 'odecore.dll') -Force
 
+    # libodecore.dll links OpenCV when it is present, so its runtime DLLs must
+    # travel with the bundle. Without them the engine cannot load at all, which
+    # would take the solver down with the scanner. A static OpenCV build needs
+    # nothing here, so a missing match is a warning, not a failure.
+    Write-Step 'Bundling OpenCV runtime DLLs'
+    $opencvRoots = @()
+    if ($env:OpenCV_DIR) { $opencvRoots += $env:OpenCV_DIR }
+    if (Test-Path 'C:\tools\opencv') { $opencvRoots += 'C:\tools\opencv' }
+    $seen = @{}
+    foreach ($root in $opencvRoots) {
+        if (-not (Test-Path $root)) { continue }
+        $candidates = Get-ChildItem -Path $root -Filter 'opencv*.dll' -Recurse -File `
+            -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch '\\x86\\' } |
+            Sort-Object FullName -Descending
+        foreach ($runtimeDll in $candidates) {
+            if ($seen.ContainsKey($runtimeDll.Name)) { continue }
+            $seen[$runtimeDll.Name] = $true
+            Copy-Item $runtimeDll.FullName (Join-Path $bundle $runtimeDll.Name) -Force
+            Write-Host "    $($runtimeDll.Name)"
+        }
+        if ($seen.Count -gt 0) { break }
+    }
+    if ($seen.Count -eq 0) {
+        Write-Warning ('No OpenCV runtime DLLs were found. The app still runs, ' +
+            'but the in-app camera will report that it is unavailable.')
+    }
+
     $juliaSource = Join-Path $Root 'julia'
     if (Test-Path $juliaSource) {
         $juliaTarget = Join-Path $bundle 'julia'

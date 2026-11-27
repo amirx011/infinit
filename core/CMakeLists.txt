@@ -43,12 +43,25 @@ set(ODE_SOURCES
 set(INFINIT_SCANNER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../scanner)
 set(ODE_SCANNER_INCLUDE "")
 set(INFINIT_SCANNER_OPENCV OFF)
+set(INFINIT_SCANNER_VIDEO OFF)
 # OpenCV is optional so every platform can still build the engine. Linux and
 # Android install it (libopencv-dev / opencv-mobile) and get the scanner; a
 # toolchain without it builds the same engine without the scanner, and the app
 # reports "scanner unavailable" instead of failing to start.
 if(EXISTS ${INFINIT_SCANNER_DIR}/src/scanner_api.cpp)
-  find_package(OpenCV QUIET COMPONENTS core imgproc)
+  if(ANDROID)
+    find_package(OpenCV QUIET COMPONENTS core imgproc)
+  else()
+    # videoio and imgcodecs power the in-app desktop camera feed. Asking for
+    # them together keeps OpenCV_LIBS complete; the fallback keeps the scanner
+    # buildable on a toolchain that has only core+imgproc.
+    find_package(OpenCV QUIET COMPONENTS core imgproc videoio imgcodecs)
+    if(OpenCV_FOUND)
+      set(INFINIT_SCANNER_VIDEO ON)
+    else()
+      find_package(OpenCV QUIET COMPONENTS core imgproc)
+    endif()
+  endif()
 endif()
 if(OpenCV_FOUND)
   set(INFINIT_SCANNER_OPENCV ON)
@@ -65,11 +78,16 @@ if(OpenCV_FOUND)
       ${INFINIT_SCANNER_DIR}/src/structure.cpp
       ${INFINIT_SCANNER_DIR}/src/reader.cpp
       ${INFINIT_SCANNER_DIR}/src/repair.cpp
+      ${INFINIT_SCANNER_DIR}/src/camera.cpp
       ${INFINIT_SCANNER_DIR}/src/scanner_api.cpp
       ${INFINIT_SCANNER_DIR}/src/ndk_compat.cpp
   )
   set(ODE_SCANNER_INCLUDE ${INFINIT_SCANNER_DIR}/src)
+  find_package(Threads QUIET)
   message(STATUS "Scanner: ON (OpenCV ${OpenCV_VERSION})")
+  if(INFINIT_SCANNER_VIDEO)
+    message(STATUS "Scanner camera: ON (videoio)")
+  endif()
 elseif(EXISTS ${INFINIT_SCANNER_DIR}/src/scanner_api.cpp)
   message(WARNING
       "Scanner: OFF (OpenCV core+imgproc not found). Install libopencv-dev, or "
@@ -96,6 +114,10 @@ if(ODE_BUILD_STATIC)
     target_include_directories(odecore PUBLIC ${OpenCV_INCLUDE_DIRS})
     target_link_libraries(odecore PUBLIC ${OpenCV_LIBS})
   endif()
+  if(INFINIT_SCANNER_VIDEO)
+    target_compile_definitions(odecore PUBLIC INFINIT_SCANNER_VIDEO=1)
+    target_link_libraries(odecore PUBLIC Threads::Threads)
+  endif()
 endif()
 
 add_library(odecore_shared SHARED ${ODE_SOURCES})
@@ -104,6 +126,10 @@ target_include_directories(odecore_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inc
 if(INFINIT_SCANNER_OPENCV)
   target_include_directories(odecore_shared PUBLIC ${OpenCV_INCLUDE_DIRS})
   target_link_libraries(odecore_shared PUBLIC ${OpenCV_LIBS})
+endif()
+if(INFINIT_SCANNER_VIDEO)
+  target_compile_definitions(odecore_shared PRIVATE INFINIT_SCANNER_VIDEO=1)
+  target_link_libraries(odecore_shared PUBLIC Threads::Threads)
 endif()
 set_target_properties(odecore_shared PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib

@@ -18,19 +18,41 @@ set(SCANNER_SOURCES
     src/reader.cpp
     src/repair.cpp
     src/structure.cpp
+    src/camera.cpp
     src/scanner_api.cpp
     src/ndk_compat.cpp
 )
 
 # The scanner uses OpenCV's core and imgproc only. On Android, point OpenCV_DIR
 # at third_party/opencv-mobile/sdk/native/jni (see scripts/fetch_opencv_mobile.sh).
-find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+#
+# Desktop builds additionally want videoio and imgcodecs for the in-app camera
+# feed. Those components are optional: without them the library still builds and
+# the camera entry points are stubs. Requiring them in one find_package keeps
+# OpenCV_LIBS complete, so a component target without its link line can never
+# produce undefined symbols.
+set(INFINIT_SCANNER_VIDEO OFF)
+if(ANDROID)
+  find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+else()
+  find_package(OpenCV QUIET COMPONENTS core imgproc videoio imgcodecs)
+  if(OpenCV_FOUND)
+    set(INFINIT_SCANNER_VIDEO ON)
+  else()
+    find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+  endif()
+endif()
+
+find_package(Threads REQUIRED)
 
 add_library(infinit_scanner STATIC ${SCANNER_SOURCES})
 target_include_directories(infinit_scanner PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(infinit_scanner PUBLIC ${OpenCV_LIBS})
+target_link_libraries(infinit_scanner PUBLIC ${OpenCV_LIBS} Threads::Threads)
+if(INFINIT_SCANNER_VIDEO)
+  target_compile_definitions(infinit_scanner PUBLIC INFINIT_SCANNER_VIDEO=1)
+endif()
 
 # stb_image is third-party and noisy under -Wall; keep the warning budget for
 # our own code.
@@ -83,6 +105,10 @@ if(SCANNER_BUILD_TESTS)
   target_compile_definitions(scanner_ink_test PRIVATE
       SCANNER_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
   add_test(NAME scanner_ink COMMAND scanner_ink_test)
+
+  add_executable(scanner_camera_test tests/test_camera.cpp)
+  target_link_libraries(scanner_camera_test PRIVATE infinit_scanner)
+  add_test(NAME scanner_camera COMMAND scanner_camera_test)
 
   if(OpenCV_FOUND)
     message(STATUS "OpenCV ${OpenCV_VERSION} found: building cross-checks")

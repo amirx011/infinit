@@ -33,16 +33,6 @@
             android:noHistory="true"
             android:theme="@style/LaunchTheme" />
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
-
         <!--
             One launcher alias per accent palette.  Android cannot recolor a
             launcher icon at runtime, so the app enables the alias whose icon

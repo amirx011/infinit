@@ -6,7 +6,6 @@
 // rendered LaTeX preview, an editable expression and a "Use" button. Nothing
 // is solved here; the caller only receives the confirmed text.
 import 'dart:async';
-import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -23,7 +22,6 @@ import '../native_engine.dart';
 import '../scanner_engine.dart';
 import '../theme.dart';
 import 'board.dart';
-import 'camera.dart';
 import 'camera_page.dart';
 import 'perspective.dart';
 import 'prototype_store.dart';
@@ -91,6 +89,16 @@ Future<ScanOutcome?> scanExpression(BuildContext context, {L10n? l10n}) async {
   );
   if (source == null || source == ScanSource.type) return null;
 
+  // The camera owns its whole path: shutter, recognition, confirmation card.
+  // Only a confirmed reading leaves the page, so the field never receives
+  // something the user has not seen.
+  if (source == ScanSource.camera) {
+    if (!context.mounted) return null;
+    return Navigator.of(context).push<ScanOutcome>(
+      MaterialPageRoute(builder: (_) => CameraScanPage(l10n: text)),
+    );
+  }
+
   while (true) {
     if (!context.mounted) return null;
     final bytes = await _acquire(context, source, text);
@@ -110,8 +118,8 @@ Future<ScanOutcome?> scanExpression(BuildContext context, {L10n? l10n}) async {
   }
 }
 
-/// One capture for the chosen source: the in-app camera on Android, the
-/// system camera elsewhere, a gallery picker, or the handwriting board.
+/// One capture for the chosen source: a gallery picker or the handwriting
+/// board. The camera is handled above.
 Future<Uint8List?> _acquire(
   BuildContext context,
   ScanSource source,
@@ -119,18 +127,7 @@ Future<Uint8List?> _acquire(
 ) async {
   switch (source) {
     case ScanSource.camera:
-      try {
-        if (Platform.isAndroid) {
-          return await Navigator.of(context).push<Uint8List>(
-            MaterialPageRoute(builder: (_) => CameraScanPage(l10n: text)),
-          );
-        }
-        return await capturePhoto();
-      } catch (error) {
-        if (!context.mounted) return null;
-        await _reportCameraError(context, text, error);
-        return null;
-      }
+      return null;
     case ScanSource.gallery:
       final file = await openFile(acceptedTypeGroups: const [_imageTypes]);
       if (file == null) return null;
@@ -162,23 +159,6 @@ Future<Uint8List?> _acquire(
   }
 }
 
-Future<void> _reportCameraError(BuildContext context, L10n l10n, Object error) {
-  final reason = error is CameraUnavailable ? error.reason : '$error';
-  return showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(l10n.t('scan.error.permission')),
-      content: Text(reason),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.t('ui.close')),
-        ),
-      ],
-    ),
-  );
-}
-
 class _SourceSheet extends StatelessWidget {
   const _SourceSheet({required this.l10n});
 
@@ -188,12 +168,11 @@ class _SourceSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final options = <(ScanSource, IconData, String)>[
-      if (Platform.isAndroid)
-        (
-          ScanSource.camera,
-          Icons.photo_camera_outlined,
-          l10n.t('scan.source.camera'),
-        ),
+      (
+        ScanSource.camera,
+        Icons.photo_camera_outlined,
+        l10n.t('scan.source.camera'),
+      ),
       (
         ScanSource.gallery,
         Icons.photo_library_outlined,
@@ -318,6 +297,7 @@ class _ScanFlowPageState extends State<ScanFlowPage> {
   int _sourceWidth = 0;
   int _sourceHeight = 0;
   ImageQuality? _quality;
+
   /// Optional brightness/contrast (§12B.5). Always applied to the upright
   /// original so repeated taps never compound.
   double _brightness = 0;
@@ -333,6 +313,7 @@ class _ScanFlowPageState extends State<ScanFlowPage> {
   bool _busy = false;
   bool _overlay = true;
   bool _edited = false;
+
   /// LaTeX of the alternative the user picked, if any. The native reading is
   /// still the source of truth; this only changes the preview.
   String? _pickedLatex;
@@ -698,9 +679,8 @@ class _ScanFlowPageState extends State<ScanFlowPage> {
                 child: Text(l.t('ui.cancel')),
               ),
               FilledButton(
-                onPressed: () => Navigator.of(
-                  dialogContext,
-                ).pop((brightness, contrast)),
+                onPressed: () =>
+                    Navigator.of(dialogContext).pop((brightness, contrast)),
                 child: Text(l.t('scan.action.apply')),
               ),
             ],
@@ -931,7 +911,9 @@ class _ScanFlowPageState extends State<ScanFlowPage> {
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
     const SingleActivator(LogicalKeyboardKey.escape): () {
       if (_stage == _Stage.manual) {
-        setState(() => _stage = _result != null ? _Stage.result : _manualReturn);
+        setState(
+          () => _stage = _result != null ? _Stage.result : _manualReturn,
+        );
         return;
       }
       Navigator.of(context).maybePop();
@@ -1067,9 +1049,9 @@ class _ScanFlowPageState extends State<ScanFlowPage> {
           }),
           onUse: (text) {
             if (text.isEmpty) return;
-            Navigator.of(context).pop(
-              ScanOutcome(image: widget.bytes, text: text, manual: true),
-            );
+            Navigator.of(
+              context,
+            ).pop(ScanOutcome(image: widget.bytes, text: text, manual: true));
           },
         );
       case _Stage.result:
@@ -1161,8 +1143,8 @@ class _ProcessingViewState extends State<_ProcessingView> {
 
   void _tick() {
     final next = widget.stage();
-    final slow = DateTime.now().difference(_started) >
-        const Duration(seconds: 4);
+    final slow =
+        DateTime.now().difference(_started) > const Duration(seconds: 4);
     if (!mounted) return;
     if (next == _stage && slow == _slow) return;
     setState(() {
@@ -1190,9 +1172,7 @@ class _ProcessingViewState extends State<_ProcessingView> {
     // Native stages 1..6 map onto the four labels the plan names; the repair
     // pass is part of checking the expression, structure is part of reading it.
     const stageOf = [0, 0, 1, 2, 2, 3, 4];
-    final active = _stage >= 0 && _stage < stageOf.length
-        ? stageOf[_stage]
-        : 0;
+    final active = _stage >= 0 && _stage < stageOf.length ? stageOf[_stage] : 0;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 340),
@@ -1248,7 +1228,10 @@ class _ProcessingViewState extends State<_ProcessingView> {
               spacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                TextButton(onPressed: widget.onCancel, child: Text(l.t('ui.cancel'))),
+                TextButton(
+                  onPressed: widget.onCancel,
+                  child: Text(l.t('ui.cancel')),
+                ),
                 TextButton(
                   onPressed: widget.onManual,
                   child: Text(l.t('scan.action.manual')),
@@ -1339,9 +1322,8 @@ class _ManualEntryState extends State<_ManualEntry> {
           const SizedBox(height: 6),
           Text(
             widget.l10n.t('scan.manual.hint'),
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: c.muted),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: c.muted),
           ),
           const SizedBox(height: 16),
           Directionality(
@@ -1363,16 +1345,14 @@ class _ManualEntryState extends State<_ManualEntry> {
           if (_validating)
             Text(
               widget.l10n.t('scan.stage.check'),
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: c.muted),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: c.muted),
             )
           else if (_error != null)
             Text(
               _error!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: c.warning),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: c.warning),
             ),
           const Spacer(),
           Row(
@@ -1806,11 +1786,7 @@ class _CropPainter extends CustomPainter {
           ..strokeWidth = 1.5
           ..color = accent,
       );
-      canvas.drawCircle(
-        center,
-        2,
-        Paint()..color = accent,
-      );
+      canvas.drawCircle(center, 2, Paint()..color = accent);
     }
   }
 
@@ -1908,10 +1884,7 @@ class _ResultView extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                source,
-                ..._details(context, multiLine),
-              ],
+              children: [source, ..._details(context, multiLine)],
             ),
           );
         }
@@ -2052,9 +2025,8 @@ class _ResultView extends StatelessWidget {
             childrenPadding: EdgeInsets.zero,
             title: Text(
               l10n.t('scan.result.other_readings'),
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: c.accent),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: c.accent),
             ),
             children: [
               for (final alternative in result.alternatives)
@@ -2116,9 +2088,8 @@ class _ResultView extends StatelessWidget {
           padding: const EdgeInsets.only(top: 6),
           child: Text(
             l10n.t('scan.stage.check'),
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: c.muted),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: c.muted),
           ),
         )
       else if (parseError != null)
@@ -2126,9 +2097,8 @@ class _ResultView extends StatelessWidget {
           padding: const EdgeInsets.only(top: 6),
           child: Text(
             l10n.t('scan.line.invalid'),
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: c.warning),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: c.warning),
           ),
         ),
       const SizedBox(height: 8),
@@ -2139,9 +2109,8 @@ class _ResultView extends StatelessWidget {
           Expanded(
             child: Text(
               l10n.t('scan.result.warning'),
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: c.muted),
+              style: Theme.of(context).textTheme.bodySmall
+                  ?.copyWith(color: c.muted),
             ),
           ),
         ],
@@ -2153,9 +2122,8 @@ class _ResultView extends StatelessWidget {
             'rows': '${result.rows}',
             'columns': '${result.columns}',
           }),
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: c.muted),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: c.muted),
         ),
       ],
     ];
@@ -2188,9 +2156,11 @@ class _ResultView extends StatelessWidget {
           children: [
             ListTile(
               title: Text(l10n.t('scan.relation.title')),
-              subtitle: Text(l10n.t('scan.semantics.symbol', {
-                'glyph': '${relation.symbol}',
-              })),
+              subtitle: Text(
+                l10n.t('scan.semantics.symbol', {
+                  'glyph': '${relation.symbol}',
+                }),
+              ),
             ),
             for (final value in options)
               ListTile(
@@ -2200,11 +2170,13 @@ class _ResultView extends StatelessWidget {
                       : Icons.radio_button_unchecked_rounded,
                 ),
                 title: Text(
-                  _relationLabel(ScanRelation(
-                    symbol: relation.symbol,
-                    kind: relation.kind,
-                    value: value,
-                  )).split(': ').last,
+                  _relationLabel(
+                    ScanRelation(
+                      symbol: relation.symbol,
+                      kind: relation.kind,
+                      value: value,
+                    ),
+                  ).split(': ').last,
                 ),
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -2247,8 +2219,7 @@ class _ResultView extends StatelessWidget {
               ),
               if (invalid) ...[
                 const SizedBox(width: 6),
-                Icon(Icons.error_outline_rounded,
-                    size: 16, color: c.warning),
+                Icon(Icons.error_outline_rounded, size: 16, color: c.warning),
               ],
               const Spacer(),
               IconButton(

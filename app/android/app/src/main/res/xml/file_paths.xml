@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <!-- Camera captures are written to the app cache and handed to the
-         recognizer as a file path; nothing leaves the device. -->
-    <cache-path name="scans" path="." />
-</paths>

@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "camera.hpp"
 #include "glyphs.hpp"
 #include "image.hpp"
 #include "ink.hpp"
@@ -1250,6 +1251,53 @@ char* scanner_read_handwriting(const uint8_t* data, std::size_t size) {
   } catch (const std::exception& error) {
     return duplicate(errorJson(error.what()));
   }
+}
+
+/// Desktop camera feed for the app's in-app preview. Android uses the Camera2
+/// channel instead, so these are stubs there; on Linux/Windows they wrap the
+/// OpenCV grab thread. Bytes stay in this process, like every other scan.
+int scanner_camera_available() {
+  return infinit::scan::cameraSupported() ? 1 : 0;
+}
+
+/// Starts the first working device. Returns 1 on success; 0 means the app
+/// should show its "camera unavailable" state.
+int scanner_camera_start(int max_long_side) {
+  std::string error;
+  return infinit::scan::cameraStart(max_long_side > 0 ? max_long_side : 1280,
+                                    &error)
+             ? 1
+             : 0;
+}
+
+void scanner_camera_stop() { infinit::scan::cameraStop(); }
+
+int scanner_camera_running() {
+  return infinit::scan::cameraRunning() ? 1 : 0;
+}
+
+int scanner_camera_width() { return infinit::scan::cameraWidth(); }
+
+int scanner_camera_height() { return infinit::scan::cameraHeight(); }
+
+/// Copies the newest JPEG frame into the caller's buffer. Returns the byte
+/// count, 0 before the first frame, -1 when the buffer is too small and -2 when
+/// no camera has been started.
+int32_t scanner_camera_frame(uint8_t* out, int32_t capacity) {
+  if (out == nullptr || capacity <= 0) return -1;
+  return static_cast<int32_t>(
+      infinit::scan::cameraCopyFrame(out, static_cast<std::size_t>(capacity)));
+}
+
+/// Buffer size the app allocates once per preview session.
+int32_t scanner_camera_frame_capacity() {
+  return static_cast<int32_t>(infinit::scan::cameraFrameCapacity());
+}
+
+/// Reason the last start or grab failed, copied into a scanner_free string.
+const char* scanner_camera_error() {
+  const std::string message = infinit::scan::cameraError();
+  return duplicate(message);
 }
 
 const char* scanner_version() { return "infinit-scanner 0.1.0"; }

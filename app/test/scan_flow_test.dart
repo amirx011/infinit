@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:infinit/src/i18n/catalog.dart';
@@ -13,8 +11,8 @@ void main() {
   });
 
   testWidgets('the source sheet offers every way in', (tester) async {
-    // The test host is Linux, so the camera option is Android-only by design.
-    if (Platform.isAndroid) return;
+    // Camera is offered on every desktop and mobile build now; a built library
+    // without videoio says so on the camera page instead of hiding the source.
     await tester.pumpWidget(
       MaterialApp(
         theme: buildOdeTheme(dark: false),
@@ -37,7 +35,7 @@ void main() {
     expect(find.text(l10n.t('scan.source.gallery')), findsOneWidget);
     expect(find.text(l10n.t('scan.source.handwrite')), findsOneWidget);
     expect(find.text(l10n.t('scan.source.type')), findsOneWidget);
-    expect(find.text(l10n.t('scan.source.camera')), findsNothing);
+    expect(find.text(l10n.t('scan.source.camera')), findsOneWidget);
 
     await tester.tap(find.text(l10n.t('scan.source.type')));
     await tester.pumpAndSettle();

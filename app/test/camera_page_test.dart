@@ -28,14 +28,15 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildOdeTheme(dark: false),
-        home: CameraScanPage(l10n: l10n),
+        // The test host is Linux, so pin the Camera2 channel path every time.
+        home: CameraScanPage(l10n: l10n, useDesktopFeed: false),
       ),
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
   }
 
-  testWidgets('permission denied explains itself and offers the fallback', (
+  testWidgets('permission denied explains itself and offers a retry', (
     tester,
   ) async {
     messenger.setMockMethodCallHandler(channel, (call) async {
@@ -49,8 +50,8 @@ void main() {
     await pumpCamera(tester, l10n);
 
     expect(find.text(l10n.t('scan.camera.permission')), findsOneWidget);
-    // Never a dead end: the system camera stays reachable.
-    expect(find.text(l10n.t('scan.camera.system')), findsWidgets);
+    // Never a dead end: retry re-asks for the permission.
+    expect(find.text(l10n.t('scan.camera.retry')), findsOneWidget);
   });
 
   testWidgets('an unavailable camera says so instead of showing a blank box', (
