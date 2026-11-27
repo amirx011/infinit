@@ -48,11 +48,20 @@ bool isDiacriticOf(const Box& small, const Box& big) {
   if (small.height() > 0.4 * big.height()) return false;
   // A bar (a fraction line, an equals sign) is too flat to be an accent.
   if (small.width() > 2.5 * small.height()) return false;
-  // A dot is about as wide as the stem it belongs to; an infinity sign above a
-  // summation sign is only half as wide as the operator.
-  if (small.width() < 0.5 * big.width()) return false;
+  // Only compact marks belong on top of a glyph. An infinity sign over a
+  // summation is twice as wide as it is tall and is a bound of its own, not a
+  // diacritic; merging it hid the upper limit and turned the sum into "±".
+  // A dot drawn wide and flat (the synthetic dotted-i case) is still a dot when
+  // it is as wide as the stem it caps.
+  const bool dotLike = small.width() <= 1.6 * small.height();
+  const bool flatCap = small.width() >= 0.80 * big.width() &&
+                       small.height() <= 0.25 * big.height();
+  if (!dotLike && !flatCap) return false;
+  // A dot can be narrower than half of a wide stem (the dot of an italic "i"
+  // sits on a slanted stroke), so the ratio is looser than the old 0.5.
+  if (small.width() < 0.30 * big.width()) return false;
   const int gap = big.y0 - small.y1;
-  if (gap < 0 || gap > 0.22 * big.height()) return false;
+  if (gap < 0 || gap > 0.30 * big.height()) return false;
   return small.centerX() >= big.x0 - big.width() * 0.1 &&
          small.centerX() <= big.x1 + big.width() * 0.1;
 }
@@ -336,12 +345,17 @@ Segmentation segment(const GrayImage& binary, const SegmentOptions& options) {
                 std::max(a.width(), b.width()));
       const double narrower = std::min(a.width(), b.width());
       const double barLike = options.barAspectRatio;
+      const double heightRatio =
+          ratio(std::min(a.height(), b.height()), taller);
 
       // Side-by-side fragments of one glyph. Two separate glyphs never overlap
       // horizontally, so a positive gap is left to the repair stage instead of
-      // being merged blindly.
+      // being merged blindly. Italic glyphs *do* overlap a following bracket by
+      // a few kerned pixels, so fragments must also be of comparable height;
+      // an x under a closing parenthesis is not one broken glyph.
       const int combinedWidth = std::max(a.x1, b.x1) - std::min(a.x0, b.x0);
       if (hGap <= 0 && vOverlapRatio >= options.fragmentOverlapRatio &&
+          heightRatio >= options.fragmentHeightRatio &&
           combinedWidth <= options.fragmentWidthRatio * taller) {
         uf.unite(static_cast<int>(i), static_cast<int>(j));
         continue;

@@ -839,10 +839,12 @@ Suggested PR order: M1 → M2 → M3 → M4/M5 → M6/M7 → M8 (printed linear/
 - [x] Image import from gallery and, on desktop, file picker, drag-and-drop and
       paste; HEIC/HEIF via the platform codec; no temporary copy is written.
 - [~] Printed single-line expressions with fractions, powers, roots, standard
-      functions and primes ride the correction path. Measured on the synthetic
-      set: top-1 **0.946**, top-3 0.982, exact match 7/12, parser acceptance
-      81.8 %. The weak spots are named in the generated
-      `scanner/dataset/metrics.md` (gitignored).
+      functions and primes ride the correction path. Measured on the 12-image
+      synthetic set: top-1 **0.965**, exact match 9/12, parser acceptance
+      90.9 %. On the larger 72-image set (each expression in four
+      augmentations): top-1 **0.990**, top-3 0.999, exact match 65/72
+      (90.3 %), parser acceptance 97.9 %. The weak spots are named in the
+      generated `scanner/dataset/metrics.md` (gitignored).
 - [x] Both LaTeX and Infinit-syntax outputs are produced from the AST.
 - [x] Parser-guided repair active; results re-ranked by cost.
 - [x] Symbol-level correction UI works without re-running vision.
@@ -954,11 +956,15 @@ Deviations from the document, on purpose:
   before any pixel reaches the native side. The one temp file in the product is
   the camera capture, and it is deleted immediately after the bytes are read.
   Nothing is logged and nothing leaves the device.
-- **Remaining measured weaknesses.** On the synthetic set the `cm` (Computer
-  Modern) fontset still scores 0/2 exact, a rotated *clean* render is read
-  worse than an upright one, and ruled paper is only partially recovered (3/6
-  exact on a dedicated ruled set). These are recorded in the generated,
-  gitignored `scanner/dataset/metrics.md` rather than papered over.
+- **Remaining measured weaknesses.** On the 72-image set 65/72 read exactly.
+  The seven misses are: four on ruled paper (a numeral cut by the rule, an
+  integral whose lower bound is read as `g`, a summation whose lower `=` is a
+  weak `?`, and a `sin` whose parentheses collapse), one rotated `y` read as
+  `l`, one `f` read as `r` under heavy lighting, and one rotated sum whose
+  `inf` bound merges into the sigma. The `cm` fontset is no longer a weak spot
+  (10/14 exact, up from 5/14), and ruled paper is 10/14 (up from 5/14). These
+  are recorded in the generated, gitignored `scanner/dataset/metrics.md` rather
+  than papered over.
 - **Matrices** are entered as a grid in the app, but the core contract is still
   the documented `a, b; c, d` text. The grid only assembles that string, so the
   workbench and the core did not need a new input type.
@@ -1019,21 +1025,41 @@ build on Android); OpenCV is not used for classification or structure.
   and the stroke-prototype entry points.
 - `pytest`: 731/731, including the dataset/metrics smoke test.
 
-### Measured quality (12-image synthetic set, seed 20260101)
+### Measured quality (synthetic sets)
 
-| stage | metric | value |
-|---|---|---|
-| preprocess | foreground F1 | 0.971 |
-| segmentation | recall / precision / F1 | 0.950 / 0.942 / 0.946 |
-| classification | top-1 / top-3 | **0.946** / 0.982 |
-| end-to-end | exact match | 7/12 (58.3 %) |
-| end-to-end | parser acceptance | 9/12 (81.8 %) |
-| resources | wall clock | 124 ms/image |
+- `scanner/dataset` (12 images, seed 20260101): one image per expression with a
+  mixed augmentation recipe.
+- The tuning set: `python3 scanner/tools/make_dataset.py --outdir /tmp/scan-ds
+  --variants 4 --seed 42` (72 images, every expression in four augmentations).
 
-The instrument is what found the last round of bugs: a missing italic face for
+| stage | metric | 12 images | 72 images |
+|---|---|---|---|
+| preprocess | foreground F1 | 0.971 | 0.982 |
+| segmentation | recall / precision / F1 | 0.958 / 0.919 / 0.938 | 0.990 / 0.984 / 0.987 |
+| classification | top-1 / top-3 | 0.965 / 0.965 | **0.990** / 0.999 |
+| end-to-end | exact match | 9/12 (75.0 %) | 65/72 (90.3 %) |
+| end-to-end | parser acceptance | 90.9 % | 97.9 % |
+| resources | wall clock | 120 ms/image | 103 ms/image |
+
+The instrument is what found the last rounds of bugs: a missing italic face for
 math variables (`x` read as `?`/`m`), a superscript gate that rejected every
 serif `x^2`, ruled paper being classified as a clean render, and a parser crash
-on `sqrt()`. Two experiments were measured and **rejected**: Computer Modern
-templates (top-1 fell from 0.889 to 0.861) and closing rule gaps with a long
-horizontal kernel (it deleted real ink and broke three pipeline cases). The
-numbers above are with both reverted.
+on `sqrt()`. Three earlier findings were revisited with better evidence:
+
+- **Computer Modern templates.** The first attempt measurably hurt (top-1
+  0.889 → 0.861 on the 12-image set) because it passed every ASCII slot of
+  `cmr10`/`cmsy10` to the builder: TeX's slot `|` is an en dash, `*` is a
+  different glyph, and missing characters became `.notdef` boxes. With explicit
+  per-font character sets and a fontTools cmap guard, the cm cut is a win: on
+  the 72-image set cm exact went from 5/14 to 10/14 and `x`/`y`/`2`/`4` stopped
+  collapsing into `?`/`o`/`]`.
+- **Ruled-line repair.** Closing rule gaps with a long horizontal kernel was
+  rejected because it ate real ink. The version kept here only bridges pixels
+  that the threshold dropped on a row dominated by a *light* rule, and it also
+  widens the existing bridge by two columns so a slanted stroke is reconnected.
+  The ruled recipe went from 5/14 at the start of the round to 10/14 exact; the
+  light-rule bridge alone added two of those (8/14 → 10/14).
+- **Segment-level fixes, not metric relaxation.** Dot merging, the kerned
+  italic `x`+`)` guard, prime attachment, `l`→`1`/`i`, mid-height dot → `*`,
+  big-operator geometry and per-line system reading account for the rest. The
+  IoU threshold and the metric definitions are unchanged.

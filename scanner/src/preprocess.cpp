@@ -356,20 +356,67 @@ bool removeRuledLines(GrayImage& binary) {
   // A glyph that crosses the rule loses the pixels the rule occupied, which
   // cuts it in two halves the segmenter then treats as separate symbols. Bridge
   // each removed pixel that has ink both a few rows above and below it, so the
-  // rule disappears but the glyph stays one piece.
-  for (int pass = 0; pass < 3; ++pass) {
+  // rule disappears but the glyph stays one piece. The window is wider than the
+  // rule is tall because the stroke of a "3" or an integral leans: the ink a
+  // few rows below the cut can sit a couple of pixels to the side.
+  auto hasInk = [&binary](int x, int y) {
+    return x >= 0 && y >= 0 && x < binary.width && y < binary.height &&
+           binary.at(x, y) > 127;
+  };
+  for (int pass = 0; pass < 4; ++pass) {
     for (int y = 0; y < binary.height; ++y) {
       for (int x = 0; x < binary.width; ++x) {
         if (binary.at(x, y) != 0 || removed.at<uint8_t>(y, x) == 0) continue;
-        const bool above = (y - 3 >= 0 && binary.at(x, y - 3) > 127) ||
-                           (y - 2 >= 0 && binary.at(x, y - 2) > 127);
-        const bool below = (y + 3 < binary.height && binary.at(x, y + 3) > 127) ||
-                           (y + 2 < binary.height && binary.at(x, y + 2) > 127);
+        bool above = false;
+        bool below = false;
+        for (int dx = -2; dx <= 2 && !(above && below); ++dx) {
+          for (int dy = 1; dy <= 4; ++dy) {
+            if (!above && hasInk(x + dx, y - dy)) above = true;
+            if (!below && hasInk(x + dx, y + dy)) below = true;
+          }
+        }
         if (above && below) binary.at(x, y) = 255;
       }
     }
   }
   return true;
+}
+
+/// A light notebook rule drawn over the ink erases a one- or two-pixel slice of
+/// every glyph it crosses, and the threshold then has nothing to keep there. The
+/// rules themselves are background in the binary, so `removeRuledLines` never
+/// sees them; find the rows in the grey image and close the gap in the binary
+/// where ink sits on both sides.
+void bridgeLightRules(const GrayImage& gray, GrayImage& binary) {
+  if (gray.empty() || binary.empty()) return;
+  const int width = std::min(gray.width, binary.width);
+  const int height = std::min(gray.height, binary.height);
+  auto hasInk = [&binary](int x, int y) {
+    return x >= 0 && y >= 0 && x < binary.width && y < binary.height &&
+           binary.at(x, y) > 127;
+  };
+  for (int y = 1; y + 1 < height; ++y) {
+    int light = 0;
+    int dark = 0;
+    for (int x = 0; x < width; ++x) {
+      const int value = gray.at(x, y);
+      if (value >= 150 && value <= 245) ++light;
+      else if (value < 120) ++dark;
+    }
+    if (light * 100 < width * 45 || dark * 4 > width) continue;
+    for (int x = 0; x < width; ++x) {
+      if (binary.at(x, y) != 0) continue;
+      bool above = false;
+      bool below = false;
+      for (int dx = -2; dx <= 2 && !(above && below); ++dx) {
+        for (int dy = 1; dy <= 4; ++dy) {
+          if (!above && hasInk(x + dx, y - dy)) above = true;
+          if (!below && hasInk(x + dx, y + dy)) below = true;
+        }
+      }
+      if (above && below) binary.at(x, y) = 255;
+    }
+  }
 }
 
 /// Drops components that touch the image border and cover a large area. A
@@ -624,6 +671,7 @@ PreprocessResult preprocess(const GrayImage& input,
 
   if (options.removeRuledLines) {
     result.ruledLinesRemoved = removeRuledLines(result.binary);
+    bridgeLightRules(result.normalized, result.binary);
   }
   removeBorderArtifacts(result.binary);
 

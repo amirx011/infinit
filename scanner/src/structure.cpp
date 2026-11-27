@@ -347,9 +347,10 @@ bool parseBigOperator(const Context& ctx, const std::vector<int>& ids,
     const Box box = ctx.box(id);
     if (isIntegral) {
       // Integral bounds hug the right edge of the sign: one above its middle,
-      // one below.
+      // one below. A narrow side-set integral can end before the bound starts,
+      // so allow the column from the sign's right half onwards.
       const bool inColumn =
-          box.x0 >= opBox.x1 - 0.10 * opBox.width() &&
+          box.x0 >= opBox.x0 + 0.35 * opBox.width() &&
           box.x0 <= opBox.x1 + 0.90 * ctx.scale;
       // Compare centres, not edges: a bound often overlaps the sign's
       // vertical extent by a pixel or two even when it is clearly above or
@@ -364,8 +365,9 @@ bool parseBigOperator(const Context& ctx, const std::vector<int>& ids,
         continue;
       }
     } else {
-      // Summation bounds are centred on the sign.
-      const double margin = 0.30 * opBox.width();
+      // Summation bounds are centred on the sign. The whole bound row
+      // ("n = 1") is wider than the sign, so the column is generous.
+      const double margin = 0.40 * opBox.width();
       const bool inColumn = box.centerX() >= opBox.x0 - margin &&
                             box.centerX() <= opBox.x1 + margin;
       if (inColumn && box.y1 <= opBox.y0 + 0.10 * opBox.height()) {
@@ -644,6 +646,28 @@ void attachScripts(const Context& ctx, std::vector<Item>* items) {
     if (scriptIds.empty()) {
       out.push_back(std::move(base));
       ++i;
+      continue;
+    }
+
+    // A prime after a letter is a derivative mark, not an exponent. The
+    // geometric pass sees a small mark above the baseline and calls it a
+    // superscript, which renders f'(x) as f^'(x); the core parser only accepts
+    // the first form.
+    bool allPrimes = base.node.isAtom();
+    for (int id : scriptIds) {
+      if (ctx.match(id).label != "'") {
+        allPrimes = false;
+        break;
+      }
+    }
+    if (allPrimes) {
+      for (size_t k = 0; k < scriptIds.size(); ++k) base.node.text += "'";
+      base.node.box.include((*items)[j - 1].node.box);
+      base.node.confidence =
+          std::min(base.node.confidence, ctx.match(scriptIds.front()).score);
+      for (int id : scriptIds) base.ids.push_back(id);
+      out.push_back(std::move(base));
+      i = j;
       continue;
     }
 

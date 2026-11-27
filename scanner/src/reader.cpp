@@ -44,6 +44,11 @@ bool isDigitLabel(const std::string& label) {
          std::isdigit(static_cast<unsigned char>(label[0])) != 0;
 }
 
+bool isAlphaLabel(const std::string& label) {
+  return label.size() == 1 &&
+         std::isalpha(static_cast<unsigned char>(label[0])) != 0;
+}
+
 /// The plan's confusable classes, resolved by neighbours: a letter wedged
 /// between two digits is almost always the digit it resembles. The correction
 /// sheet still shows the original alternatives, so a wrong call is one tap
@@ -85,6 +90,182 @@ void fixDigitNeighbours(const Segmentation& segmentation,
       } else if (candidate == "z") {
         match.label = "2";
       }
+    }
+  }
+}
+
+/// Neighbours that make a lone `l` unambiguous: a digit, a bracket or an
+/// operator. The `l` of "log" and "lim" always has a letter on one side, so it
+/// is never touched.
+bool isOneContext(const std::string& label) {
+  if (isDigitLabel(label)) return true;
+  return label == "+" || label == "-" || label == "=" || label == "(" ||
+         label == ")" || label == "[" || label == "]" || label == "{" ||
+         label == "}" || label == "/" || label == "," || label == "." ||
+         label == "^" || label == "*" || label == "<" || label == ">" ||
+         label == "|";
+}
+
+/// Resolves `l`/`I`/`|` against the digit one. At 16x16 a serif `1` and a
+/// lowercase `l` are almost the same raster, and the classifier picks `l` by a
+/// hair (margin 0.00-0.06 on the benchmark). Context breaks the tie: `(1/x`,
+/// `x+1`, a matrix cell `[1,` are always digits, while `log` and `lim` keep
+/// their letter because one neighbour is a letter.
+void fixAmbiguousOne(const Segmentation& segmentation,
+                     std::vector<GlyphMatch>* matches) {
+  for (const TextLine& line : segmentation.lines) {
+    if (line.symbols.size() < 2) continue;
+    std::vector<int> ids = line.symbols;
+    std::sort(ids.begin(), ids.end(), [&segmentation](int a, int b) {
+      return segmentation.symbols[a].box.x0 < segmentation.symbols[b].box.x0;
+    });
+    for (size_t i = 0; i < ids.size(); ++i) {
+      GlyphMatch& match = (*matches)[ids[i]];
+      const std::string& candidate =
+          match.label == "?" ? match.runnerUp : match.label;
+      if (candidate != "l" && candidate != "I" && candidate != "|") continue;
+      if (match.label != "?" && match.runnerUp != "1") continue;
+      if (match.label == "?" && match.runnerUp != "l" &&
+          match.runnerUp != "I" && match.runnerUp != "|") {
+        continue;
+      }
+      if (match.margin > 0.30) continue;
+      bool context = false;
+      bool blocked = false;
+      if (i > 0) {
+        const std::string& left = (*matches)[ids[i - 1]].label;
+        if (isOneContext(left)) context = true; else blocked = true;
+      }
+      if (i + 1 < ids.size()) {
+        const std::string& right = (*matches)[ids[i + 1]].label;
+        if (isOneContext(right)) context = true; else blocked = true;
+      }
+      if (!context || blocked) continue;
+      match.label = "1";
+      match.runnerUp = candidate;
+      match.alternatives.clear();
+      match.alternatives.emplace_back("1", match.score);
+      match.alternatives.emplace_back(candidate, match.score - match.margin);
+    }
+  }
+}
+
+/// A dot drawn on the math axis is multiplication, not a decimal point. The
+/// classifier cannot see position: the raster is fitted to its own ink box, so
+/// both dots are the same 3x3 blob. Compare the dot with the letters beside it
+/// instead; a period sits on their baseline, `·` sits half an x-height above.
+void fixMultiplicationDots(const Segmentation& segmentation,
+                           std::vector<GlyphMatch>* matches) {
+  for (const TextLine& line : segmentation.lines) {
+    for (int id : line.symbols) {
+      GlyphMatch& match = (*matches)[id];
+      if (match.label != ".") continue;
+      const Box& box = segmentation.symbols[id].box;
+      int left = -1;
+      int right = -1;
+      for (int other : line.symbols) {
+        if (other == id) continue;
+        const Box& candidate = segmentation.symbols[other].box;
+        if (candidate.x1 <= box.x0) {
+          if (left < 0 || candidate.x1 > segmentation.symbols[left].box.x1) {
+            left = other;
+          }
+        } else if (candidate.x0 >= box.x1) {
+          if (right < 0 || candidate.x0 < segmentation.symbols[right].box.x0) {
+            right = other;
+          }
+        }
+      }
+      auto raisedAgainst = [&](int neighbour) {
+        if (neighbour < 0) return true;
+        const Box& other = segmentation.symbols[neighbour].box;
+        if (other.height() < 2 * box.height()) return false;
+        return box.centerY() < other.y1 - 0.35 * other.height();
+      };
+      if ((left < 0 && right < 0) || !raisedAgainst(left) ||
+          !raisedAgainst(right)) {
+        continue;
+      }
+      match.label = "*";
+      match.runnerUp = ".";
+      match.alternatives.clear();
+      match.alternatives.emplace_back("*", match.score);
+    }
+  }
+}
+
+/// A tall narrow stroke is an integral, and a tall block is a summation, even
+/// when the raster bank answers "l" or "?". The classifier fits every glyph
+/// into its own ink box, so size — the one cue that separates ∫ and Σ from a
+/// letter — never reaches it.
+void fixBigOperators(const Segmentation& segmentation,
+                     std::vector<GlyphMatch>* matches) {
+  std::vector<int> heights;
+  heights.reserve(segmentation.symbols.size());
+  for (const Symbol& symbol : segmentation.symbols) {
+    if (symbol.box.height() > 0) heights.push_back(symbol.box.height());
+  }
+  if (heights.size() < 3) return;
+  std::sort(heights.begin(), heights.end());
+  const double median = heights[heights.size() / 2];
+  for (size_t i = 0; i < segmentation.symbols.size(); ++i) {
+    const Box& box = segmentation.symbols[i].box;
+    if (box.height() <= 0) continue;
+    const double aspect = static_cast<double>(box.width()) / box.height();
+    GlyphMatch& match = (*matches)[i];
+    const std::string& label = match.label;
+    const bool strokeLike = label == "l" || label == "1" || label == "I" ||
+                            label == "|" || label == "i" || label == "?" ||
+                            label == "'" || label == "/";
+    if (box.height() >= 2.8 * median && aspect <= 0.48 && strokeLike) {
+      match.runnerUp = label;
+      match.label = "integral";
+      match.alternatives.clear();
+      match.alternatives.emplace_back("integral", match.score);
+      continue;
+    }
+    const bool blockLike = label == "?" || label == "z" || label == "2" ||
+                           label == "S" || label == "s";
+    if (box.height() >= 2.6 * median && aspect >= 0.52 && aspect <= 1.70 &&
+        blockLike) {
+      match.runnerUp = label;
+      match.label = "sum";
+      match.alternatives.clear();
+      match.alternatives.emplace_back("sum", match.score);
+    }
+  }
+}
+
+/// A `1` or `l` wedged between two letters is a dotless i: a rule crossing the
+/// letter or a blur ate the dot, and the remaining stem scores as a digit. In
+/// math typesetting a digit never sits between two letter factors.
+void fixDotlessI(const Segmentation& segmentation,
+                 std::vector<GlyphMatch>* matches) {
+  for (const TextLine& line : segmentation.lines) {
+    if (line.symbols.size() < 3) continue;
+    std::vector<int> ids = line.symbols;
+    std::sort(ids.begin(), ids.end(), [&segmentation](int a, int b) {
+      return segmentation.symbols[a].box.x0 < segmentation.symbols[b].box.x0;
+    });
+    for (size_t i = 1; i + 1 < ids.size(); ++i) {
+      GlyphMatch& match = (*matches)[ids[i]];
+      const std::string& candidate =
+          match.label == "?" ? match.runnerUp : match.label;
+      if (candidate != "1" && candidate != "l" && candidate != "I" &&
+          candidate != "|") {
+        continue;
+      }
+      const std::string& left = (*matches)[ids[i - 1]].label;
+      const std::string& right = (*matches)[ids[i + 1]].label;
+      if (!isAlphaLabel(left) || !isAlphaLabel(right)) continue;
+      const Box& box = segmentation.symbols[ids[i]].box;
+      const int taller = std::max(segmentation.symbols[ids[i - 1]].box.height(),
+                                  segmentation.symbols[ids[i + 1]].box.height());
+      if (box.height() > 1.15 * taller) continue;
+      match.label = "i";
+      match.runnerUp = candidate;
+      match.alternatives.clear();
+      match.alternatives.emplace_back("i", match.score);
     }
   }
 }
@@ -280,7 +461,11 @@ std::vector<GlyphMatch> classifySymbols(
     }
   }
   fixPunctuation(segmentation, &matches);
+  fixBigOperators(segmentation, &matches);
   fixDigitNeighbours(segmentation, &matches);
+  fixAmbiguousOne(segmentation, &matches);
+  fixDotlessI(segmentation, &matches);
+  fixMultiplicationDots(segmentation, &matches);
   return matches;
 }
 
@@ -336,6 +521,34 @@ ExpressionReading buildLineReading(const Segmentation& segmentation,
   return buildReading(single, std::move(subMatches), structureOptions);
 }
 
+/// Two or more independent equations, one per line, with nothing spanning the
+/// lines. A matrix has a bracket tall enough to touch every row, and a sum has
+/// limits that also cross lines, so those keep the whole-image parse.
+bool looksLikeEquationSystem(const Segmentation& segmentation,
+                             const std::vector<GlyphMatch>& matches) {
+  if (segmentation.lines.size() < 2) return false;
+  for (const Symbol& symbol : segmentation.symbols) {
+    int spanned = 0;
+    for (const TextLine& line : segmentation.lines) {
+      const int overlap = std::min(symbol.box.y1, line.box.y1) -
+                          std::max(symbol.box.y0, line.box.y0);
+      if (overlap > 0.25 * symbol.box.height()) ++spanned;
+    }
+    if (spanned >= 2) return false;
+  }
+  for (const TextLine& line : segmentation.lines) {
+    int equals = 0;
+    for (int id : line.symbols) {
+      if (id >= 0 && id < static_cast<int>(matches.size()) &&
+          matches[id].label == "=") {
+        ++equals;
+      }
+    }
+    if (equals != 1) return false;
+  }
+  return true;
+}
+
 ExpressionReading buildReading(const Segmentation& segmentation,
                                std::vector<GlyphMatch> matches,
                                const StructureOptions& structureOptions) {
@@ -359,6 +572,39 @@ ExpressionReading buildReading(const Segmentation& segmentation,
   reading.text = renderStructure(reading.root);
   reading.latex = renderLatex(reading.root);
   reading.confidence = reading.root.confidence;
+
+  // A system is written as one equation per line. Parsing all lines as a
+  // single row interleaves them by x and turns the second equation into
+  // exponents of the first, so each line is structured on its own and the
+  // results are joined with the comma the app's system fields expect.
+  if (looksLikeEquationSystem(segmentation, matches)) {
+    Node root;
+    root.confidence = 1.0;
+    std::string text;
+    for (const TextLine& line : segmentation.lines) {
+      ExpressionReading part =
+          buildLineReading(segmentation, matches, line.id, structureOptions);
+      if (part.text.empty()) continue;
+      if (!text.empty()) {
+        text += ",";
+        Node comma;
+        comma.kind = NodeKind::Atom;
+        comma.text = ",";
+        root.children.push_back(std::move(comma));
+      }
+      text += part.text;
+      root.confidence = std::min(root.confidence, part.confidence);
+      root.box.include(part.root.box);
+      root.children.push_back(part.root);
+    }
+    if (!root.children.empty()) {
+      reading.root = std::move(root);
+      reading.text = text;
+      reading.latex = renderLatex(reading.root);
+      reading.confidence = reading.root.confidence;
+    }
+  }
+
   describeReading(&reading);
   return reading;
 }

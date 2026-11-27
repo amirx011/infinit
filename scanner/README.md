@@ -14,7 +14,7 @@ the input, everything else is hand-written.
 | Decode (PNG/JPEG/BMP/TGA/GIF) | done |
 | Illumination flattening, Otsu + Sauvola, skew search | done |
 | 8-connected components, symbol grouping, line grouping | done |
-| Template bank (9 faces including math italics, 65 classes, 342 templates) | done |
+| Template bank (9 faces including math italics and Computer Modern, 65 classes, 396 templates) | done |
 | Glyph classification (cosine kNN, margin rejection) | done |
 | Structure: fractions, powers, radicals | done |
 | Sums, integrals, limits, systems | done |

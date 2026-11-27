@@ -26,26 +26,48 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 GRID = 16
 INNER = 14
 
+try:  # matplotlib ships the Computer Modern faces the dataset renders with.
+    import matplotlib
+
+    CM_FONTS = pathlib.Path(matplotlib.get_data_path()) / "fonts" / "ttf"
+except Exception:  # pragma: no cover - the tool still runs without them
+    CM_FONTS = pathlib.Path("/nonexistent")
+
+# A third tuple element, when present, limits the font to those characters. TeX
+# fonts map ASCII slots to *their* glyphs, not Unicode, so an unrestricted
+# cmr10/cmsy10 pass would label a symbol with whatever happens to sit in that
+# slot.
 FONTS = [
     ("stix", "/usr/share/fonts/stix-fonts/STIXTwoMath-Regular.otf"),
     ("liberation-serif", "/usr/share/fonts/liberation-serif-fonts/LiberationSerif-Regular.ttf"),
     ("liberation-sans", "/usr/share/fonts/liberation-sans-fonts/LiberationSans-Regular.ttf"),
     ("free-serif", "/usr/share/fonts/gnu-free/FreeSerif.ttf"),
     ("free-sans", "/usr/share/fonts/gnu-free/FreeSans.ttf"),
+    (
+        "cm-roman",
+        str(CM_FONTS / "cmr10.ttf"),
+        # TeX's ASCII slots are not Unicode: in cmr10 "|" is an en dash and
+        # "<"/">" are Spanish punctuation, so only the slots whose glyph names
+        # actually match the class are used. The hyphen is also left out; a
+        # math minus comes from cmsy and the short hyphen template used to win
+        # over it.
+        set("0123456789+=()[]/.,%!*"),
+    ),
 ]
 
 # Printed math sets variables in *italic* and everything else upright, so a bank
 # built only from upright fonts answers "x" with "?", "'" or "m" on real pages.
 # These faces are used for the letter classes only; digits and operators stay
 # upright, which is how textbooks set them.
-# Italic faces for the letters. Computer Modern was tried as well and measurably
-# hurt (top-1 0.889 -> 0.861 on the 12-image set): its hairlines pulled the
-# correlation away from every other face, so it is deliberately not included.
+# Computer Modern is the default mathtext face. Leaving it out made every cm
+# page fail (x -> ?, 2 -> o, 4 -> ]), so the math-italic and roman cut are
+# included with narrow, explicit character sets rather than dropped.
 ITALIC_FONTS = [
     ("stix-italic", "/usr/share/fonts/stix-fonts/STIXTwoText-Italic.otf"),
     ("dejavu-italic", "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Oblique.ttf"),
     ("liberation-serif-italic", "/usr/share/fonts/liberation-serif-fonts/LiberationSerif-Italic.ttf"),
     ("free-serif-italic", "/usr/share/fonts/gnu-free/FreeSerifItalic.ttf"),
+    ("cm-math-italic", str(CM_FONTS / "cmmi10.ttf")),
 ]
 
 # Classes that a math renderer italicises. Same labels, extra faces: the score
@@ -61,10 +83,10 @@ CLASSES = {
     "l": "l", "o": "o", "p": "p", "q": "q", "u": "u", "v": "v",
     "w": "w", "d": "d", "f": "f", "g": "g", "h": "h", "j": "j",
     "k": "k", "r": "r",
-    "+": "+", "-": "-\u2212", "=": "=", "*": "*",
+    "+": "+", "-": "-\u2212", "=": "=", "*": "*\u2217",
     "(": "(", ")": ")", "[": "[", "]": "]",
     "/": "/", ".": ".", ",": ",", "<": "<", ">": ">",
-    "|": "|", "^": "^", "!": "!", "'": "'",
+    "|": "|", "^": "^", "!": "!", "'": "'\u2032",
     # Comparison and arithmetic signs the plan's §5.4 lists. The bank had only
     # "<" and ">", so a printed "≤" had no class to land on.
     "×": "×", "÷": "÷", "≤": "≤", "≥": "≥",
@@ -101,6 +123,28 @@ def normalise(crop: Image.Image) -> Image.Image:
     return canvas
 
 
+_COVERAGE: dict[str, set[int] | None] = {}
+
+
+def font_covers(font_path: str, char: str) -> bool:
+    """True when the font's cmap really maps `char`.
+
+    Pillow happily draws .notdef (a hollow box) for a missing character, which
+    would become a bogus template under the real label. TeX fonts are checked
+    too, but their ASCII slots do not mean Unicode, so those faces also carry an
+    explicit allowed-character set.
+    """
+    if font_path not in _COVERAGE:
+        try:
+            from fontTools.ttLib import TTFont
+
+            _COVERAGE[font_path] = set(TTFont(font_path).getBestCmap() or {})
+        except Exception:
+            _COVERAGE[font_path] = None
+    cmap = _COVERAGE[font_path]
+    return cmap is None or ord(char) in cmap
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default="data/glyph_templates.bin")
@@ -110,12 +154,18 @@ def main() -> int:
 
     entries = []
     report = []
-    for font_index, (font_name, font_path) in enumerate(FONTS):
+    for font_index, entry in enumerate(FONTS):
+        font_name, font_path = entry[0], entry[1]
+        allowed = entry[2] if len(entry) > 2 else None
         if not pathlib.Path(font_path).exists():
             print(f"skip missing font: {font_path}")
             continue
         for label, chars in CLASSES.items():
             for char in chars:
+                if allowed is not None and char not in allowed:
+                    continue
+                if not font_covers(font_path, char):
+                    continue
                 crop = render(char, font_path)
                 if crop is None:
                     print(f"skip {char!r} in {font_name}: no ink")
@@ -129,7 +179,9 @@ def main() -> int:
                     grid.resize((GRID * 8, GRID * 8), Image.NEAREST).save(out)
 
     # Italic faces, letters only: this is what printed math actually looks like.
-    for offset, (font_name, font_path) in enumerate(ITALIC_FONTS):
+    for offset, entry in enumerate(ITALIC_FONTS):
+        font_name, font_path = entry[0], entry[1]
+        allowed = entry[2] if len(entry) > 2 else None
         if not pathlib.Path(font_path).exists():
             print(f"skip missing font: {font_path}")
             continue
@@ -138,6 +190,10 @@ def main() -> int:
             if label not in ITALIC_CLASSES:
                 continue
             for char in chars:
+                if allowed is not None and char not in allowed:
+                    continue
+                if not font_covers(font_path, char):
+                    continue
                 crop = render(char, font_path)
                 if crop is None:
                     continue

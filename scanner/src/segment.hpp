@@ -88,6 +88,10 @@ struct SegmentOptions {
   /// Side-by-side fragments join only when they overlap horizontally and are
   /// this aligned vertically.
   double fragmentOverlapRatio = 0.75;
+  /// ...and when the shorter fragment is at least this fraction of the taller
+  /// one. Two real glyphs can share a few kerned pixels; broken pieces of one
+  /// glyph are the same height.
+  double fragmentHeightRatio = 0.60;
   /// ...and when their combined width stays within this multiple of the taller
   /// fragment, which stops two touching glyphs from becoming one symbol.
   double fragmentWidthRatio = 1.30;
