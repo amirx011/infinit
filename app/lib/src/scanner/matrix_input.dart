@@ -17,6 +17,7 @@ List<List<String>> parseMatrixCells(String text) {
   if (trimmed.isEmpty) {
     return [
       <String>['', ''],
+      <String>['', ''],
     ];
   }
   final rows = trimmed

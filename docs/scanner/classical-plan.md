@@ -833,14 +833,16 @@ Suggested PR order: M1 → M2 → M3 → M4/M5 → M6/M7 → M8 (printed linear/
 
 - [x] Dedicated in-app camera implemented (Camera2 preview, permissions, flash,
       pinch zoom, tap-to-focus, lifecycle, retake). Not verified on a real
-      device from this environment; verified by build plus widget tests.
+      device from this environment; the Kotlin side compiles, the Dart flow is
+      covered by widget tests, and the APK build runs in CI.
 - [x] Crop with perspective correction; the original image is never destroyed.
 - [x] Image import from gallery and, on desktop, file picker, drag-and-drop and
       paste; HEIC/HEIF via the platform codec; no temporary copy is written.
 - [~] Printed single-line expressions with fractions, powers, roots, standard
       functions and primes ride the correction path. Measured on the synthetic
       set: top-1 **0.946**, top-3 0.982, exact match 7/12, parser acceptance
-      81.8 %. The weak spots are named in `scanner/dataset/metrics.md`.
+      81.8 %. The weak spots are named in the generated
+      `scanner/dataset/metrics.md` (gitignored).
 - [x] Both LaTeX and Infinit-syntax outputs are produced from the AST.
 - [x] Parser-guided repair active; results re-ranked by cost.
 - [x] Symbol-level correction UI works without re-running vision.
@@ -926,8 +928,7 @@ stays a design document rather than a claim.
 | Matrix entry: rows × columns grid for every matrix field | done | `app/lib/src/scanner/matrix_input.dart`, `topic_workbench_page.dart` |
 | §13 Tests: synthetic samples, per-stage unit tests, pipeline tests, ink grouping, stroke tracing and session edits | done; matrices covered by `matrix.png` and `matrix_photo.png` | `scanner/tests/`, `app/test/` |
 | §13.1 Synthetic dataset: seeded generator, five math fontsets, ten augmentation recipes, pixel-accurate ground-truth boxes, byte-reproducible | done | `scanner/tools/make_dataset.py` |
-| §13.2 Per-stage metrics: foreground F1, symbol recall/precision, top-1/top-3 per class, confusion matrix, exact match, parser acceptance, per-stage latency | done | `scanner/tools/metrics.py`, report in `scanner/dataset/metrics.md` |
-| §13.4 Scanner Lab: every pipeline stage as an image plus the reading, timings and symbol table, in-app | done | `app/lib/src/scanner/lab_page.dart`, `scanner_debug_stage` in `scanner/src/scanner_api.cpp` |
+| §13.2 Per-stage metrics: foreground F1, symbol recall/precision, top-1/top-3 per class, confusion matrix, exact match, parser acceptance, per-stage latency | done | `scanner/tools/metrics.py`, report generated into `scanner/dataset/metrics.md` (gitignored) |
 | §12B.11 Accessibility: 48 dp targets, spoken expression announcements, colour is never the only signal | done | `scan_flow.dart`, `board.dart` |
 
 Deviations from the document, on purpose:
@@ -946,8 +947,8 @@ Deviations from the document, on purpose:
   raster templates (`cloud.cpp`) and over the personal **stroke** bank
   (`inkproto.cpp`), which stores strokes and is fed by every symbol the user
   fixes on the board. Typed quick-key symbols still go through the bitmap path
-  because they are text, not strokes. There is no separate calibration screen
-  yet: the plan marks it optional and the corrections already produce samples.
+  because they are text, not strokes. The guided calibration screen writes each
+  symbol once and feeds both banks; it is reachable from the board toolbar.
 - **Privacy (§12C.5).** Import never writes a temporary copy: the picked file
   is decoded in memory and re-encoded to PNG, which drops EXIF (GPS included)
   before any pixel reaches the native side. The one temp file in the product is
@@ -956,8 +957,8 @@ Deviations from the document, on purpose:
 - **Remaining measured weaknesses.** On the synthetic set the `cm` (Computer
   Modern) fontset still scores 0/2 exact, a rotated *clean* render is read
   worse than an upright one, and ruled paper is only partially recovered (3/6
-  exact on a dedicated ruled set). These are recorded in
-  `scanner/dataset/metrics.md` rather than papered over.
+  exact on a dedicated ruled set). These are recorded in the generated,
+  gitignored `scanner/dataset/metrics.md` rather than papered over.
 - **Matrices** are entered as a grid in the app, but the core contract is still
   the documented `a, b; c, d` text. The grid only assembles that string, so the
   workbench and the core did not need a new input type.
@@ -982,9 +983,8 @@ Deviations from the document, on purpose:
 - **Personal prototypes** are two banks: 16×16 rasters (photo path) and stroke
   point clouds (handwriting path). Both are capped and exported side by side as
   `…-samples.bin` and `…-samples-ink.bin`; a correction on the board feeds the
-  stroke bank automatically. A guided calibration screen (write each symbol
-  once) is the only part of §12A.5 left unbuilt, and the plan lists it as
-  optional.
+  stroke bank automatically. The guided calibration screen writes each symbol
+  once and feeds both banks, so a new user can start from their own hand.
 - **Crop screen retake.** Retake is offered on the result screen and reopens the
   same source; the crop screen itself only has Recognize and Back.
 - **Parser verdict.** `parse_valid` is `null` for structured readings and for
@@ -997,8 +997,10 @@ The classical engines reviewed (Seshat, LaTeX-OCR/pix2tex, texify, UniMERNet,
 Tesseract, InftyReader) were rejected for one of three reasons: they are neural,
 they are GPL-3.0 or proprietary, or they only do line OCR without math
 structure. Details and links are in `scanner/README.md` under "Prior art". The
-scanning pipeline here is original code; the only vendored dependency is
-`stb_image` (public domain).
+scanning pipeline here is original code; the only vendored image decoder is
+`stb_image` (public domain). The scanner also links OpenCV core+imgproc for image
+I/O and binarisation (the system package on Linux, the static opencv-mobile
+build on Android); OpenCV is not used for classification or structure.
 
 ### Verification
 
@@ -1008,7 +1010,7 @@ scanning pipeline here is original code; the only vendored dependency is
 - `core/build` tests: 266/266, including a malformed-expression block: `sqrt()`
   and eleven other broken strings are rejected instead of reading an empty
   argument list out of bounds.
-- `flutter test --no-pub`: 356/356; `flutter analyze --no-pub`: clean. The suite
+- `flutter test --no-pub`: 368/368; `flutter analyze --no-pub`: clean. The suite
   covers the entry sheet, crop, processing, result, board toolbar and settings,
   calibration screen and Scanner Lab, in English and Persian.
 - `flutter build linux --debug`: succeeds, including the desktop import channel.
@@ -1022,7 +1024,7 @@ scanning pipeline here is original code; the only vendored dependency is
 | stage | metric | value |
 |---|---|---|
 | preprocess | foreground F1 | 0.971 |
-| segmentation | recall / precision / F1 | 0.950 / 0.926 / 0.938 |
+| segmentation | recall / precision / F1 | 0.950 / 0.942 / 0.946 |
 | classification | top-1 / top-3 | **0.946** / 0.982 |
 | end-to-end | exact match | 7/12 (58.3 %) |
 | end-to-end | parser acceptance | 9/12 (81.8 %) |

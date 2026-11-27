@@ -165,15 +165,20 @@ jobs:
           channel: stable
           cache: true
 
-      # The runner image usually carries an NDK; install one when it does not,
-      # because scripts/build_android.sh cross-compiles libodecore.so with it.
-      - name: Make sure an NDK is installed
+      # opencv-mobile 4.14 links libomp symbols that only exist in NDK 29
+      # (`__kmpc_dispatch_deinit`, added with clang 21). The runner's NDK 27
+      # has clang 18 and fails at link time, so install the matching NDK and
+      # point scripts/build_android.sh at it instead of picking the newest one.
+      - name: Install the NDK the prebuilt OpenCV expects
         run: |
           sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          if ! ls -d "$sdk"/ndk/* > /dev/null 2>&1; then
-            yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" "ndk;27.0.12077973" > /dev/null
+          ndk="$sdk/ndk/29.0.14206865"
+          if [[ ! -d "$ndk" ]]; then
+            yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" "ndk;29.0.14206865" > /dev/null
           fi
+          echo "ANDROID_NDK_HOME=$ndk" >> "$GITHUB_ENV"
           echo "NDKs: $(ls "$sdk"/ndk)"
+          echo "Using NDK: $ndk"
 
       - name: Prepare the release key
         env:

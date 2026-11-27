@@ -74,6 +74,18 @@ char*    scanner_session_relation(uint64_t session, int symbol,
                                   const char* kind, const char* value);
 void     scanner_close_session(uint64_t session);
 void     scanner_free(char* text);
+
+/* Handwriting, lab and personal stroke prototypes. */
+char*    scanner_read_handwriting(const unsigned char* data, size_t size);
+uint8_t* scanner_debug_stage(const unsigned char* data, size_t size,
+                             const char* stage, size_t* out_size);
+int      scanner_add_ink_prototype(const char* label,
+                                   const unsigned char* data, size_t size);
+int      scanner_load_ink_prototypes(const unsigned char* data, size_t size);
+size_t   scanner_ink_prototype_count(void);
+void     scanner_clear_ink_prototypes(void);
+uint8_t* scanner_export_ink_prototypes(size_t* out_size);
+void     scanner_free_bytes(uint8_t* data);
 const char* scanner_version(void);
 ```
 
@@ -140,8 +152,8 @@ cd build && ctest --output-on-failure
 
 `scanner_segment` is synthetic and dependency-free. `scanner_pipeline` reads the
 committed samples. `scanner_crosscheck` compares the hand-written connected
-components with `cv::connectedComponentsWithStats` and only builds when OpenCV
-is installed (`dnf install opencv-devel`).
+components with `cv::connectedComponentsWithStats` against the same OpenCV the
+scanner links.
 
 ## Inspect one image
 
@@ -183,16 +195,21 @@ would have been preferable to a new one:
 
 So the pipeline in this directory is original code: connected components,
 integral-image binarisation, template cosine matching, geometric structure
-analysis, and a LaTeX/Infinit printer over the same tree. The only external code
-is `stb_image` (public domain, vendored) and OpenCV in the optional cross-check
-test.
+analysis, and a LaTeX/Infinit printer over the same tree. The only vendored
+image decoder is `stb_image` (public domain).
 
-## Why no OpenCV in the pipeline
+## OpenCV's role
 
-The same code has to run on Android with a small binary. The hand-written
-labelling, integral-image binarisation and deskew are exact and fast enough, and
-the cross-check test keeps them honest. OpenCV stays a development aid for
-tuning and dataset tooling.
+OpenCV `core` + `imgproc` handle image decode/rotate/resize (`image.cpp`) and the
+illumination, flattening and threshold primitives (`preprocess.cpp`). They do not
+do classification or structure. Linux links the system OpenCV (`libopencv-dev`);
+Android links the static `opencv-mobile` archives fetched by
+`scripts/fetch_opencv_mobile.sh`, which keeps the APK small. The `scanner_crosscheck`
+test still compares the hand-written connected components with
+`cv::connectedComponentsWithStats`.
+
+Android builds need NDK 29: the prebuilt opencv-mobile archives reference
+`__kmpc_dispatch_deinit`, which NDK 27's libomp does not export.
 
 ## Design rules
 

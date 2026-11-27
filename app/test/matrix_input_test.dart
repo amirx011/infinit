@@ -22,6 +22,10 @@ void main() {
         ['2'],
         ['3'],
       ]);
+      expect(parseMatrixCells(''), [
+        ['', ''],
+        ['', ''],
+      ]);
     });
 
     test('pads ragged rows and accepts Arabic punctuation', () {

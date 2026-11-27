@@ -1,5 +1,6 @@
-// Camera capture through the platform channel. Android hands the job to the
-// system camera app, so no camera plugin or preview surface is bundled.
+// Camera capture through the platform channel. Android prefers the in-app
+// Camera2 preview in camera_page.dart; this shim is the system-camera fallback
+// and the path used on desktop, so no camera plugin is bundled.
 import 'dart:io';
 
 import 'package:flutter/services.dart';

@@ -47,6 +47,10 @@ fi
 
 echo "Using NDK: $NDK"
 
+# opencv-mobile 4.14 references libomp symbols (`__kmpc_dispatch_deinit`) that
+# only NDK 29 (clang 21) exports; NDK 27 fails at link time. The release
+# workflow pins 29, and this note saves the next person the same hunt.
+
 OPENCV_MOBILE="$ROOT/third_party/opencv-mobile/sdk/native/jni"
 if [[ ! -f "$OPENCV_MOBILE/OpenCVConfig.cmake" ]]; then
   echo "OpenCV mobile not found; fetching it..."
