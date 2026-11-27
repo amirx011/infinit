@@ -232,7 +232,14 @@ try {
         if (-not (Test-Path $root)) { continue }
         $candidates = Get-ChildItem -Path $root -Filter 'opencv*.dll' -Recurse -File `
             -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -notmatch '\\x86\\' } |
+            Where-Object {
+                # Only the 64-bit runtime. The debug world DLL ends in "d.dll"
+                # and the Java bindings are never loaded by the app, yet each
+                # one would add tens of megabytes to the installer.
+                $_.FullName -notmatch '\\x86\\' -and
+                $_.Name -notmatch 'd\.dll$' -and
+                $_.Name -notmatch '^opencv_java'
+            } |
             Sort-Object FullName -Descending
         foreach ($runtimeDll in $candidates) {
             if ($seen.ContainsKey($runtimeDll.Name)) { continue }
